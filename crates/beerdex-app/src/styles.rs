@@ -10,21 +10,24 @@ pub const STYLE_NATIVE_COMPONENTS: &str = r#"
 /* === Rust Native Components & UI Styles === */
 .beer-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0px, 1fr)) !important;
     gap: 12px !important;
     width: 100% !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
     padding: 12px !important;
     box-sizing: border-box !important;
 }
 @media (min-width: 600px) {
     .beer-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
         gap: 16px !important;
+        padding: 16px 24px !important;
     }
 }
 @media (min-width: 1024px) {
     .beer-grid {
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
         gap: 20px !important;
         padding: 20px 40px !important;
     }
@@ -33,7 +36,7 @@ pub const STYLE_NATIVE_COMPONENTS: &str = r#"
     background: var(--bg-card, #141414) !important;
     border: 1px solid var(--border-color, #2d2d2d) !important;
     border-radius: 16px !important;
-    padding: 14px 10px 12px 10px !important;
+    padding: 25px 10px 12px 10px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
@@ -41,9 +44,10 @@ pub const STYLE_NATIVE_COMPONENTS: &str = r#"
     text-align: center !important;
     box-sizing: border-box !important;
     position: relative !important;
-    transition: transform 0.2s, box-shadow 0.2s !important;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s !important;
     overflow: hidden !important;
-    min-height: 270px !important;
+    min-height: 290px !important;
+    cursor: pointer !important;
 }
 .beer-card:hover {
     transform: translateY(-4px) !important;
@@ -62,10 +66,10 @@ pub const STYLE_NATIVE_COMPONENTS: &str = r#"
     margin: 6px 0 !important;
 }
 .beer-image {
-    max-height: 115px !important;
+    width: 80px !important;
+    height: 120px !important;
+    max-height: 120px !important;
     max-width: 90px !important;
-    width: auto !important;
-    height: auto !important;
     object-fit: contain !important;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)) !important;
     transition: transform 0.2s ease !important;
@@ -448,10 +452,163 @@ pub const STYLE_NATIVE_COMPONENTS: &str = r#"
     background: rgba(0, 0, 0, 0.85) !important;
     backdrop-filter: blur(8px) !important;
     z-index: 2000 !important;
-    display: flex !important;
+    display: none !important;
+    pointer-events: none !important;
     align-items: center !important;
     justify-content: center !important;
     padding: 16px !important;
+}
+.modal-overlay.active {
+    display: flex !important;
+    pointer-events: auto !important;
+}
+.modal-overlay.hidden,
+.modal-overlay:not(.active) {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+/* Card UI Pattern for Settings & Preferences */
+.settings-container {
+    max-width: 800px !important;
+    margin: 0 auto !important;
+    padding: 20px 16px 80px 16px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+.setting-group, .settings-group {
+    margin-bottom: 25px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+}
+.setting-group h4, .settings-group h4, .settings-group-header {
+    font-size: 0.85rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.5px !important;
+    color: var(--accent-gold, #ffc107) !important;
+    margin: 0 !important;
+    padding: 12px 16px !important;
+    background: rgba(0,0,0,0.2) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+.setting-row, .settings-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 16px !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    margin: 0 !important;
+    transition: background 0.2s !important;
+}
+.setting-row:last-child, .settings-row:last-child {
+    border-bottom: none !important;
+}
+.setting-row:hover, .settings-row:hover {
+    background: rgba(255, 255, 255, 0.02) !important;
+}
+.setting-info {
+    text-align: left !important;
+    flex: 1 !important;
+    padding-right: 15px !important;
+}
+.setting-title {
+    color: #fff !important;
+    display: block !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+    font-size: 1rem !important;
+}
+.setting-desc {
+    font-size: 0.8rem !important;
+    color: #aaa !important;
+    line-height: 1.4 !important;
+    display: block !important;
+}
+.setting-action {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    min-width: 100px !important;
+}
+.setting-action select, .settings-row select {
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 0.9rem !important;
+    margin: 0 !important;
+}
+.setting-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    padding: 10px 16px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    transition: all 0.2s !important;
+    text-align: center !important;
+    width: 100% !important;
+}
+.setting-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+.setting-btn.danger {
+    color: #ff3b30 !important;
+    border-color: rgba(255, 59, 48, 0.3) !important;
+    background: rgba(255, 59, 48, 0.1) !important;
+}
+.setting-btn.danger:hover {
+    background: rgba(255, 59, 48, 0.2) !important;
+}
+.setting-btn.primary {
+    color: #000 !important;
+    background: var(--accent-gold, #ffc107) !important;
+    border: none !important;
+    font-weight: 600 !important;
+}
+.setting-btn.primary:hover {
+    background: #ffca28 !important;
+}
+input[type="checkbox"].toggle-switch {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 46px !important;
+    height: 26px !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 13px !important;
+    position: relative !important;
+    outline: none !important;
+    cursor: pointer !important;
+    transition: background 0.3s !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+}
+input[type="checkbox"].toggle-switch::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 2px !important;
+    left: 2px !important;
+    width: 22px !important;
+    height: 22px !important;
+    background: #fff !important;
+    border-radius: 50% !important;
+    transition: transform 0.3s !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+}
+input[type="checkbox"].toggle-switch:checked {
+    background: var(--accent-gold, #ffc107) !important;
+}
+input[type="checkbox"].toggle-switch:checked::after {
+    transform: translateX(20px) !important;
 }
 .modal-card {
     background: #181818 !important;

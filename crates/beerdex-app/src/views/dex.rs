@@ -115,6 +115,12 @@ pub fn render_dex_view(state: &AppState) -> String {
                     drunk_class, rarity_res.rarity
                 );
 
+                let abv_val = beer.parsed_abv();
+                let vol_ml = beer.parsed_volume_ml();
+                let pure_alcohol_g = (vol_ml as f64) * (abv_val / 100.0) * 0.8;
+                let bac_impact = pure_alcohol_g / 49.0;
+                let vol_str = beer.formatted_volume();
+
                 html.push_str(&format!(
                     r#"<div class="{card_class}" data-id="{id}" data-rarity="{rarity}" data-tilt>
                         <div class="card-badges-right">
@@ -123,14 +129,18 @@ pub fn render_dex_view(state: &AppState) -> String {
                             {check_svg}
                         </div>
                         <div class="beer-image-container" style="width:100%; height:120px; display:flex; align-items:center; justify-content:center; overflow:hidden; margin:4px 0;">
-                            <img src="{img_src}" onerror="this.src='images/beer/default.png'" alt="{title}" class="beer-image" loading="lazy" style="max-height:115px; max-width:85px; width:auto; height:auto; object-fit:contain;">
+                            <img src="{img_src}" onerror="this.src='images/beer/default.png'" alt="{title}" class="beer-image" loading="lazy" style="width:80px; height:120px; max-height:120px; max-width:90px; object-fit:contain;">
                         </div>
                         <div class="beer-info">
-                            <h3 class="beer-title">{title}</h3>
+                            <h3 class="beer-title beer-name">{title}</h3>
                             <p class="beer-brewery">{brewery}</p>
                             <div class="beer-card-stats-row">
-                                <span class="badge-pill">{style}</span>
-                                <span class="badge-pill">{abv}°</span>
+                                <span class="beer-stat-badge">{abv}°</span>
+                                <span class="beer-stat-badge">{vol_str}</span>
+                                <span class="beer-stat-badge">{style}</span>
+                            </div>
+                            <div class="beer-card-bac-row" style="margin-top:4px; display:flex; justify-content:center;">
+                                <span class="bac-speculative-badge">✅ +{bac_impact:.2}</span>
                             </div>
                         </div>
                         <div class="card-footer">
@@ -149,7 +159,9 @@ pub fn render_dex_view(state: &AppState) -> String {
                     title = beer.title,
                     brewery = beer.brewery,
                     style = beer.beer_type,
-                    abv = beer.parsed_abv(),
+                    abv = abv_val,
+                    vol_str = vol_str,
+                    bac_impact = bac_impact,
                     rarity_label = rarity_res.rarity.to_uppercase(),
                     count_badge = count_badge
                 ));

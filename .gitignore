@@ -78,3 +78,5 @@ bd-mobile/*.keystore
 bd-mobile/*.zip
 bd-mobile/*.pem
 base64_keystore.txt
+.playwright-mcp/
+
