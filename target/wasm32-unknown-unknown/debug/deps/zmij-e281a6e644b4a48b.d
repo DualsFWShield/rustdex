@@ -1,0 +1,6 @@
+C:\Users\noah\OneDrive\Projects51c\beerdex.be - rust\target\wasm32-unknown-unknown\debug\deps\zmij-e281a6e644b4a48b.d: C:\Users\noah\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zmij-1.0.23\src\lib.rs C:\Users\noah\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zmij-1.0.23\src\traits.rs
+
+C:\Users\noah\OneDrive\Projects51c\beerdex.be - rust\target\wasm32-unknown-unknown\debug\deps\libzmij-e281a6e644b4a48b.rmeta: C:\Users\noah\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zmij-1.0.23\src\lib.rs C:\Users\noah\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zmij-1.0.23\src\traits.rs
+
+C:\Users\noah\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zmij-1.0.23\src\lib.rs:
+C:\Users\noah\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\zmij-1.0.23\src\traits.rs:

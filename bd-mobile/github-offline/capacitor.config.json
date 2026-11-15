@@ -1,0 +1,13 @@
+{
+  "appId": "be.beerdex.app.offline",
+  "appName": "Beerdex",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "Keyboard": {
+      "resize": "body",
+      "style": "dark",
+      "resizeOnFullScreen": true
+    }
+  }
+}

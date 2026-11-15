@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "crates/beerdex-core",
+    "crates/beerdex-platform",
+    "crates/beerdex-app",
+]
+resolver = "2"

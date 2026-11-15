@@ -1,0 +1,26 @@
+{
+  "events": [
+    {
+      "_comment": "TEMPLATE: Replace values below to create a new event. Keep debug false to disable.",
+      "id": "template-event",
+      "name": "Template Event",
+      "debug": false,
+      "date": {
+        "year": 2099,
+        "month": 0,
+        "day": 1
+      },
+      "automation": {
+        "museumTheme": false,
+        "forceBannerId": "template-banner",
+        "autoActivateBAC": false
+      },
+      "banner": {
+        "id": "template-banner",
+        "title": "Titre du message d'événement",
+        "message": "Texte de l'événement ici.",
+        "button": "Texte du bouton"
+      }
+    }
+  ]
+}
