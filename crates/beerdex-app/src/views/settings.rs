@@ -278,11 +278,14 @@ pub fn render_settings_view(state: &AppState) -> String {
                 </div>
 
                 <!-- Presets de notation -->
-                <div class="setting-row" style="flex-direction: column; align-items: stretch;">
+                <div class="setting-row" style="flex-direction: column; align-items: stretch;" data-keywords="grille notation rating note template critère">
                     <div class="setting-info" style="margin-bottom: 8px;">
                         <span class="setting-title">Grille de notation des bières</span>
                         <span class="setting-desc">Barème de dégustation personnalisé</span>
                     </div>
+                    <button type="button" id="btn-template" class="setting-btn" style="margin-bottom:8px;">
+                        Configuration Notation
+                    </button>
                     <div style="display:flex; gap:8px;">
                         <button id="btn-preset-default" class="setting-btn primary" style="flex:1;">Standard (/20)</button>
                         <button id="btn-preset-tristan" class="setting-btn" style="flex:1;">Preset Tristan</button>

@@ -93,8 +93,7 @@ pub fn render_beer_modal(beer: &Beer, state: &AppState) -> String {
     let ingredients = beer.ingredients.as_deref().unwrap_or("Standard");
 
     format!(
-        r##"<div id="modal-container" class="modal-overlay active" style="display:flex !important; position:fixed; inset:0; z-index:10000; justify-content:center; align-items:center; background:rgba(0,0,0,0.85); overflow-y:auto; padding:20px 10px;">
-            <div class="modal-content {rarity_class}" style="background:var(--bg-card, #141414); border:1px solid var(--border-color, #2d2d2d); border-radius:16px; padding:20px; max-width:550px; width:100%; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin:auto;">
+        r##"<div class="modal-content {rarity_class}" style="background:var(--bg-card, #141414); border:1px solid var(--border-color, #2d2d2d); border-radius:16px; padding:20px; max-width:550px; width:100%; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin:auto;">
                 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                     <button type="button" id="btn-toggle-fav" data-fav-id="{id}" style="background:none; border:none; font-size:1.8rem; cursor:pointer;" title="Favori">
@@ -240,8 +239,7 @@ pub fn render_beer_modal(beer: &Beer, state: &AppState) -> String {
                     </div>
                 </details>
 
-            </div>
-        </div>"##,
+            </div>"##,
         rarity_class = rarity_class,
         rarity_badge_html = rarity_badge_html,
         id = id,

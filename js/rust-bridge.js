@@ -153,6 +153,7 @@ function setupEventListeners() {
         const themeBtn = event.target.closest('button[data-set-theme], .theme-preset-btn[data-theme]');
         if (themeBtn) {
             const theme = themeBtn.getAttribute('data-set-theme') || themeBtn.getAttribute('data-theme');
+            document.documentElement.setAttribute('data-theme', theme);
             beerdex_set_theme(theme);
             return;
         }

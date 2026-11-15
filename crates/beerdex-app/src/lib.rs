@@ -39,7 +39,7 @@ pub fn render_app_shell(state: &AppState) -> String {
 
     let modal_container = if !modal_inner.is_empty() {
         format!(
-            r#"<div id="modal-container" class="modal-overlay">{}</div>"#,
+            r#"<div id="modal-container" class="modal-overlay active" style="display:flex !important; pointer-events:auto !important;">{}</div>"#,
             modal_inner
         )
     } else {

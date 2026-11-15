@@ -88,6 +88,9 @@ pub fn beerdex_search(query: &str) -> Result<(), JsValue> {
         if let Some(ref mut state) = *cell.borrow_mut() {
             state.search_query = query.to_string();
             state.search_active = !query.is_empty();
+            if !query.is_empty() && state.view != AppView::Home && state.view != AppView::Drunk {
+                state.view = AppView::Home;
+            }
         }
     });
     render_dom()
@@ -99,6 +102,9 @@ pub fn beerdex_toggle_search() -> Result<(), JsValue> {
     APP_INSTANCE.with(|cell| {
         if let Some(ref mut state) = *cell.borrow_mut() {
             state.search_active = !state.search_active;
+            if state.search_active && state.view != AppView::Home && state.view != AppView::Drunk {
+                state.view = AppView::Home;
+            }
         }
     });
     render_dom()
@@ -217,6 +223,13 @@ pub fn beerdex_set_theme(theme_name: &str) -> Result<(), JsValue> {
             let _ = beerdex_platform::UnifiedStorage::save_state(&state.storage);
         }
     });
+    if let Some(window) = web_sys::window() {
+        if let Some(doc) = window.document() {
+            if let Some(el) = doc.document_element() {
+                let _ = el.set_attribute("data-theme", theme_name);
+            }
+        }
+    }
     let _ = crate::styles::StyleEngine::inject_styles(theme_name);
     render_dom()
 }
