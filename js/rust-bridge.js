@@ -35,7 +35,7 @@ let isWasmInitialized = false;
 export async function bootstrapBeerdexRust() {
     try {
         console.log('[Beerdex Rust] Initializing WebAssembly Core...');
-        await init();
+        await init(new URL('../wasm/beerdex_app_bg.wasm?v=5.1.2', import.meta.url));
         isWasmInitialized = true;
         console.log('[Beerdex Rust] Engine successfully mounted.');
 
