@@ -1,5 +1,41 @@
 /* @ts-self-types="./beerdex_app.d.ts" */
 
+/**
+ * @param {string} title
+ * @param {string} brewery
+ * @param {string} beer_type
+ * @param {number} abv
+ * @param {string} volume
+ * @param {string} rarity
+ */
+export function beerdex_add_custom_beer(title, brewery, beer_type, abv, volume, rarity) {
+    const val6 = +abv;
+    let ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4;
+    try {
+        ptr0 = passStringToWasm0(title, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len0 = WASM_VECTOR_LEN;
+        ptr1 = passStringToWasm0(brewery, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len1 = WASM_VECTOR_LEN;
+        ptr2 = passStringToWasm0(beer_type, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len2 = WASM_VECTOR_LEN;
+        ptr3 = passStringToWasm0(volume, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len3 = WASM_VECTOR_LEN;
+        ptr4 = passStringToWasm0(rarity, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len4 = WASM_VECTOR_LEN;
+    } catch (e) {
+        if (ptr4) { wasm.__wbindgen_free(ptr4, len4 * 1, 1); }
+        if (ptr3) { wasm.__wbindgen_free(ptr3, len3 * 1, 1); }
+        if (ptr2) { wasm.__wbindgen_free(ptr2, len2 * 1, 1); }
+        if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+        if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+        throw e;
+    }
+    const ret = wasm.beerdex_add_custom_beer(ptr0, len0, ptr1, len1, ptr2, len2, val6, ptr3, len3, ptr4, len4);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
 export function beerdex_close_filter_modal() {
     const ret = wasm.beerdex_close_filter_modal();
     if (ret[1]) {
@@ -123,6 +159,25 @@ export function beerdex_log_drink(beer_id, volume_ml) {
 }
 
 /**
+ * @param {string} ach_id
+ */
+export function beerdex_open_achievement_modal(ach_id) {
+    const ptr0 = passStringToWasm0(ach_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.beerdex_open_achievement_modal(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function beerdex_open_add_beer_modal() {
+    const ret = wasm.beerdex_open_add_beer_modal();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
  * @param {string} beer_id
  */
 export function beerdex_open_beer_modal(beer_id) {
@@ -136,6 +191,20 @@ export function beerdex_open_beer_modal(beer_id) {
 
 export function beerdex_open_filter_modal() {
     const ret = wasm.beerdex_open_filter_modal();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function beerdex_open_notation_modal() {
+    const ret = wasm.beerdex_open_notation_modal();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function beerdex_open_scan_modal() {
+    const ret = wasm.beerdex_open_scan_modal();
     if (ret[1]) {
         throw takeFromExternrefTable0(ret[0]);
     }

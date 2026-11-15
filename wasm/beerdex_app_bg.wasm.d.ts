@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const beerdex_add_custom_beer: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => [number, number];
 export const beerdex_close_filter_modal: () => [number, number];
 export const beerdex_close_modal: () => [number, number];
 export const beerdex_compress_lz: (a: number, b: number) => [number, number];
@@ -10,8 +11,12 @@ export const beerdex_generate_qr_svg: (a: number, b: number, c: number) => [numb
 export const beerdex_get_current_bac: () => number;
 export const beerdex_import_backup_json: (a: number, b: number) => [number, number, number];
 export const beerdex_log_drink: (a: number, b: number, c: number) => [number, number];
+export const beerdex_open_achievement_modal: (a: number, b: number) => [number, number];
+export const beerdex_open_add_beer_modal: () => [number, number];
 export const beerdex_open_beer_modal: (a: number, b: number) => [number, number];
 export const beerdex_open_filter_modal: () => [number, number];
+export const beerdex_open_notation_modal: () => [number, number];
+export const beerdex_open_scan_modal: () => [number, number];
 export const beerdex_parse_scan: (a: number, b: number) => [number, number];
 export const beerdex_reset_data: (a: number, b: number) => [number, number];
 export const beerdex_reset_filters: () => [number, number];

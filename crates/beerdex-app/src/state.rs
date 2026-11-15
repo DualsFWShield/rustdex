@@ -43,6 +43,10 @@ pub struct AppState {
     pub filters: FilterCriteria,
     pub selected_beer: Option<Beer>,
     pub show_filter_modal: bool,
+    pub show_add_modal: bool,
+    pub show_scan_modal: bool,
+    pub selected_achievement: Option<String>,
+    pub show_notation_modal: bool,
     pub toast: Option<String>,
 }
 
@@ -65,6 +69,10 @@ impl AppState {
             filters: FilterCriteria::default(),
             selected_beer: None,
             show_filter_modal: false,
+            show_add_modal: false,
+            show_scan_modal: false,
+            selected_achievement: None,
+            show_notation_modal: false,
             toast: None,
         })
     }

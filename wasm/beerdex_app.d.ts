@@ -1,6 +1,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export function beerdex_add_custom_beer(title: string, brewery: string, beer_type: string, abv: number, volume: string, rarity: string): void;
+
 export function beerdex_close_filter_modal(): void;
 
 export function beerdex_close_modal(): void;
@@ -19,9 +21,17 @@ export function beerdex_import_backup_json(json_str: string): boolean;
 
 export function beerdex_log_drink(beer_id: string, volume_ml: number): void;
 
+export function beerdex_open_achievement_modal(ach_id: string): void;
+
+export function beerdex_open_add_beer_modal(): void;
+
 export function beerdex_open_beer_modal(beer_id: string): void;
 
 export function beerdex_open_filter_modal(): void;
+
+export function beerdex_open_notation_modal(): void;
+
+export function beerdex_open_scan_modal(): void;
 
 export function beerdex_parse_scan(payload: string): string;
 
@@ -67,6 +77,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly beerdex_add_custom_beer: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => [number, number];
     readonly beerdex_close_filter_modal: () => [number, number];
     readonly beerdex_close_modal: () => [number, number];
     readonly beerdex_compress_lz: (a: number, b: number) => [number, number];
@@ -76,8 +87,12 @@ export interface InitOutput {
     readonly beerdex_get_current_bac: () => number;
     readonly beerdex_import_backup_json: (a: number, b: number) => [number, number, number];
     readonly beerdex_log_drink: (a: number, b: number, c: number) => [number, number];
+    readonly beerdex_open_achievement_modal: (a: number, b: number) => [number, number];
+    readonly beerdex_open_add_beer_modal: () => [number, number];
     readonly beerdex_open_beer_modal: (a: number, b: number) => [number, number];
     readonly beerdex_open_filter_modal: () => [number, number];
+    readonly beerdex_open_notation_modal: () => [number, number];
+    readonly beerdex_open_scan_modal: () => [number, number];
     readonly beerdex_parse_scan: (a: number, b: number) => [number, number];
     readonly beerdex_reset_data: (a: number, b: number) => [number, number];
     readonly beerdex_reset_filters: () => [number, number];

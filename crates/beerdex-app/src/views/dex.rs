@@ -4,7 +4,11 @@ use beerdex_core::rarity::calculate_rarity;
 pub fn render_dex_view(state: &AppState) -> String {
     let beers = state.get_filtered_beers();
     let is_list = state.view_mode == ViewMode::List;
-    let container_class = if is_list { "beer-list" } else { "beer-grid" };
+    let container_class = if is_list {
+        "beer-grid view-list"
+    } else {
+        "beer-grid"
+    };
 
     let mut html = String::with_capacity(beers.len() * 400 + 100);
 
@@ -110,110 +114,73 @@ pub fn render_dex_view(state: &AppState) -> String {
                 )
             };
 
-            let count_badge = if count > 0 {
-                format!(r#"<span class="drunk-badge">x{}</span>"#, count)
+            let drunk_class = if is_drunk { "drunk" } else { "" };
+            let reveal_rarity = is_drunk
+                || state
+                    .storage
+                    .preferences
+                    .get("revealRarity")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+
+            let (rarity_class, border_style) = if reveal_rarity && rarity_res.rarity != "base" {
+                (
+                    format!("card-rarity-{}", rarity_res.rarity),
+                    "border-color: transparent;",
+                )
             } else {
-                String::new()
+                (String::new(), "border-color: var(--border-color);")
             };
 
-            if is_list {
-                let fav_class = if is_fav {
-                    "card-fav-star active"
-                } else {
-                    "card-fav-star"
-                };
-                let fav_icon = if is_fav { "⭐" } else { "🤍" };
+            let tilt_attr = if is_drunk { "data-tilt" } else { "" };
+            let loading_attr = if index < 10 { "eager" } else { "lazy" };
 
-                html.push_str(&format!(
-                    r#"<div class="beer-list-item" data-id="{id}">
-                        <img src="{img_src}" onerror="this.src='images/beer/default.png'" alt="{title}" class="list-thumb">
-                        <div class="list-info">
-                            <div class="list-title">{title}</div>
-                            <div class="list-brewery">{brewery} • {abv}°</div>
+            html.push_str(&format!(
+                r#"<div class="beer-card {drunk_class} {rarity_class}" data-id="{id}" style="{border_style}" {tilt_attr}>
+                    <div class="card-badges-right" style="position:absolute; top:6px; right:6px; z-index:3; display:flex; align-items:center; gap:6px;">
+                        {fav_star}
+                        {trappist_badge}
+                        {check_svg}
+                    </div>
+                    <div class="beer-image-container" style="width:100%; height:120px; display:flex; justify-content:center; align-items:center;">
+                        <img src="{img_src}" alt="{title}" class="beer-image" loading="{loading_attr}" onerror="if(this.src.includes('images/beer/FUT.jpg')) return; this.src='images/beer/FUT.jpg';">
+                    </div>
+                    <div class="beer-info">
+                        <h3 class="beer-title">{title}</h3>
+                        <p class="beer-brewery">{brewery}</p>
+                        <div class="beer-card-stats-row" style="display:flex; gap:5px; justify-content:center; margin-top:5px; color:#aaa; flex-wrap:wrap;">
+                            <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">{abv}°</span>
+                            <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">{vol_str}</span>
+                            <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">{style}</span>
                         </div>
-                        <div class="list-actions">
-                            <button class="{fav_class}" data-fav-id="{id}" style="background:none; border:none; cursor:pointer; font-size:1.1rem;">{fav_icon}</button>
-                            {count_badge}
-                        </div>
-                    </div>"#,
-                    id = id,
-                    img_src = img_src,
-                    title = beer.title,
-                    brewery = beer.brewery,
-                    abv = abv_val,
-                    fav_class = fav_class,
-                    fav_icon = fav_icon,
-                    count_badge = count_badge
-                ));
-            } else {
-                let drunk_class = if is_drunk { "drunk" } else { "" };
-                let reveal_rarity = is_drunk
-                    || state
-                        .storage
-                        .preferences
-                        .get("revealRarity")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false);
-
-                let (rarity_class, border_style) = if reveal_rarity && rarity_res.rarity != "base" {
-                    (
-                        format!("card-rarity-{}", rarity_res.rarity),
-                        "border-color: transparent;",
-                    )
-                } else {
-                    (String::new(), "border-color: var(--border-color);")
-                };
-
-                let tilt_attr = if is_drunk { "data-tilt" } else { "" };
-                let loading_attr = if index < 10 { "eager" } else { "lazy" };
-
-                html.push_str(&format!(
-                    r#"<div class="beer-card {drunk_class} {rarity_class}" data-id="{id}" style="{border_style}" {tilt_attr}>
-                        <div class="card-badges-right" style="position:absolute; top:6px; right:6px; z-index:3; display:flex; align-items:center; gap:6px;">
-                            {fav_star}
-                            {trappist_badge}
-                            {check_svg}
-                        </div>
-                        <div class="beer-image-container" style="width:100%; height:120px; display:flex; justify-content:center; align-items:center;">
-                            <img src="{img_src}" alt="{title}" class="beer-image" loading="{loading_attr}" onerror="if(this.src.includes('images/beer/FUT.jpg')) return; this.src='images/beer/FUT.jpg';">
-                        </div>
-                        <div class="beer-info">
-                            <h3 class="beer-title">{title}</h3>
-                            <p class="beer-brewery">{brewery}</p>
-                            <div class="beer-card-stats-row" style="display:flex; gap:5px; justify-content:center; margin-top:5px; color:#aaa; flex-wrap:wrap;">
-                                <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">{abv}°</span>
-                                <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">{vol_str}</span>
-                                <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">{style}</span>
-                            </div>
-                            <div class="beer-card-bac-row" style="display:flex; justify-content:center; margin-top:8px;">
-                                <div class="bac-speculative-badge" style="color:{drive_color}; border-color:{drive_color}33; display:inline-flex;">
-                                    <span class="bac-icon">{drive_icon}</span>
-                                    <span>+{bac_impact:.2}</span>{time_str}
-                                </div>
+                        <div class="beer-card-bac-row" style="display:flex; justify-content:center; margin-top:8px;">
+                            <div class="bac-speculative-badge" style="color:{drive_color}; border-color:{drive_color}33; display:inline-flex;">
+                                <span class="bac-icon">{drive_icon}</span>
+                                <span>+{bac_impact:.2}</span>{time_str}
                             </div>
                         </div>
-                    </div>"#,
-                    drunk_class = drunk_class,
-                    rarity_class = rarity_class,
-                    id = id,
-                    border_style = border_style,
-                    tilt_attr = tilt_attr,
-                    fav_star = fav_star,
-                    trappist_badge = trappist_badge,
-                    check_svg = check_svg,
-                    img_src = img_src,
-                    title = beer.title,
-                    loading_attr = loading_attr,
-                    brewery = beer.brewery,
-                    abv = abv_val,
-                    vol_str = vol_str,
-                    style = beer.beer_type,
-                    drive_color = drive_color,
-                    drive_icon = drive_icon,
-                    bac_impact = bac_impact,
-                    time_str = time_str
-                ));
-            }
+                    </div>
+                </div>"#,
+                drunk_class = drunk_class,
+                rarity_class = rarity_class,
+                id = id,
+                border_style = border_style,
+                tilt_attr = tilt_attr,
+                fav_star = fav_star,
+                trappist_badge = trappist_badge,
+                check_svg = check_svg,
+                img_src = img_src,
+                title = beer.title,
+                loading_attr = loading_attr,
+                brewery = beer.brewery,
+                abv = abv_val,
+                vol_str = vol_str,
+                style = beer.beer_type,
+                drive_color = drive_color,
+                drive_icon = drive_icon,
+                bac_impact = bac_impact,
+                time_str = time_str
+            ));
         }
     }
 

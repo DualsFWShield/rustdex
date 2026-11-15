@@ -269,3 +269,249 @@ pub fn render_beer_modal(beer: &Beer, state: &AppState) -> String {
         comment = comment
     )
 }
+
+/// Renders the complete "Ajouter une bière" modal matching 100% of beerdex.be.
+pub fn render_add_beer_modal() -> String {
+    r##"<div class="modal-content" style="max-height: 85vh; overflow-y: auto; width: min(92%, 500px); padding: 20px; background: var(--bg-card); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 style="margin:0; font-family:'Russo One', sans-serif; color:var(--accent-gold);">Ajouter une bière</h2>
+            <button id="btn-close-modal" class="modal-close" style="background:none; border:none; color:#fff; font-size:1.8rem; cursor:pointer;">&times;</button>
+        </div>
+        <form id="add-beer-form" style="display:flex; flex-direction:column; gap:12px;">
+            <div class="form-group">
+                <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Nom de la bière</label>
+                <input type="text" class="form-input" id="add-beer-title" name="title" required style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Brasserie</label>
+                <input type="text" class="form-input" id="add-beer-brewery" name="brewery" required style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Province / Région</label>
+                <select class="form-select" id="add-beer-province" name="province" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+                    <option value="">-- Non spécifié --</option>
+                    <optgroup label="🇧🇪 Belgique">
+                        <option value="ANT">Antwerpen</option>
+                        <option value="LIM">Limburg</option>
+                        <option value="VBR">Vlaams-Brabant</option>
+                        <option value="BRU">Bruxelles</option>
+                        <option value="WBR">Brabant Wallon</option>
+                        <option value="HAI">Hainaut</option>
+                        <option value="NAM">Namur</option>
+                        <option value="LIE">Liège</option>
+                        <option value="LUX">Luxembourg</option>
+                        <option value="WVL">West-Vlaanderen</option>
+                        <option value="OVL">Oost-Vlaanderen</option>
+                    </optgroup>
+                    <optgroup label="🇫🇷 France">
+                        <option value="FRHDF">Hauts-de-France</option>
+                        <option value="FRGES">Grand Est</option>
+                        <option value="FRPAC">Provence-Alpes-Côte d'Azur</option>
+                        <option value="FRARA">Auvergne-Rhône-Alpes</option>
+                        <option value="FRIDF">Île-de-France</option>
+                    </optgroup>
+                    <optgroup label="🌍 Autres">
+                        <option value="OTHER">Autre pays</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Type (Blonde, Brune...)</label>
+                    <input type="text" class="form-input" id="add-beer-type" name="type" placeholder="Ex: Triple" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Alcool (ex: 8.5°)</label>
+                    <input type="text" class="form-input" id="add-beer-alcohol" name="alcohol" placeholder="8.5" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Volume (ex: 33cl)</label>
+                    <input type="text" class="form-input" id="add-beer-volume" name="volume" placeholder="33cl" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Rareté</label>
+                    <select class="form-select" id="add-beer-rarity" name="rarity" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+                        <option value="">-- Auto --</option>
+                        <option value="base">Base (Gris)</option>
+                        <option value="commun">Commun (Vert)</option>
+                        <option value="rare">Rare (Bleu)</option>
+                        <option value="super_rare">Super Rare (Cyan)</option>
+                        <option value="epique">Épique (Violet)</option>
+                        <option value="mythique">Mythique (Rouge)</option>
+                        <option value="legendaire">Légendaire (Orange)</option>
+                        <option value="ultra_legendaire">Ultra Légendaire (Gradient)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Distribution</label>
+                <select class="form-select" id="add-beer-distribution" name="distribution" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+                    <option value="1">Partout (1 pt)</option>
+                    <option value="2">Supermarché (2 pts)</option>
+                    <option value="3">Cavistes (3 pts)</option>
+                    <option value="4">Cavistes spécialisés (4 pts)</option>
+                    <option value="5">À la brasserie (5 pts)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Disponibilité</label>
+                <select class="form-select" id="add-beer-availability" name="availability" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+                    <option value="1">Permanente (1 pt)</option>
+                    <option value="2">Saisonnière (2 pts)</option>
+                    <option value="3">Édition limitée (3 pts)</option>
+                    <option value="4">Batch unique (4 pts)</option>
+                    <option value="5">Unique à vie (5 pts)</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+                <input type="checkbox" name="barrel_aged" id="add-beer-barrel-aged" style="width:20px; height:20px; accent-color:var(--accent-gold);">
+                <label for="add-beer-barrel-aged" style="font-size:0.9rem; margin:0; cursor:pointer;">Vieillie en fût (Barrel Aged)</label>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="font-size:0.85rem; color:#aaa; margin-bottom:4px; display:block;">Ingrédients / Notes</label>
+                <input type="text" class="form-input" id="add-beer-ingredients" name="ingredients" placeholder="Ex: Coriandre, Cerise..." style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+            </div>
+
+            <button type="submit" id="btn-submit-add-beer" class="btn-primary" style="margin-top:10px; padding:12px; font-size:1rem; font-weight:bold;">Ajouter</button>
+        </form>
+    </div>"##.to_string()
+}
+
+/// Renders the complete Universal QR/Barcode scanner modal.
+pub fn render_universal_scan_modal() -> String {
+    r##"<div class="modal-content" style="width: min(92%, 420px); padding: 22px; text-align: center; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255, 215, 0, 0.25); border-radius: 20px; box-shadow: rgba(0, 0, 0, 0.8) 0px 10px 40px;">
+        <h2 style="color:var(--accent-gold); margin-bottom:8px; font-family:'Russo One'; font-size:1.35rem; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <span>📷</span> Scanner Universel
+        </h2>
+        <p style="color:#aaa; font-size:0.82rem; margin-bottom:14px; line-height:1.4;">
+            Scannez un QR code (Beer Party, DraftSync, Bière perso) ou tapez un code de salon ci-dessous.
+        </p>
+        <div id="universal-reader" style="width: 100%; max-width: 280px; margin: 0px auto 15px; border-radius: 12px; overflow: hidden; background: rgb(0, 0, 0); border: 2px solid rgba(255, 215, 0, 0.3); aspect-ratio: 1 / 1; position: relative; display:flex; align-items:center; justify-content:center;">
+            <span style="font-size:3rem; opacity:0.5;">📷</span>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; margin-bottom: 15px; text-align: left;">
+            <div style="font-size:0.8rem; color:#ddd; font-weight:700; margin-bottom:8px;">
+                <span>⌨️ Entrer un code de salon (6 lettres)</span>
+            </div>
+            <div style="margin-bottom:10px;">
+                <input type="text" id="universal-manual-code" placeholder="EX: A1B2C3" maxlength="15" style="width:100%; box-sizing:border-box; text-align:center; font-family:monospace; font-size:1.2rem; font-weight:bold; letter-spacing:3px; text-transform:uppercase; background:rgba(0,0,0,0.6); border:1px solid rgba(255,215,0,0.4); border-radius:10px; color:#fff; padding:10px;">
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button type="button" id="btn-uni-join-party" class="btn-primary" style="flex:1; padding:10px 8px; font-size:0.82rem; background:linear-gradient(135deg, var(--accent-gold), var(--accent-amber)); color:#000; font-weight:bold; border:none; border-radius:10px; cursor:pointer;">
+                    🍻 Beer Party
+                </button>
+                <button type="button" id="btn-uni-join-draftsync" class="btn-primary" style="flex:1; padding:10px 8px; font-size:0.82rem; background:linear-gradient(135deg, #3b82f6, #1d4ed8); color:#fff; font-weight:bold; border:none; border-radius:10px; cursor:pointer;">
+                    📡 DraftSync
+                </button>
+            </div>
+        </div>
+
+        <button id="btn-close-scanner" class="btn-cancel" style="width:100%; padding:10px; border-radius:20px; font-weight:bold; cursor:pointer; background:rgba(255,255,255,0.1); border:none; color:#fff;">Fermer</button>
+    </div>"##.to_string()
+}
+
+/// Renders the achievement detail modal.
+pub fn render_achievement_modal(ach_id: &str, state: &AppState) -> String {
+    let ach_stats = beerdex_core::achievements::UserAchievementStats::compute(
+        &state.storage.ratings,
+        &state.db.beers,
+        None,
+    );
+    let all = beerdex_core::achievements::AchievementEngine::all_definitions();
+    let ach = all.iter().find(|a| a.id == ach_id);
+
+    if let Some(a) = ach {
+        let is_unlocked =
+            beerdex_core::achievements::AchievementEngine::is_unlocked(a.id, &ach_stats);
+        let title = state.i18n.t_or(a.title_key, a.id);
+        let desc = state.i18n.t_or(a.desc_key, a.desc_key);
+        let icon = a.icon;
+        let rarity = a.rarity;
+
+        let icon_style = if is_unlocked {
+            "font-size:4rem; margin-bottom:20px; filter:drop-shadow(0 0 15px rgba(255,193,7,0.4));"
+        } else {
+            "font-size:4rem; margin-bottom:20px; filter:grayscale(100%) opacity(50%) drop-shadow(0 4px 12px rgba(255,255,255,0.05));"
+        };
+
+        let badge_style = match rarity {
+            "legendaire" | "ultra_legendaire" => "color:#f39c12; border:1px solid #f39c1240;",
+            "epique" | "mythique" => "color:#9b59b6; border:1px solid #9b59b640;",
+            "super_rare" | "rare" => "color:#3498db; border:1px solid #3498db40;",
+            _ => "color:#2ecc71; border:1px solid #2ecc7140;",
+        };
+
+        format!(
+            r##"<div class="modal-content text-center" style="width:min(90%, 420px); padding:25px; background:var(--bg-card); border-radius:16px; border:1px solid rgba(255,255,255,0.1);">
+                <div style="{icon_style}">{icon}</div>
+                <h2 style="color:var(--accent-gold); margin-bottom:8px; font-family:'Russo One', sans-serif;">{title}</h2>
+                <div style="display:inline-block; font-size:0.75rem; font-weight:800; background:rgba(255,255,255,0.05); padding:4px 12px; border-radius:20px; margin-bottom:15px; text-transform:uppercase; letter-spacing:1px; {badge_style}">{rarity}</div>
+                <p style="font-size:1.05rem; color:#ccc; margin-bottom:25px; line-height:1.5; padding:0 10px;">
+                    {desc}
+                </p>
+                <button class="btn-primary" id="btn-close-modal" style="width:100%; padding:10px; font-weight:bold;">Fermer</button>
+            </div>"##,
+            icon_style = icon_style,
+            icon = icon,
+            title = title,
+            badge_style = badge_style,
+            rarity = rarity,
+            desc = desc
+        )
+    } else {
+        String::new()
+    }
+}
+
+/// Renders the rating configuration template modal.
+pub fn render_notation_template_modal(_state: &AppState) -> String {
+    r##"<div class="modal-content" style="max-height: 85vh; overflow-y: auto; width: min(92%, 480px); padding: 20px; background: var(--bg-card); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 style="margin:0; font-family:'Russo One', sans-serif; color:var(--accent-gold);">Configuration Notation</h2>
+            <button id="btn-close-modal" class="modal-close" style="background:none; border:none; color:#fff; font-size:1.8rem; cursor:pointer;">&times;</button>
+        </div>
+        <div id="field-list" style="margin: 20px 0; display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.05); border-radius:8px;">
+                <span>Goût (Curseur 0-10)</span>
+                <span style="color:#aaa; font-size:0.8rem;">Défaut</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.05); border-radius:8px;">
+                <span>Amertume (Curseur 0-10)</span>
+                <span style="color:#aaa; font-size:0.8rem;">Défaut</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.05); border-radius:8px;">
+                <span>Packaging / Canette (Case à cocher)</span>
+                <span style="color:#aaa; font-size:0.8rem;">Défaut</span>
+            </div>
+        </div>
+
+        <div style="border-top:1px solid #333; padding-top:20px;">
+            <h3 style="font-size:1rem; margin-bottom:12px;">Ajouter un critère</h3>
+            <div class="form-group" style="margin-bottom:10px;">
+                <input type="text" id="new-label" class="form-input" placeholder="Nom (ex: Arôme, Mousse...)" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <select id="new-type" class="form-select" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); color:#fff; border:1px solid rgba(255,255,255,0.1);">
+                    <option value="range">Curseur (0-10)</option>
+                    <option value="checkbox">Case à cocher (Oui/Non)</option>
+                    <option value="textarea">Texte long</option>
+                </select>
+            </div>
+            <button id="add-field" class="btn-primary" style="background:var(--bg-card); border:1px solid var(--accent-gold); color:var(--accent-gold); width:100%; padding:10px; font-weight:bold;">+ Ajouter le critère</button>
+        </div>
+
+        <button id="save-template" class="btn-primary" style="margin-top:20px; width:100%; padding:12px; font-weight:bold;">Sauvegarder</button>
+        <button id="reset-template" class="form-input" style="margin-top:10px; background:none; border:none; color:#e74c3c; width:100%; cursor:pointer; font-size:0.9rem;">Réinitialiser par défaut</button>
+    </div>"##.to_string()
+}

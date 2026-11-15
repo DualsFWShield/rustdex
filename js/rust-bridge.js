@@ -5,6 +5,11 @@ import init, {
     beerdex_toggle_search,
     beerdex_open_filter_modal,
     beerdex_close_filter_modal,
+    beerdex_open_add_beer_modal,
+    beerdex_open_scan_modal,
+    beerdex_open_achievement_modal,
+    beerdex_open_notation_modal,
+    beerdex_add_custom_beer,
     beerdex_set_filter_style,
     beerdex_set_filter_rarity,
     beerdex_set_filter_country,
@@ -57,6 +62,64 @@ function setupEventListeners() {
         // View toggle (Grid / List)
         if (event.target.closest('#view-toggle')) {
             beerdex_toggle_view_mode();
+            return;
+        }
+
+        // Add Beer Modal Toggle
+        if (event.target.closest('#btn-add-header')) {
+            beerdex_open_add_beer_modal();
+            return;
+        }
+
+        // Universal Scanner Modal Toggle
+        if (event.target.closest('#btn-universal-scan')) {
+            beerdex_open_scan_modal();
+            return;
+        }
+
+        // Notation Template Modal Toggle
+        if (event.target.closest('#btn-template')) {
+            beerdex_open_notation_modal();
+            return;
+        }
+
+        // Preset templates
+        if (event.target.closest('#btn-preset-default')) {
+            alert('Modèle de notation Standard activé.');
+            return;
+        }
+        if (event.target.closest('#btn-preset-tristan')) {
+            alert('Modèle de notation Tristan (Avancé) activé.');
+            return;
+        }
+        if (event.target.closest('#btn-preset-noah')) {
+            alert('Modèle de notation Noah (Expert) activé.');
+            return;
+        }
+
+        // Achievement Click -> Open Achievement Detail Modal
+        const achItem = event.target.closest('.ach-item[data-ach-id]');
+        if (achItem) {
+            const achId = achItem.getAttribute('data-ach-id');
+            beerdex_open_achievement_modal(achId);
+            return;
+        }
+
+        // Filter modal tabs switching
+        const ftab = event.target.closest('.ftab[data-tab]');
+        if (ftab) {
+            const tabId = ftab.getAttribute('data-tab');
+            document.querySelectorAll('.ftab').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = '#333';
+                b.style.color = '#fff';
+            });
+            ftab.classList.add('active');
+            ftab.style.background = 'var(--accent-gold)';
+            ftab.style.color = '#000';
+            document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+            const targetPane = document.getElementById(tabId);
+            if (targetPane) targetPane.style.display = 'block';
             return;
         }
 
@@ -246,7 +309,7 @@ function setupEventListeners() {
         }
 
         // Random Pseudo 🎲
-        if (event.target.closest('#btn-random-pseudo')) {
+        if (event.target.closest('#btn-random-pseudo, #btn-settings-dice-pseudo')) {
             const animals = ['Loup', 'Bison', 'Renard', 'Ours', 'Faucon', 'Lynx', 'Panthère', 'Chouette'];
             const adjectives = ['Doré', 'Ambré', 'Sauvage', 'Brave', 'Malin', 'Rapide', 'Noble'];
             const pseudo = `${adjectives[Math.floor(Math.random() * adjectives.length)]}${animals[Math.floor(Math.random() * animals.length)]}${Math.floor(Math.random() * 90) + 10}`;
@@ -256,15 +319,15 @@ function setupEventListeners() {
         }
 
         // Beer card click -> Open Detail Modal
-        const beerCard = event.target.closest('.beer-card[data-id], .beer-list-item[data-id]');
-        if (beerCard && !event.target.closest('button, select, input')) {
+        const beerCard = event.target.closest('.beer-card[data-id]');
+        if (beerCard && !event.target.closest('button, select, input, a')) {
             const id = beerCard.getAttribute('data-id');
             beerdex_open_beer_modal(id);
             return;
         }
 
-        // Modal close
-        if (event.target.closest('#modal-close-btn, #btn-close-modal, .modal-close, #filter-modal-close-btn') || event.target.id === 'beer-detail-modal') {
+        // Modal backdrop or close button click
+        if (event.target.id === 'modal-container' || event.target.closest('#modal-close-btn, #btn-close-modal, .modal-close, #btn-close-scanner, #filter-modal-close-btn')) {
             beerdex_close_modal();
             return;
         }
@@ -283,7 +346,26 @@ function setupEventListeners() {
         }
     });
 
-    // 3. Change Listeners (Selects & Toggles)
+    // 3. Form Submit Handler (Add Beer)
+    document.addEventListener('submit', (event) => {
+        if (!isWasmInitialized) return;
+        if (event.target && event.target.id === 'add-beer-form') {
+            event.preventDefault();
+            const form = event.target;
+            const title = form.querySelector('[name="title"]')?.value.trim() || 'Bière Perso';
+            const brewery = form.querySelector('[name="brewery"]')?.value.trim() || 'Brasserie Artisanale';
+            const type = form.querySelector('[name="type"]')?.value.trim() || 'Blonde';
+            const alcRaw = form.querySelector('[name="alcohol"]')?.value.trim() || '5.0';
+            const abv = parseFloat(alcRaw.replace('°', '').replace('%', '')) || 5.0;
+            const volume = form.querySelector('[name="volume"]')?.value.trim() || '33cl';
+            const rarity = form.querySelector('[name="rarity"]')?.value.trim() || 'commun';
+            beerdex_add_custom_beer(title, brewery, type, abv, volume, rarity);
+            alert(`Bière "${title}" ajoutée avec succès !`);
+            return;
+        }
+    });
+
+    // 4. Change Listeners (Selects & Toggles)
     document.addEventListener('change', (event) => {
         if (!isWasmInitialized) return;
         const target = event.target;

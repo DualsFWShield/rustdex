@@ -313,9 +313,10 @@ pub fn render_stats_view(state: &AppState) -> String {
             };
 
             html.push_str(&format!(
-                r##"<div class="ach-item" style="opacity:{opacity}; filter:{filter}; position:relative; cursor:pointer;" title="{title_attr}">
+                r##"<div class="ach-item" data-ach-id="{id}" style="opacity:{opacity}; filter:{filter}; position:relative; cursor:pointer;" title="{title_attr}">
                     <div class="ach-icon">{icon}</div>
                 </div>"##,
+                id = ach.id,
                 opacity = opacity,
                 filter = filter,
                 title_attr = title_attr,

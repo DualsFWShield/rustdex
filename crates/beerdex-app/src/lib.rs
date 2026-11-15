@@ -21,16 +21,30 @@ pub fn render_app_shell(state: &AppState) -> String {
         AppView::Poster => views::poster::render_poster_view(state),
     };
 
-    let modal_html = if let Some(ref beer) = state.selected_beer {
+    let modal_inner = if let Some(ref beer) = state.selected_beer {
         views::modal::render_beer_modal(beer, state)
+    } else if state.show_filter_modal {
+        views::filter_modal::render_filter_modal(state)
+    } else if state.show_add_modal {
+        views::modal::render_add_beer_modal()
+    } else if state.show_scan_modal {
+        views::modal::render_universal_scan_modal()
+    } else if let Some(ref ach_id) = state.selected_achievement {
+        views::modal::render_achievement_modal(ach_id, state)
+    } else if state.show_notation_modal {
+        views::modal::render_notation_template_modal(state)
     } else {
         String::new()
     };
 
-    let filter_modal_html = if state.show_filter_modal {
-        views::filter_modal::render_filter_modal(state)
+    let modal_container = if !modal_inner.is_empty() {
+        format!(
+            r#"<div id="modal-container" class="modal-overlay">{}</div>"#,
+            modal_inner
+        )
     } else {
-        String::new()
+        r#"<div id="modal-container" class="modal-overlay hidden" aria-hidden="true"></div>"#
+            .to_string()
     };
 
     let search_bar_class = if state.search_active || !state.search_query.is_empty() {
@@ -59,15 +73,13 @@ pub fn render_app_shell(state: &AppState) -> String {
             {content}
         </main>
         {nav}
-        {modal}
-        {filter_modal}"#,
+        {modal_container}"#,
         header = header_html,
         search_bar_class = search_bar_class,
         search_query = state.search_query,
         content = view_content,
         nav = nav_html,
-        modal = modal_html,
-        filter_modal = filter_modal_html
+        modal_container = modal_container
     )
 }
 

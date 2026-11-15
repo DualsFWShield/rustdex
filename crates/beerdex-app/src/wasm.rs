@@ -266,6 +266,75 @@ pub fn beerdex_open_beer_modal(beer_id: &str) -> Result<(), JsValue> {
     APP_INSTANCE.with(|cell| {
         if let Some(ref mut state) = *cell.borrow_mut() {
             state.selected_beer = state.db.find_by_id(beer_id).cloned();
+            state.show_filter_modal = false;
+            state.show_add_modal = false;
+            state.show_scan_modal = false;
+            state.selected_achievement = None;
+            state.show_notation_modal = false;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_open_add_beer_modal() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.show_add_modal = true;
+            state.selected_beer = None;
+            state.show_filter_modal = false;
+            state.show_scan_modal = false;
+            state.selected_achievement = None;
+            state.show_notation_modal = false;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_open_scan_modal() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.show_scan_modal = true;
+            state.selected_beer = None;
+            state.show_filter_modal = false;
+            state.show_add_modal = false;
+            state.selected_achievement = None;
+            state.show_notation_modal = false;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_open_achievement_modal(ach_id: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.selected_achievement = Some(ach_id.to_string());
+            state.selected_beer = None;
+            state.show_filter_modal = false;
+            state.show_add_modal = false;
+            state.show_scan_modal = false;
+            state.show_notation_modal = false;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_open_notation_modal() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.show_notation_modal = true;
+            state.selected_beer = None;
+            state.show_filter_modal = false;
+            state.show_add_modal = false;
+            state.show_scan_modal = false;
+            state.selected_achievement = None;
         }
     });
     render_dom()
@@ -277,6 +346,68 @@ pub fn beerdex_close_modal() -> Result<(), JsValue> {
     APP_INSTANCE.with(|cell| {
         if let Some(ref mut state) = *cell.borrow_mut() {
             state.selected_beer = None;
+            state.show_filter_modal = false;
+            state.show_add_modal = false;
+            state.show_scan_modal = false;
+            state.selected_achievement = None;
+            state.show_notation_modal = false;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_add_custom_beer(
+    title: &str,
+    brewery: &str,
+    beer_type: &str,
+    abv: f64,
+    volume: &str,
+    rarity: &str,
+) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            let id_str = format!("custom_{}", chrono::Utc::now().timestamp_millis());
+            let custom = beerdex_core::models::CustomBeer {
+                id: id_str.clone(),
+                title: title.to_string(),
+                brewery: brewery.to_string(),
+                beer_type: beer_type.to_string(),
+                volume: volume.to_string(),
+                alcohol: format!("{:.1}°", abv),
+                image: Some("images/beer/FUT.jpg".to_string()),
+                barcode: None,
+                country: Some("BE".to_string()),
+            };
+            let new_beer = beerdex_core::models::Beer {
+                title: title.to_string(),
+                brewery: brewery.to_string(),
+                beer_type: beer_type.to_string(),
+                volume: Some(volume.to_string()),
+                alcohol: Some(format!("{:.1}°", abv)),
+                id: Some(id_str),
+                image: Some("images/beer/FUT.jpg".to_string()),
+                production_volume: Some("Artisanale".to_string()),
+                distribution: Some("Partout".to_string()),
+                barrel_aged: Some(false),
+                community_rating: None,
+                ingredients: None,
+                rarity_rank: if rarity.is_empty() {
+                    None
+                } else {
+                    Some(rarity.to_string())
+                },
+                barcode: None,
+                country: Some("BE".to_string()),
+                country_code: Some("BE".to_string()),
+                search_region: None,
+                search_country: Some("BE".to_string()),
+            };
+            state.storage.custom_beers.push(custom);
+            state.db.beers.insert(0, new_beer);
+            let _ = beerdex_platform::UnifiedStorage::save_state(&state.storage);
+            state.show_add_modal = false;
         }
     });
     render_dom()
