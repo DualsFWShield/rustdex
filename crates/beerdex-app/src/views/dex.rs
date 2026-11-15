@@ -3,6 +3,16 @@ use beerdex_core::rarity::calculate_rarity;
 
 pub fn render_dex_view(state: &AppState) -> String {
     let beers = state.get_filtered_beers();
+
+    if state.view == crate::state::AppView::Drunk && beers.is_empty() {
+        return r#"<div style="text-align:center; padding: 50px 20px; color: #888;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">🕵️‍♂️</div>
+                    <h3>Mode Découverte</h3>
+                    <p style="margin-top: 10px;">Votre collection est vide.</p>
+                    <p style="font-size: 0.8rem; margin-top: 5px;">Utilisez la recherche 🔍 pour trouver et ajouter des bières.</p>
+                </div>"#.to_string();
+    }
+
     let is_list = state.view_mode == ViewMode::List;
     let container_class = if is_list {
         "beer-grid view-list"
@@ -12,60 +22,95 @@ pub fn render_dex_view(state: &AppState) -> String {
 
     let mut html = String::with_capacity(beers.len() * 400 + 100);
 
-    // BAC Home Widget (Always displayed on Dex home, matching beerdex.be)
-    let bac = state.current_bac();
-    let (status_text, color) = if bac < 0.2 {
-        ("Sobre", "#4CAF50")
-    } else if bac < 0.5 {
-        ("Euphorie", "#8BC34A")
-    } else if bac < 0.8 {
-        ("Légère ivresse", "#FF9800")
-    } else {
-        ("Ébriété", "#F44336")
-    };
-    let expired_air = bac / 2.0;
+    // BAC Home Widget (ONLY displayed on Dex home, matching beerdex.be)
+    if state.view == crate::state::AppView::Home {
+        let bac = state.current_bac();
+        let (status_text, color) = if bac < 0.2 {
+            ("Sobre", "#4CAF50")
+        } else if bac < 0.5 {
+            ("Euphorie", "#8BC34A")
+        } else if bac < 0.8 {
+            ("Légère ivresse", "#FF9800")
+        } else {
+            ("Ébriété", "#F44336")
+        };
+        let expired_air = bac / 2.0;
 
-    html.push_str(&format!(
-        r#"<div class="bac-widget-home" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover)); border-left: 5px solid {color}; padding: 15px; border-radius: 12px; margin: 0 0 20px 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 16px rgba(0,0,0,0.5); border: 1px solid var(--border-color); border-left: 5px solid {color};">
-            <div>
-                <div style="font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; font-weight: bold;">ALCOOLÉMIE SPÉCULATIVE</div>
-                <div style="font-size: 1.1rem; font-weight: 700; color: {color}; text-shadow: 0 0 10px {color}44;">
-                    {status} <span style="font-size: 0.9rem; color: #fff; font-weight: normal; margin-left: 5px;">({bac:.2} g/l)</span>
+        html.push_str(&format!(
+            r#"<div class="bac-widget-home" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover)); border-left: 5px solid {color}; padding: 15px; border-radius: 12px; margin: 0 0 20px 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 16px rgba(0,0,0,0.5); border: 1px solid var(--border-color); border-left: 5px solid {color};">
+                <div>
+                    <div style="font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; font-weight: bold;">ALCOOLÉMIE SPÉCULATIVE</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: {color}; text-shadow: 0 0 10px {color}44;">
+                        {status} <span style="font-size: 0.9rem; color: #fff; font-weight: normal; margin-left: 5px;">({bac:.2} g/l)</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #888; margin-top: 5px;">
+                        Air expiré: <span style="color: {color}; font-weight: bold;">{expired_air:.2}</span> mg/l
+                    </div>
                 </div>
-                <div style="font-size: 0.75rem; color: #888; margin-top: 5px;">
-                    Air expiré: <span style="color: {color}; font-weight: bold;">{expired_air:.2}</span> mg/l
+                <div style="background: {color}22; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {color}44;">
+                    <span style="font-size: 1.2rem;">🩸</span>
                 </div>
-            </div>
-            <div style="background: {color}22; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {color}44;">
-                <span style="font-size: 1.2rem;">🩸</span>
-            </div>
-        </div>"#,
-        color = color,
-        status = status_text,
-        bac = bac,
-        expired_air = expired_air
-    ));
+            </div>"#,
+            color = color,
+            status = status_text,
+            bac = bac,
+            expired_air = expired_air
+        ));
+    }
+
+    // Bus View unrated banner
+    if state.view == crate::state::AppView::Drunk {
+        let unrated_beers: Vec<_> = beers
+            .iter()
+            .filter(|b| {
+                let id = b.resolved_id();
+                state
+                    .storage
+                    .get_user_data(&id)
+                    .map(|d| d.count > 0 && d.score.is_none())
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        if !unrated_beers.is_empty() {
+            html.push_str(&format!(
+                r#"<div class="unrated-banner-modern" style="margin: 10px 15px 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="font-size: 0.8rem; color: var(--accent-gold); margin: 0; display: flex; align-items: center; gap: 6px;">⭐ Bières en attente de note</h4>
+                        <span style="font-size: 0.7rem; color: #888; background: rgba(255, 255, 255, 0.06); padding: 2px 8px; border-radius: 10px;">{}</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">"#,
+                unrated_beers.len()
+            ));
+
+            for ub in unrated_beers.iter().take(20) {
+                let ub_id = ub.resolved_id();
+                let ub_img = ub.image.as_deref().unwrap_or("images/beer/default.png");
+                html.push_str(&format!(
+                    r#"<div class="unrated-chip" data-beer-id="{id}" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 5px 12px 5px 5px; border-radius: 24px; flex: 0 0 auto; cursor: pointer; backdrop-filter: blur(5px); box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+                        <img src="{img}" alt="" onerror="this.src='images/beer/default.png'" style="width: 28px; height: 28px; border-radius: 50%; object-fit: contain; background: #222;">
+                        <span style="font-size: 0.8rem; font-weight: 500; color: #fff; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{title}</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="2.5" style="margin-left: 2px;"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"></path></svg>
+                    </div>"#,
+                    id = ub_id,
+                    img = ub_img,
+                    title = ub.title
+                ));
+            }
+
+            html.push_str("</div></div>");
+        }
+    }
 
     html.push_str(&format!(r#"<div class="{}">"#, container_class));
 
     if beers.is_empty() {
-        if state.view == crate::state::AppView::Drunk {
-            html.push_str(
-                r#"<div style="text-align:center; padding: 50px 20px; color: #888; grid-column: 1/-1;">
-                    <div style="font-size: 3rem; margin-bottom: 20px;">🕵️‍♂️</div>
-                    <h3 style="color:#fff; font-family: Outfit, sans-serif;">Mode Découverte</h3>
-                    <p style="margin-top: 10px; color:#aaa;">Votre collection est vide.</p>
-                    <p style="font-size: 0.8rem; margin-top: 5px; color:#666;">Utilisez la recherche 🔍 pour trouver et ajouter des bières.</p>
-                </div>"#,
-            );
-        } else {
-            html.push_str(
-                r#"<div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
-                    <div style="font-size: 3rem; margin-bottom: 12px;">🍺</div>
-                    <p style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 500;">Aucune bière trouvée.</p>
-                </div>"#,
-            );
-        }
+        html.push_str(
+            r#"<div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
+                <div style="font-size: 3rem; margin-bottom: 12px;">🍺</div>
+                <p style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 500;">Aucune bière trouvée.</p>
+            </div>"#,
+        );
     } else {
         for (index, beer) in beers.iter().take(48).enumerate() {
             let id = beer.resolved_id();
@@ -108,8 +153,8 @@ pub fn render_dex_view(state: &AppState) -> String {
                 let h = hours.floor() as u32;
                 let m = ((hours - (h as f64)) * 60.0).round() as u32;
                 (
-                    "🚫",
-                    "#e74c3c",
+                    "⚠️",
+                    "#FF9800",
                     format!(r#"<span class="bac-time"> · {}h{:02}</span>"#, h, m),
                 )
             };
@@ -143,7 +188,7 @@ pub fn render_dex_view(state: &AppState) -> String {
                         {check_svg}
                     </div>
                     <div class="beer-image-container" style="width:100%; height:120px; display:flex; justify-content:center; align-items:center;">
-                        <img src="{img_src}" alt="{title}" class="beer-image" loading="{loading_attr}" onerror="if(this.src.includes('images/beer/FUT.jpg')) return; this.src='images/beer/FUT.jpg';">
+                        <img src="{img_src}" alt="{title}" class="beer-image" loading="{loading_attr}" onload="removeImageBackground(this)" onerror="if(this.src.includes('images/beer/FUT.jpg')) return; this.src='images/beer/FUT.jpg';">
                     </div>
                     <div class="beer-info">
                         <h3 class="beer-title">{title}</h3>

@@ -105,7 +105,7 @@ pub fn render_beer_modal(beer: &Beer, state: &AppState) -> String {
                 </div>
 
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="{img}" onerror="if(this.src.includes('images/beer/FUT.jpg')) return; this.src='images/beer/FUT.jpg';" alt="{title}" style="height: 150px; max-width: 120px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255,255,255,0.1)); margin-bottom: 10px;">
+                    <img src="{img}" onerror="if(this.src.includes('images/beer/FUT.jpg')) return; this.src='images/beer/FUT.jpg';" onload="removeImageBackground(this)" alt="{title}" style="height: 150px; max-width: 120px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255,255,255,0.1)); margin-bottom: 10px;">
                     <h2 style="margin-top: 10px; color: var(--accent-gold); font-family: Russo One, sans-serif; font-size: 1.3rem;">{title}</h2>
                     <p style="color: #888; font-size: 0.95rem; margin: 4px 0;"><a href="#" class="brewery-link" data-brewery="{brewery}" style="color: inherit; text-decoration: underline;">{brewery}</a> - {style}</p>
                     <div style="display: flex; justify-content: center; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: #aaa;">

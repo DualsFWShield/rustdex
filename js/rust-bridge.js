@@ -30,6 +30,115 @@ import init, {
     beerdex_reset_data
 } from '../wasm/beerdex_app.js';
 
+window.removeImageBackground = function (img) {
+    if (!img || img.dataset.processed) return;
+    const doWork = () => _removeImageBackgroundSync(img);
+    if (window.requestIdleCallback) {
+        requestIdleCallback(doWork, { timeout: 500 });
+    } else {
+        setTimeout(doWork, 0);
+    }
+};
+
+function _removeImageBackgroundSync(img) {
+    if (!img || img.dataset.processed) return;
+    try {
+        const canvas = document.createElement('canvas');
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
+        if (!width || !height) return;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+
+        const tolerance = 20;
+        const toleranceSq = tolerance * tolerance;
+        const featherRadius = 2;
+
+        const bgR = data[0];
+        const bgG = data[1];
+        const bgB = data[2];
+
+        const colorDistSq = (r1, g1, b1, r2, g2, b2) => {
+            return (r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2;
+        };
+
+        const toRemove = new Uint8Array(width * height);
+        const isBackground = (idx) => {
+            return colorDistSq(data[idx], data[idx + 1], data[idx + 2], bgR, bgG, bgB) <= toleranceSq;
+        };
+
+        const floodFill = (startX, startY) => {
+            const stack = [[startX, startY]];
+            while (stack.length > 0) {
+                const [x, y] = stack.pop();
+                if (x < 0 || x >= width || y < 0 || y >= height) continue;
+                const idx = y * width + x;
+                if (toRemove[idx]) continue;
+                const dataIdx = idx * 4;
+                if (isBackground(dataIdx)) {
+                    toRemove[idx] = 1;
+                    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+                }
+            }
+        };
+
+        floodFill(0, 0);
+        const checkAndFill = (x, y) => {
+            const idx = (y * width + x) * 4;
+            if (isBackground(idx)) floodFill(x, y);
+        };
+        checkAndFill(width - 1, 0);
+        checkAndFill(0, height - 1);
+        checkAndFill(width - 1, height - 1);
+
+        let hasChanges = false;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                const dataIdx = idx * 4;
+                if (toRemove[idx]) {
+                    data[dataIdx + 3] = 0;
+                    hasChanges = true;
+                    continue;
+                }
+                let minDistance = featherRadius + 1;
+                let foundRemoved = false;
+                for (let dy = -featherRadius; dy <= featherRadius; dy++) {
+                    for (let dx = -featherRadius; dx <= featherRadius; dx++) {
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            if (toRemove[ny * width + nx]) {
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+                                if (dist < minDistance) {
+                                    minDistance = dist;
+                                    foundRemoved = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (foundRemoved && minDistance <= featherRadius) {
+                    const alpha = Math.floor((minDistance / featherRadius) * 255);
+                    data[dataIdx + 3] = Math.min(data[dataIdx + 3], alpha);
+                    hasChanges = true;
+                }
+            }
+        }
+        if (hasChanges) {
+            ctx.putImageData(imgData, 0, 0);
+            img.src = canvas.toDataURL();
+            img.dataset.processed = "true";
+        }
+    } catch (e) {
+        // Silent fail
+    }
+}
+
 let isWasmInitialized = false;
 
 export async function bootstrapBeerdexRust() {
@@ -55,7 +164,8 @@ function setupEventListeners() {
         if (navBtn) {
             const view = navBtn.getAttribute('data-view');
             beerdex_switch_view(view);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) mainContent.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
@@ -316,6 +426,14 @@ function setupEventListeners() {
             const pseudo = `${adjectives[Math.floor(Math.random() * adjectives.length)]}${animals[Math.floor(Math.random() * animals.length)]}${Math.floor(Math.random() * 90) + 10}`;
             const input = document.getElementById('input-party-pseudo');
             if (input) input.value = pseudo;
+            return;
+        }
+
+        // Unrated chip click -> Open Detail Modal
+        const unratedChip = event.target.closest('.unrated-chip[data-beer-id]');
+        if (unratedChip) {
+            const id = unratedChip.getAttribute('data-beer-id');
+            beerdex_open_beer_modal(id);
             return;
         }
 
