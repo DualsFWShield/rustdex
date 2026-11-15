@@ -8,63 +8,60 @@ pub fn render_dex_view(state: &AppState) -> String {
 
     let mut html = String::with_capacity(beers.len() * 400 + 100);
 
-    // BAC Home Widget (Only on Dex home, matching beerdex.be)
-    if state.view == crate::state::AppView::Home {
-        let bac = state.current_bac();
-        let (status_text, color) = if bac < 0.2 {
-            ("Sobre", "#4CAF50")
-        } else if bac < 0.5 {
-            ("Euphorie", "#8BC34A")
-        } else if bac < 0.8 {
-            ("Légère ivresse", "#FF9800")
-        } else {
-            ("Ébriété", "#F44336")
-        };
-        let expired_air = bac / 2.0;
+    // BAC Home Widget (Always displayed on Dex home, matching beerdex.be)
+    let bac = state.current_bac();
+    let (status_text, color) = if bac < 0.2 {
+        ("Sobre", "#4CAF50")
+    } else if bac < 0.5 {
+        ("Euphorie", "#8BC34A")
+    } else if bac < 0.8 {
+        ("Légère ivresse", "#FF9800")
+    } else {
+        ("Ébriété", "#F44336")
+    };
+    let expired_air = bac / 2.0;
 
-        html.push_str(&format!(
-            r#"<div class="bac-widget-home" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover)); border-left: 5px solid {color}; padding: 15px; border-radius: 12px; margin: 0 0 20px 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 16px rgba(0,0,0,0.5); border: 1px solid var(--border-color); border-left: 5px solid {color};">
-                <div>
-                    <div style="font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; font-weight: bold;">ALCOOLÉMIE SPÉCULATIVE</div>
-                    <div style="font-size: 1.1rem; font-weight: 700; color: {color}; text-shadow: 0 0 10px {color}44;">
-                        {status} <span style="font-size: 0.9rem; color: #fff; font-weight: normal; margin-left: 5px;">({bac:.2} g/l)</span>
-                    </div>
-                    <div style="font-size: 0.75rem; color: #888; margin-top: 5px;">
-                        Air expiré: <span style="color: {color}; font-weight: bold;">{expired_air:.2}</span> mg/l
-                    </div>
+    html.push_str(&format!(
+        r#"<div class="bac-widget-home" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover)); border-left: 5px solid {color}; padding: 15px; border-radius: 12px; margin: 0 0 20px 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 16px rgba(0,0,0,0.5); border: 1px solid var(--border-color); border-left: 5px solid {color};">
+            <div>
+                <div style="font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; font-weight: bold;">ALCOOLÉMIE SPÉCULATIVE</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: {color}; text-shadow: 0 0 10px {color}44;">
+                    {status} <span style="font-size: 0.9rem; color: #fff; font-weight: normal; margin-left: 5px;">({bac:.2} g/l)</span>
                 </div>
-                <div style="background: {color}22; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {color}44;">
-                    <span style="font-size: 1.2rem;">🩸</span>
+                <div style="font-size: 0.75rem; color: #888; margin-top: 5px;">
+                    Air expiré: <span style="color: {color}; font-weight: bold;">{expired_air:.2}</span> mg/l
                 </div>
-            </div>"#,
-            color = color,
-            status = status_text,
-            bac = bac,
-            expired_air = expired_air
-        ));
-    }
-
-    if beers.is_empty() && state.view == crate::state::AppView::Drunk {
-        html.push_str(
-            r#"<div style="text-align:center; padding: 50px 20px; color: #888;">
-                <div style="font-size: 3rem; margin-bottom: 20px;">🕵️‍♂️</div>
-                <h3>Mode Découverte</h3>
-                <p style="margin-top: 10px;">Votre collection est vide.</p>
-                <p style="font-size: 0.8rem; margin-top: 5px;">Utilisez la recherche 🔍 pour trouver et ajouter des bières.</p>
-            </div>"#,
-        );
-        return html;
-    }
+            </div>
+            <div style="background: {color}22; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {color}44;">
+                <span style="font-size: 1.2rem;">🩸</span>
+            </div>
+        </div>"#,
+        color = color,
+        status = status_text,
+        bac = bac,
+        expired_air = expired_air
+    ));
 
     html.push_str(&format!(r#"<div class="{}">"#, container_class));
 
     if beers.is_empty() {
-        html.push_str(
-            r#"<div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
-                <div style="font-size: 3rem; margin-bottom: 12px;">🍺</div>
-                <p style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 500;">Aucune bière trouvée.</p>
-            </div>"#,
-        );
+        if state.view == crate::state::AppView::Drunk {
+            html.push_str(
+                r#"<div style="text-align:center; padding: 50px 20px; color: #888; grid-column: 1/-1;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">🕵️‍♂️</div>
+                    <h3 style="color:#fff; font-family: Outfit, sans-serif;">Mode Découverte</h3>
+                    <p style="margin-top: 10px; color:#aaa;">Votre collection est vide.</p>
+                    <p style="font-size: 0.8rem; margin-top: 5px; color:#666;">Utilisez la recherche 🔍 pour trouver et ajouter des bières.</p>
+                </div>"#,
+            );
+        } else {
+            html.push_str(
+                r#"<div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 12px;">🍺</div>
+                    <p style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 500;">Aucune bière trouvée.</p>
+                </div>"#,
+            );
+        }
     } else {
         for (index, beer) in beers.iter().take(48).enumerate() {
             let id = beer.resolved_id();
@@ -106,11 +103,7 @@ pub fn render_dex_view(state: &AppState) -> String {
                 let hours = (bac_impact - 0.5) / 0.15;
                 let h = hours.floor() as u32;
                 let m = ((hours - (h as f64)) * 60.0).round() as u32;
-                (
-                    "🚫",
-                    "#e74c3c",
-                    format!(r#"<span class="bac-time"> · {}h{:02}</span>"#, h, m),
-                )
+                ("🚫", "#e74c3c", format!(r#"<span class="bac-time"> · {}h{:02}</span>"#, h, m))
             };
 
             let count_badge = if count > 0 {
@@ -159,10 +152,7 @@ pub fn render_dex_view(state: &AppState) -> String {
                         .unwrap_or(false);
 
                 let (rarity_class, border_style) = if reveal_rarity && rarity_res.rarity != "base" {
-                    (
-                        format!("card-rarity-{}", rarity_res.rarity),
-                        "border-color: transparent;",
-                    )
+                    (format!("card-rarity-{}", rarity_res.rarity), "border-color: transparent;")
                 } else {
                     (String::new(), "border-color: var(--border-color);")
                 };
