@@ -2,13 +2,20 @@ use crate::state::AppState;
 
 /// Renders the complete, comprehensive Settings & Preferences view matching 100% of the original Beerdex capabilities.
 pub fn render_settings_view(state: &AppState) -> String {
-    let t_title = state.i18n.t_or("settings_main_title", "Paramètres & Données");
+    let t_title = state
+        .i18n
+        .t_or("settings_main_title", "Paramètres & Données");
     let current_lang = state.i18n.current_language();
 
     // Group 1: Interface & Apparence
-    let grp1_title = state.i18n.t_or("settings_group_theme_appearance", "🎨 Interface & Apparence");
+    let grp1_title = state.i18n.t_or(
+        "settings_group_theme_appearance",
+        "🎨 Interface & Apparence",
+    );
     let lbl_lang = state.i18n.t_or("settings_language", "Langue");
-    let desc_lang = state.i18n.t_or("settings_language_desc", "Choisir la langue d'affichage");
+    let desc_lang = state
+        .i18n
+        .t_or("settings_language_desc", "Choisir la langue d'affichage");
 
     let active_fr = if current_lang == "fr" { "selected" } else { "" };
     let active_en = if current_lang == "en" { "selected" } else { "" };
@@ -35,32 +42,121 @@ pub fn render_settings_view(state: &AppState) -> String {
         .unwrap_or(false);
 
     // Group 2: Fonctionnalités & Immersion
-    let grp2_title = state.i18n.t_or("settings_group_features_immersion", "⚙️ Fonctionnalités & Immersion");
-    let feat_map = state.storage.preferences.get("feat_map_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let feat_bb = state.storage.preferences.get("feat_brewbrother_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let feat_reminders = state.storage.preferences.get("feat_reminders_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let feat_equiv = state.storage.preferences.get("feat_equivalences_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let feat_party = state.storage.preferences.get("feat_beermatch_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let feat_wrapped = state.storage.preferences.get("feat_wrapped_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let sound_enabled = state.storage.preferences.get("soundEnabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let haptics_enabled = state.storage.preferences.get("hapticsEnabled").and_then(|v| v.as_bool()).unwrap_or(true);
+    let grp2_title = state.i18n.t_or(
+        "settings_group_features_immersion",
+        "⚙️ Fonctionnalités & Immersion",
+    );
+    let feat_map = state
+        .storage
+        .preferences
+        .get("feat_map_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let feat_bb = state
+        .storage
+        .preferences
+        .get("feat_brewbrother_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let feat_reminders = state
+        .storage
+        .preferences
+        .get("feat_reminders_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let feat_equiv = state
+        .storage
+        .preferences
+        .get("feat_equivalences_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let feat_party = state
+        .storage
+        .preferences
+        .get("feat_beermatch_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let feat_wrapped = state
+        .storage
+        .preferences
+        .get("feat_wrapped_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let sound_enabled = state
+        .storage
+        .preferences
+        .get("soundEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let haptics_enabled = state
+        .storage
+        .preferences
+        .get("hapticsEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
 
     // Group 3: Suivi & Statistiques
-    let grp3_title = state.i18n.t_or("settings_group_stats_tracking", "📊 Suivi & Statistiques");
-    let bac_enabled = state.storage.preferences.get("bac_enabled").and_then(|v| v.as_bool()).unwrap_or(true);
-    let bac_weight = state.storage.preferences.get("bac_weight").and_then(|v| v.as_u64()).unwrap_or(70);
-    let bac_gender = state.storage.preferences.get("bac_gender").and_then(|v| v.as_str()).unwrap_or("M");
-    let reveal_rarity = state.storage.preferences.get("revealRarity").and_then(|v| v.as_bool()).unwrap_or(false);
-    let anim_once = state.storage.preferences.get("anim_only_once").and_then(|v| v.as_bool()).unwrap_or(false);
-    let card_count = state.storage.preferences.get("card_stat_count").and_then(|v| v.as_bool()).unwrap_or(false);
-    let card_volume = state.storage.preferences.get("card_stat_volume").and_then(|v| v.as_bool()).unwrap_or(false);
-    let card_bb_pct = state.storage.preferences.get("card_brewbrother_pct").and_then(|v| v.as_bool()).unwrap_or(false);
+    let grp3_title = state
+        .i18n
+        .t_or("settings_group_stats_tracking", "📊 Suivi & Statistiques");
+    let bac_enabled = state
+        .storage
+        .preferences
+        .get("bac_enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let bac_weight = state
+        .storage
+        .preferences
+        .get("bac_weight")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(70);
+    let bac_gender = state
+        .storage
+        .preferences
+        .get("bac_gender")
+        .and_then(|v| v.as_str())
+        .unwrap_or("M");
+    let reveal_rarity = state
+        .storage
+        .preferences
+        .get("revealRarity")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let anim_once = state
+        .storage
+        .preferences
+        .get("anim_only_once")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let card_count = state
+        .storage
+        .preferences
+        .get("card_stat_count")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let card_volume = state
+        .storage
+        .preferences
+        .get("card_stat_volume")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let card_bb_pct = state
+        .storage
+        .preferences
+        .get("card_brewbrother_pct")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     // Group 4: Données & Sauvegarde
-    let grp4_title = state.i18n.t_or("settings_group_data_backup", "💾 Données & Sauvegarde");
+    let grp4_title = state
+        .i18n
+        .t_or("settings_group_data_backup", "💾 Données & Sauvegarde");
 
     // Group 5: Système & Support
-    let grp5_title = state.i18n.t_or("settings_group_system_support", "🛠️ Système & Support");
+    let grp5_title = state
+        .i18n
+        .t_or("settings_group_system_support", "🛠️ Système & Support");
 
     format!(
         r#"<div class="settings-container">
@@ -428,9 +524,17 @@ pub fn render_settings_view(state: &AppState) -> String {
         desc_lang = desc_lang,
         active_fr = active_fr,
         active_en = active_en,
-        theme_classic = if pref_theme == "classic" { "active" } else { "" },
+        theme_classic = if pref_theme == "classic" {
+            "active"
+        } else {
+            ""
+        },
         theme_amber = if pref_theme == "amber" { "active" } else { "" },
-        theme_cyber = if pref_theme == "cyberpunk" { "active" } else { "" },
+        theme_cyber = if pref_theme == "cyberpunk" {
+            "active"
+        } else {
+            ""
+        },
         theme_forest = if pref_theme == "forest" { "active" } else { "" },
         chk_discovery = if is_discovery { "checked" } else { "" },
         chk_museum = if is_museum { "checked" } else { "" },

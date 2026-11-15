@@ -52,7 +52,10 @@ pub fn render_history_view(state: &AppState) -> String {
         for (date_str, volume, beer, score) in history_entries.iter().take(50) {
             let img = beer.image.as_deref().unwrap_or("images/beer/default.png");
             let score_badge = if let Some(sc) = score {
-                format!(r#"<span class="badge" style="background: rgba(255,192,0,0.15); color: var(--accent-gold); font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⭐ {:.1}/20</span>"#, sc)
+                format!(
+                    r#"<span class="badge" style="background: rgba(255,192,0,0.15); color: var(--accent-gold); font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⭐ {:.1}/20</span>"#,
+                    sc
+                )
             } else {
                 String::new()
             };

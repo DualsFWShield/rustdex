@@ -3,8 +3,18 @@ use crate::state::AppState;
 /// Renders the complete, interactive Filter & Sorting Modal for Beerdex.
 pub fn render_filter_modal(state: &AppState) -> String {
     let styles = [
-        "Blonde", "Brune", "Triple", "IPA", "Stout", "Trappiste", 
-        "Fruitée", "Lambic", "Gueuze", "Saison", "Blanche", "Ambrée"
+        "Blonde",
+        "Brune",
+        "Triple",
+        "IPA",
+        "Stout",
+        "Trappiste",
+        "Fruitée",
+        "Lambic",
+        "Gueuze",
+        "Saison",
+        "Blanche",
+        "Ambrée",
     ];
     let rarities = [
         ("base", "Base"),
@@ -96,7 +106,15 @@ pub fn render_filter_modal(state: &AppState) -> String {
             }
             s
         },
-        chk_fav = if state.filters.only_favorites { "checked" } else { "" },
-        chk_drunk = if state.filters.only_consumed { "checked" } else { "" }
+        chk_fav = if state.filters.only_favorites {
+            "checked"
+        } else {
+            ""
+        },
+        chk_drunk = if state.filters.only_consumed {
+            "checked"
+        } else {
+            ""
+        }
     )
 }

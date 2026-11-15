@@ -37,17 +37,33 @@ pub fn render_stats_view(state: &AppState) -> String {
     };
 
     let (rank_name, rank_stroke, rank_glow) = if ach_percentage >= 100.0 {
-        ("RADIANT ZYTHOLOGUE", "#ff00ff", "0 0 30px rgba(255, 0, 255, 0.8)")
+        (
+            "RADIANT ZYTHOLOGUE",
+            "#ff00ff",
+            "0 0 30px rgba(255, 0, 255, 0.8)",
+        )
     } else if ach_percentage >= 80.0 {
         ("DIAMANT", "#00ffff", "0 0 25px rgba(0, 255, 255, 0.6)")
     } else if ach_percentage >= 60.0 {
         ("OR ÉLITE", "#ffd700", "0 0 20px rgba(255, 215, 0, 0.5)")
     } else if ach_percentage >= 40.0 {
-        ("ARGENT EXPERT", "#c0c0c0", "0 0 15px rgba(192, 192, 192, 0.4)")
+        (
+            "ARGENT EXPERT",
+            "#c0c0c0",
+            "0 0 15px rgba(192, 192, 192, 0.4)",
+        )
     } else if ach_percentage >= 20.0 {
-        ("BRONZE AMATEUR", "#cd7f32", "0 0 12px rgba(205, 127, 50, 0.4)")
+        (
+            "BRONZE AMATEUR",
+            "#cd7f32",
+            "0 0 12px rgba(205, 127, 50, 0.4)",
+        )
     } else {
-        ("NOVICE EXPLORATEUR", "#888888", "0 0 8px rgba(0, 0, 0, 0.3)")
+        (
+            "NOVICE EXPLORATEUR",
+            "#888888",
+            "0 0 8px rgba(0, 0, 0, 0.3)",
+        )
     };
 
     let mut html = String::with_capacity(8000);

@@ -395,7 +395,9 @@ pub fn beerdex_export_backup_json() -> String {
 pub fn beerdex_import_backup_json(json_str: &str) -> Result<bool, JsValue> {
     let result = APP_INSTANCE.with(|cell| {
         if let Some(ref mut state) = *cell.borrow_mut() {
-            if let Ok(imported) = serde_json::from_str::<beerdex_core::storage::BeerdexStorageState>(json_str) {
+            if let Ok(imported) =
+                serde_json::from_str::<beerdex_core::storage::BeerdexStorageState>(json_str)
+            {
                 state.storage = imported;
                 let _ = beerdex_platform::UnifiedStorage::save_state(&state.storage);
                 Ok(true)

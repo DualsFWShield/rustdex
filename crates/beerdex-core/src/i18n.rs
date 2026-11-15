@@ -72,16 +72,36 @@ impl I18nEngine {
         match key {
             "pref_language" => Some(if is_en { "Language" } else { "Langue" }),
             "btn_drink_quick" => Some(if is_en { "+ Drink" } else { "+ Boire" }),
-            "detail_btn_drink" => Some(if is_en { "Drink this beer" } else { "Boire cette bière" }),
-            "no_beers_found" => Some(if is_en { "No beers found" } else { "Aucune bière trouvée" }),
+            "detail_btn_drink" => Some(if is_en {
+                "Drink this beer"
+            } else {
+                "Boire cette bière"
+            }),
+            "no_beers_found" => Some(if is_en {
+                "No beers found"
+            } else {
+                "Aucune bière trouvée"
+            }),
             "nav_home" => Some("Dex"),
             "nav_history" => Some("Bus"),
             "nav_stats" => Some("Stats"),
             "nav_beerpedia" => Some("Beerpedia"),
             "nav_settings" => Some(if is_en { "Settings" } else { "Paramètres" }),
-            "list_empty_collection" => Some(if is_en { "Your collection is empty" } else { "Votre collection est vide." }),
-            "stats_history_no_data" => Some(if is_en { "No tasting recorded yet 🍻" } else { "Aucune dégustation enregistrée 🍻" }),
-            "loading_app" => Some(if is_en { "Loading Beerdex..." } else { "Chargement du Beerdex..." }),
+            "list_empty_collection" => Some(if is_en {
+                "Your collection is empty"
+            } else {
+                "Votre collection est vide."
+            }),
+            "stats_history_no_data" => Some(if is_en {
+                "No tasting recorded yet 🍻"
+            } else {
+                "Aucune dégustation enregistrée 🍻"
+            }),
+            "loading_app" => Some(if is_en {
+                "Loading Beerdex..."
+            } else {
+                "Chargement du Beerdex..."
+            }),
             _ => None,
         }
     }
