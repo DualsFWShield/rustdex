@@ -178,9 +178,6 @@ function setupEventListeners() {
             volBtn.style.fontWeight = 'bold';
             return;
         }
-            volBtn.classList.add('active');
-            return;
-        }
 
         // Export Backup JSON
         if (event.target.closest('#btn-manage-export, #btn-export-backup')) {
