@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Beerdex-v5.1.0-rust'; // v5.1.0 Pure Rust Multiplatform Engine
+const CACHE_NAME = 'Beerdex-v5.1.1-rust'; // v5.1.1 Pure Rust Multiplatform Engine
 const ASSETS = [
     './wasm/beerdex_app.js',
     './wasm/beerdex_app_bg.wasm',
