@@ -14,7 +14,7 @@ pub fn render_app_shell(state: &AppState) -> String {
 
     let view_content = match state.view {
         AppView::Home => views::dex::render_dex_view(state),
-        AppView::Drunk => views::history::render_history_view(state),
+        AppView::Drunk => views::dex::render_dex_view(state),
         AppView::Stats => views::stats::render_stats_view(state),
         AppView::Beerpedia => views::beerpedia::render_beerpedia_view(state),
         AppView::Settings => views::settings::render_settings_view(state),

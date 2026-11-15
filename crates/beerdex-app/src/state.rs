@@ -91,14 +91,11 @@ impl AppState {
             results.retain(|b| self.storage.is_favorite(&b.resolved_id()));
         }
 
-        // Sort: Favorites first, then alphabetical by title
+        // Sort: Favorites first, preserving default catalog order for ties
         results.sort_by(|a, b| {
             let fav_a = self.storage.is_favorite(&a.resolved_id());
             let fav_b = self.storage.is_favorite(&b.resolved_id());
-            if fav_a != fav_b {
-                return fav_b.cmp(&fav_a);
-            }
-            a.title.cmp(&b.title)
+            fav_b.cmp(&fav_a)
         });
 
         results

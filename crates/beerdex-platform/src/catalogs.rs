@@ -30,12 +30,12 @@ impl EmbeddedCatalogs {
     pub fn load_database() -> Result<BeerDatabase, serde_json::Error> {
         let mut db = BeerDatabase::new();
 
+        db.load_beer_catalog_json(Self::NEW_BEER, "BE")?;
         db.load_beer_catalog_json(Self::BELGIUM_BEER, "BE")?;
-        db.load_beer_catalog_json(Self::FRENCH_BEER, "FR")?;
         db.load_beer_catalog_json(Self::DEUTCH_BEER, "DE")?;
+        db.load_beer_catalog_json(Self::FRENCH_BEER, "FR")?;
         db.load_beer_catalog_json(Self::NL_BEER, "NL")?;
         db.load_beer_catalog_json(Self::US_BEER, "US")?;
-        db.load_beer_catalog_json(Self::NEW_BEER, "BE")?;
         db.load_beer_catalog_json(Self::CO_BEER, "CO")?;
         db.load_beer_catalog_json(Self::KR_BEER, "KR")?;
         db.load_beer_catalog_json(Self::JP_BEER, "JP")?;
