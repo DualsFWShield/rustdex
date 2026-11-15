@@ -103,7 +103,11 @@ pub fn render_dex_view(state: &AppState) -> String {
                 let hours = (bac_impact - 0.5) / 0.15;
                 let h = hours.floor() as u32;
                 let m = ((hours - (h as f64)) * 60.0).round() as u32;
-                ("🚫", "#e74c3c", format!(r#"<span class="bac-time"> · {}h{:02}</span>"#, h, m))
+                (
+                    "🚫",
+                    "#e74c3c",
+                    format!(r#"<span class="bac-time"> · {}h{:02}</span>"#, h, m),
+                )
             };
 
             let count_badge = if count > 0 {
@@ -152,7 +156,10 @@ pub fn render_dex_view(state: &AppState) -> String {
                         .unwrap_or(false);
 
                 let (rarity_class, border_style) = if reveal_rarity && rarity_res.rarity != "base" {
-                    (format!("card-rarity-{}", rarity_res.rarity), "border-color: transparent;")
+                    (
+                        format!("card-rarity-{}", rarity_res.rarity),
+                        "border-color: transparent;",
+                    )
                 } else {
                     (String::new(), "border-color: var(--border-color);")
                 };

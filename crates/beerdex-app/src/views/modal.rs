@@ -67,10 +67,7 @@ pub fn render_beer_modal(beer: &Beer, state: &AppState) -> String {
 
     let vol_str = beer.formatted_volume();
 
-    let production = beer
-        .production_volume
-        .as_deref()
-        .unwrap_or("Régionale");
+    let production = beer.production_volume.as_deref().unwrap_or("Régionale");
     let distribution = beer
         .distribution
         .as_deref()
@@ -82,15 +79,21 @@ pub fn render_beer_modal(beer: &Beer, state: &AppState) -> String {
     };
     let community = beer
         .community_rating
-        .map(|r| format!("{:.1}", r))
+        .as_ref()
+        .map(|r| {
+            if let Some(f) = r.as_f64() {
+                format!("{:.1}", f)
+            } else if let Some(s) = r.as_str() {
+                s.to_string()
+            } else {
+                "3.5".to_string()
+            }
+        })
         .unwrap_or_else(|| "3.5".to_string());
-    let ingredients = beer
-        .ingredients
-        .as_deref()
-        .unwrap_or("Standard");
+    let ingredients = beer.ingredients.as_deref().unwrap_or("Standard");
 
     format!(
-        r#"<div id="modal-container" class="modal-overlay active" style="display:flex !important; position:fixed; inset:0; z-index:10000; justify-content:center; align-items:center; background:rgba(0,0,0,0.85); overflow-y:auto; padding:20px 10px;">
+        r##"<div id="modal-container" class="modal-overlay active" style="display:flex !important; position:fixed; inset:0; z-index:10000; justify-content:center; align-items:center; background:rgba(0,0,0,0.85); overflow-y:auto; padding:20px 10px;">
             <div class="modal-content {rarity_class}" style="background:var(--bg-card, #141414); border:1px solid var(--border-color, #2d2d2d); border-radius:16px; padding:20px; max-width:550px; width:100%; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.8); margin:auto;">
                 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -238,7 +241,7 @@ pub fn render_beer_modal(beer: &Beer, state: &AppState) -> String {
                 </details>
 
             </div>
-        </div>"#,
+        </div>"##,
         rarity_class = rarity_class,
         rarity_badge_html = rarity_badge_html,
         id = id,
