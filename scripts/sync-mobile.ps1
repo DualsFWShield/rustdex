@@ -1,10 +1,10 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 $VARIANTS = @(
-    @{ Path = "bd-mobile\github-offline"; IsOffline = $true },
-    @{ Path = "bd-mobile\play-store-offline"; IsOffline = $true },
-    @{ Path = "bd-mobile\github-online"; IsOffline = $false },
-    @{ Path = "bd-mobile\play-store-online"; IsOffline = $false }
+    [PSCustomObject]@{ Path = "bd-mobile\github-offline"; IsOffline = $true },
+    [PSCustomObject]@{ Path = "bd-mobile\play-store-offline"; IsOffline = $true },
+    [PSCustomObject]@{ Path = "bd-mobile\github-online"; IsOffline = $false },
+    [PSCustomObject]@{ Path = "bd-mobile\play-store-online"; IsOffline = $false }
 )
 
 $FILES = @(
@@ -49,7 +49,8 @@ foreach ($variant in $VARIANTS) {
         Get-ChildItem -Path "images" -File | Where-Object { $_.Name -ne "foam.png" } | Copy-Item -Destination $imagesDest -Force
 
         # Copy fallback beer images
-        foreach ($fallback in @("default.png", "FUT.jpg")) {
+        $fallbacks = @("default.png", "FUT.jpg")
+        foreach ($fallback in $fallbacks) {
             $fallbackPath = Join-Path "images\beer" $fallback
             if (Test-Path $fallbackPath) {
                 Copy-Item -Path $fallbackPath -Destination $beerDest -Force
@@ -62,4 +63,3 @@ foreach ($variant in $VARIANTS) {
 }
 
 Write-Host "🎉 All variants synced successfully!"
-Write-Host "💡 Reminder: Run 'npx cap copy android' or your build command in each variant folder."

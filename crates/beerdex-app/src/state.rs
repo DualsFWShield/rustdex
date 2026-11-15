@@ -39,8 +39,10 @@ pub struct AppState {
     pub view: AppView,
     pub view_mode: ViewMode,
     pub search_query: String,
+    pub search_active: bool,
     pub filters: FilterCriteria,
     pub selected_beer: Option<Beer>,
+    pub show_filter_modal: bool,
     pub toast: Option<String>,
 }
 
@@ -59,8 +61,10 @@ impl AppState {
             view: AppView::Home,
             view_mode: ViewMode::Grid,
             search_query: String::new(),
+            search_active: false,
             filters: FilterCriteria::default(),
             selected_beer: None,
+            show_filter_modal: false,
             toast: None,
         })
     }

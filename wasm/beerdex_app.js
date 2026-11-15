@@ -1,5 +1,12 @@
 /* @ts-self-types="./beerdex_app.d.ts" */
 
+export function beerdex_close_filter_modal() {
+    const ret = wasm.beerdex_close_filter_modal();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
 export function beerdex_close_modal() {
     const ret = wasm.beerdex_close_modal();
     if (ret[1]) {
@@ -43,6 +50,22 @@ export function beerdex_decompress_lz(text) {
 }
 
 /**
+ * @returns {string}
+ */
+export function beerdex_export_backup_json() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.beerdex_export_backup_json();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * @param {string} text
  * @param {number} size_px
  * @returns {string}
@@ -72,6 +95,20 @@ export function beerdex_get_current_bac() {
 }
 
 /**
+ * @param {string} json_str
+ * @returns {boolean}
+ */
+export function beerdex_import_backup_json(json_str) {
+    const ptr0 = passStringToWasm0(json_str, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.beerdex_import_backup_json(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
+}
+
+/**
  * @param {string} beer_id
  * @param {number} volume_ml
  */
@@ -97,6 +134,13 @@ export function beerdex_open_beer_modal(beer_id) {
     }
 }
 
+export function beerdex_open_filter_modal() {
+    const ret = wasm.beerdex_open_filter_modal();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
 /**
  * @param {string} payload
  * @returns {string}
@@ -117,12 +161,137 @@ export function beerdex_parse_scan(payload) {
 }
 
 /**
+ * @param {string} target
+ */
+export function beerdex_reset_data(target) {
+    const ptr0 = passStringToWasm0(target, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.beerdex_reset_data(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function beerdex_reset_filters() {
+    const ret = wasm.beerdex_reset_filters();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {string} beer_id
+ * @param {number} score
+ * @param {string} comment
+ */
+export function beerdex_save_rating(beer_id, score, comment) {
+    const val3 = +score;
+    let ptr0, len0, ptr1, len1;
+    try {
+        ptr0 = passStringToWasm0(beer_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len0 = WASM_VECTOR_LEN;
+        ptr1 = passStringToWasm0(comment, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len1 = WASM_VECTOR_LEN;
+    } catch (e) {
+        if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+        if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+        throw e;
+    }
+    const ret = wasm.beerdex_save_rating(ptr0, len0, val3, ptr1, len1);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
  * @param {string} query
  */
 export function beerdex_search(query) {
     const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.beerdex_search(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {string} country
+ */
+export function beerdex_set_filter_country(country) {
+    const ptr0 = passStringToWasm0(country, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.beerdex_set_filter_country(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {string} rarity
+ */
+export function beerdex_set_filter_rarity(rarity) {
+    const ptr0 = passStringToWasm0(rarity, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.beerdex_set_filter_rarity(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {string} style
+ */
+export function beerdex_set_filter_style(style) {
+    const ptr0 = passStringToWasm0(style, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.beerdex_set_filter_style(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {string} lang
+ */
+export function beerdex_set_language(lang) {
+    const ptr0 = passStringToWasm0(lang, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.beerdex_set_language(ptr0, len0);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {string} key
+ * @param {string} val_json
+ */
+export function beerdex_set_preference(key, val_json) {
+    let ptr0, len0, ptr1, len1;
+    try {
+        ptr0 = passStringToWasm0(key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len0 = WASM_VECTOR_LEN;
+        ptr1 = passStringToWasm0(val_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        len1 = WASM_VECTOR_LEN;
+    } catch (e) {
+        if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+        if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+        throw e;
+    }
+    const ret = wasm.beerdex_set_preference(ptr0, len0, ptr1, len1);
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+/**
+ * @param {string} theme_name
+ */
+export function beerdex_set_theme(theme_name) {
+    const ptr0 = passStringToWasm0(theme_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.beerdex_set_theme(ptr0, len0);
     if (ret[1]) {
         throw takeFromExternrefTable0(ret[0]);
     }
@@ -152,6 +321,27 @@ export function beerdex_toggle_favorite(beer_id) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return ret[0] !== 0;
+}
+
+export function beerdex_toggle_filter_consumed() {
+    const ret = wasm.beerdex_toggle_filter_consumed();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function beerdex_toggle_filter_favorites() {
+    const ret = wasm.beerdex_toggle_filter_favorites();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
+}
+
+export function beerdex_toggle_search() {
+    const ret = wasm.beerdex_toggle_search();
+    if (ret[1]) {
+        throw takeFromExternrefTable0(ret[0]);
+    }
 }
 
 export function beerdex_toggle_view_mode() {

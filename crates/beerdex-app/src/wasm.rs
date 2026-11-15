@@ -87,6 +87,149 @@ pub fn beerdex_search(query: &str) -> Result<(), JsValue> {
     APP_INSTANCE.with(|cell| {
         if let Some(ref mut state) = *cell.borrow_mut() {
             state.search_query = query.to_string();
+            state.search_active = !query.is_empty();
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_toggle_search() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.search_active = !state.search_active;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_open_filter_modal() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.show_filter_modal = true;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_close_filter_modal() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.show_filter_modal = false;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_set_filter_style(style: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            if state.filters.style.as_deref() == Some(style) {
+                state.filters.style = None;
+            } else {
+                state.filters.style = Some(style.to_string());
+            }
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_set_filter_rarity(rarity: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            if state.filters.rarity.as_deref() == Some(rarity) {
+                state.filters.rarity = None;
+            } else {
+                state.filters.rarity = Some(rarity.to_string());
+            }
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_set_filter_country(country: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            if country.is_empty() {
+                state.filters.country = None;
+            } else {
+                state.filters.country = Some(country.to_uppercase());
+            }
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_toggle_filter_consumed() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.filters.only_consumed = !state.filters.only_consumed;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_toggle_filter_favorites() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.filters.only_favorites = !state.filters.only_favorites;
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_reset_filters() -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.filters = crate::state::FilterCriteria::default();
+            state.search_query.clear();
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_set_theme(theme_name: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.storage.preferences.insert(
+                "theme".to_string(),
+                serde_json::Value::String(theme_name.to_string()),
+            );
+            let _ = beerdex_platform::UnifiedStorage::save_state(&state.storage);
+        }
+    });
+    let _ = crate::styles::StyleEngine::inject_styles(theme_name);
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_set_preference(key: &str, val_json: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(val_json) {
+                state.storage.preferences.insert(key.to_string(), parsed);
+                let _ = beerdex_platform::UnifiedStorage::save_state(&state.storage);
+            }
         }
     });
     render_dom()
@@ -206,4 +349,100 @@ pub fn beerdex_trigger_haptic(pattern: &str) {
         ),
         _ => beerdex_platform::haptics::HapticsEngine::vibrate(15),
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_set_language(lang: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.i18n.set_language(lang);
+            state.storage.preferences.insert(
+                "app_language".to_string(),
+                serde_json::Value::String(lang.to_string()),
+            );
+            let _ = beerdex_platform::UnifiedStorage::save_state(&state.storage);
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_save_rating(beer_id: &str, score: f64, comment: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            state.rate_beer(beer_id, score, comment);
+        }
+    });
+    render_dom()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_export_backup_json() -> String {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref state) = *cell.borrow() {
+            serde_json::to_string_pretty(&state.storage).unwrap_or_default()
+        } else {
+            String::new()
+        }
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_import_backup_json(json_str: &str) -> Result<bool, JsValue> {
+    let result = APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            if let Ok(imported) = serde_json::from_str::<beerdex_core::storage::BeerdexStorageState>(json_str) {
+                state.storage = imported;
+                let _ = beerdex_platform::UnifiedStorage::save_state(&state.storage);
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Err(JsValue::from_str("Not initialized"))
+        }
+    })?;
+    render_dom()?;
+    Ok(result)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn beerdex_reset_data(target: &str) -> Result<(), JsValue> {
+    APP_INSTANCE.with(|cell| {
+        if let Some(ref mut state) = *cell.borrow_mut() {
+            match target {
+                "ratings" => {
+                    for (_, u) in state.storage.ratings.iter_mut() {
+                        u.score = None;
+                        u.comment = None;
+                    }
+                }
+                "history" => {
+                    for (_, u) in state.storage.ratings.iter_mut() {
+                        u.count = 0;
+                        u.history.clear();
+                    }
+                }
+                "favorites" => {
+                    for (_, u) in state.storage.ratings.iter_mut() {
+                        u.favorite = None;
+                    }
+                }
+                "custom" => {
+                    state.storage.custom_beers.clear();
+                }
+                "all" => {
+                    state.storage = beerdex_core::storage::BeerdexStorageState::default();
+                }
+                _ => {}
+            }
+            let _ = beerdex_platform::UnifiedStorage::save_state(&state.storage);
+        }
+    });
+    render_dom()
 }

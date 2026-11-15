@@ -1,17 +1,33 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const beerdex_close_filter_modal: () => [number, number];
 export const beerdex_close_modal: () => [number, number];
 export const beerdex_compress_lz: (a: number, b: number) => [number, number];
 export const beerdex_decompress_lz: (a: number, b: number) => [number, number];
+export const beerdex_export_backup_json: () => [number, number];
 export const beerdex_generate_qr_svg: (a: number, b: number, c: number) => [number, number];
 export const beerdex_get_current_bac: () => number;
+export const beerdex_import_backup_json: (a: number, b: number) => [number, number, number];
 export const beerdex_log_drink: (a: number, b: number, c: number) => [number, number];
 export const beerdex_open_beer_modal: (a: number, b: number) => [number, number];
+export const beerdex_open_filter_modal: () => [number, number];
 export const beerdex_parse_scan: (a: number, b: number) => [number, number];
+export const beerdex_reset_data: (a: number, b: number) => [number, number];
+export const beerdex_reset_filters: () => [number, number];
+export const beerdex_save_rating: (a: number, b: number, c: number, d: number, e: number) => [number, number];
 export const beerdex_search: (a: number, b: number) => [number, number];
+export const beerdex_set_filter_country: (a: number, b: number) => [number, number];
+export const beerdex_set_filter_rarity: (a: number, b: number) => [number, number];
+export const beerdex_set_filter_style: (a: number, b: number) => [number, number];
+export const beerdex_set_language: (a: number, b: number) => [number, number];
+export const beerdex_set_preference: (a: number, b: number, c: number, d: number) => [number, number];
+export const beerdex_set_theme: (a: number, b: number) => [number, number];
 export const beerdex_switch_view: (a: number, b: number) => [number, number];
 export const beerdex_toggle_favorite: (a: number, b: number) => [number, number, number];
+export const beerdex_toggle_filter_consumed: () => [number, number];
+export const beerdex_toggle_filter_favorites: () => [number, number];
+export const beerdex_toggle_search: () => [number, number];
 export const beerdex_toggle_view_mode: () => [number, number];
 export const beerdex_trigger_haptic: (a: number, b: number) => void;
 export const beerdex_validate_ean13: (a: number, b: number) => number;

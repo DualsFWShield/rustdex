@@ -1,14 +1,48 @@
 # --- SECURE GITIGNORE FOR BEERDEX ---
 
-# Build outputs
+# Rust & Cargo build outputs
+target/
+**/*.rs.bk
+*.pdb
+
+# Build & packaging outputs
 release/
 scratch/
-.vscode
+dist/
+*.apk
+*.aab
+
+# OS & Filesystem files
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
 # OneDrive conflict files
 *-DFWFixe*
 *-DFWFixe.*
 *-*Fixe*
+
+# IDE & Editor caches
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs & Temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+crash-*.log
+crashLogger.log
 
 # Project documentation & internal dev files
 AI_DB_GUIDE.md
@@ -17,13 +51,20 @@ TASKS.md
 AI_READ_THIS.md
 base64_keystore.txt
 
-# Capacitor / Node generated files
+# Node / Web / Mobile build artifacts
 **/node_modules/
 **/build/
 **/.gradle/
 **/local.properties
 **/app/build/
 **/www/
+**/.cxx/
+**/captures/
+
+# Environment files
+.env
+.env.*
+!.env.example
 
 # --- CRITICAL SECURITY EXCLUSIONS ---
 # Never commit keystores, private keys, or certificates

@@ -31,11 +31,21 @@ pub fn render_dex_view(state: &AppState) -> String {
     html.push_str(&format!(r#"<div class="{}">"#, container_class));
 
     if beers.is_empty() {
+        let empty_msg = if state.view == crate::state::AppView::Drunk {
+            state
+                .i18n
+                .t_or("stats_history_no_data", "Aucune dégustation enregistrée 🍻")
+        } else {
+            state
+                .i18n
+                .t_or("list_empty_collection", "Votre collection est vide.")
+        };
         html.push_str(&format!(
-            r#"<div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                <p style="color: var(--text-secondary); font-size: 1.1rem;">{}</p>
+            r#"<div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
+                <div style="font-size: 3rem; margin-bottom: 12px;">🍺</div>
+                <p style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 500;">{}</p>
             </div>"#,
-            state.i18n.t("no_beers_found")
+            empty_msg
         ));
     } else {
         for beer in beers.iter().take(100) {
@@ -52,20 +62,28 @@ pub fn render_dex_view(state: &AppState) -> String {
                 .unwrap_or("images/beer/default.png");
 
             let fav_class = if is_fav {
-                "favorite active"
+                "card-fav-star active"
             } else {
-                "favorite"
+                "card-fav-star"
             };
-            let fav_icon = if is_fav { "❤️" } else { "🤍" };
+            let fav_icon = if is_fav { "⭐" } else { "🤍" };
 
             let count_badge = if count > 0 {
                 format!(r#"<span class="drunk-badge">x{}</span>"#, count)
             } else {
-                format!(
-                    r#"<button class="btn-drink-quick" data-id="{}">{}</button>"#,
-                    id,
-                    state.i18n.t("btn_drink_quick")
-                )
+                String::new()
+            };
+
+            let check_svg = if count > 0 {
+                r#"<svg class="check-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="display:inline-block; color:var(--accent-gold);"><polyline points="20 6 9 17 4 12"></polyline></svg>"#
+            } else {
+                ""
+            };
+
+            let trappist_badge = if beer.is_trappist() {
+                r#"<span class="card-trappist-badge" title="Authentic Trappist Product"><span class="trappist-logo-icon"></span></span>"#
+            } else {
+                ""
             };
 
             if is_list {
@@ -77,7 +95,7 @@ pub fn render_dex_view(state: &AppState) -> String {
                             <div class="list-brewery">{brewery} • {abv}°</div>
                         </div>
                         <div class="list-actions">
-                            <button class="{fav_class}" data-fav-id="{id}">{fav_icon}</button>
+                            <button class="{fav_class}" data-fav-id="{id}" style="background:none; border:none; cursor:pointer; font-size:1.1rem;">{fav_icon}</button>
                             {count_badge}
                         </div>
                     </div>"#,
@@ -91,34 +109,47 @@ pub fn render_dex_view(state: &AppState) -> String {
                     count_badge = count_badge
                 ));
             } else {
+                let drunk_class = if count > 0 { "drunk" } else { "" };
+                let card_class = format!(
+                    "beer-card {} card-rarity-{}",
+                    drunk_class, rarity_res.rarity
+                );
+
                 html.push_str(&format!(
-                    r#"<div class="beer-card" data-id="{id}" data-rarity="{rarity}" data-tilt>
-                        <div class="card-badges">
-                            <span class="badge badge-style">{style}</span>
-                            <span class="badge badge-abv">{abv}°</span>
-                            <button class="{fav_class}" data-fav-id="{id}">{fav_icon}</button>
+                    r#"<div class="{card_class}" data-id="{id}" data-rarity="{rarity}" data-tilt>
+                        <div class="card-badges-right">
+                            {trappist_badge}
+                            <button class="{fav_class}" data-fav-id="{id}" style="background:none; border:none; cursor:pointer; font-size:1.1rem; line-height:1;" title="Favori">{fav_icon}</button>
+                            {check_svg}
                         </div>
-                        <div class="card-img-wrap">
-                            <img src="{img_src}" onerror="this.src='images/beer/default.png'" alt="{title}" class="beer-img" loading="lazy">
+                        <div class="beer-image-container" style="width:100%; height:120px; display:flex; align-items:center; justify-content:center; overflow:hidden; margin:4px 0;">
+                            <img src="{img_src}" onerror="this.src='images/beer/default.png'" alt="{title}" class="beer-image" loading="lazy" style="max-height:115px; max-width:85px; width:auto; height:auto; object-fit:contain;">
                         </div>
-                        <div class="card-body">
+                        <div class="beer-info">
                             <h3 class="beer-title">{title}</h3>
                             <p class="beer-brewery">{brewery}</p>
+                            <div class="beer-card-stats-row">
+                                <span class="badge-pill">{style}</span>
+                                <span class="badge-pill">{abv}°</span>
+                            </div>
                         </div>
                         <div class="card-footer">
-                            <span class="rarity-tag rarity-{rarity}">{rarity_label}</span>
+                            <span class="rarity-badge rarity-{rarity}">{rarity_label}</span>
                             {count_badge}
                         </div>
                     </div>"#,
+                    card_class = card_class,
                     id = id,
                     rarity = rarity_res.rarity,
-                    style = beer.beer_type,
-                    abv = beer.parsed_abv(),
+                    trappist_badge = trappist_badge,
                     fav_class = fav_class,
                     fav_icon = fav_icon,
+                    check_svg = check_svg,
                     img_src = img_src,
                     title = beer.title,
                     brewery = beer.brewery,
+                    style = beer.beer_type,
+                    abv = beer.parsed_abv(),
                     rarity_label = rarity_res.rarity.to_uppercase(),
                     count_badge = count_badge
                 ));

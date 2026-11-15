@@ -1,6 +1,10 @@
+pub mod beerpedia;
 pub mod dex;
+pub mod filter_modal;
 pub mod header;
+pub mod history;
 pub mod modal;
 pub mod navbar;
+pub mod poster;
 pub mod settings;
 pub mod stats;

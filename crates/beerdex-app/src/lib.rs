@@ -13,23 +13,12 @@ pub fn render_app_shell(state: &AppState) -> String {
     let nav_html = views::navbar::render_navbar(state);
 
     let view_content = match state.view {
-        AppView::Home | AppView::Drunk => views::dex::render_dex_view(state),
+        AppView::Home => views::dex::render_dex_view(state),
+        AppView::Drunk => views::history::render_history_view(state),
         AppView::Stats => views::stats::render_stats_view(state),
+        AppView::Beerpedia => views::beerpedia::render_beerpedia_view(state),
         AppView::Settings => views::settings::render_settings_view(state),
-        AppView::Beerpedia => {
-            r#"<div class="beerpedia-container" style="text-align: center; padding: 40px;">
-                <h2>📚 Beerpedia</h2>
-                <p>L'encyclopédie interactive zythologique.</p>
-            </div>"#
-                .to_string()
-        }
-        AppView::Poster => {
-            r#"<div class="poster-container" style="text-align: center; padding: 40px;">
-                <h2>🖼️ Générateur de Posters</h2>
-                <p>Exportation haute définition de votre collection.</p>
-            </div>"#
-                .to_string()
-        }
+        AppView::Poster => views::poster::render_poster_view(state),
     };
 
     let modal_html = if let Some(ref beer) = state.selected_beer {
@@ -38,19 +27,42 @@ pub fn render_app_shell(state: &AppState) -> String {
         String::new()
     };
 
+    let filter_modal_html = if state.show_filter_modal {
+        views::filter_modal::render_filter_modal(state)
+    } else {
+        String::new()
+    };
+
+    let search_bar_class = if state.search_active || !state.search_query.is_empty() {
+        "search-bar"
+    } else {
+        "search-bar hidden"
+    };
+
     format!(
-        r#"<div id="app">
-            {header}
-            <main id="main-content" class="scroll-container">
-                {content}
-            </main>
-            {nav}
-            {modal}
-        </div>"#,
+        r#"{header}
+        <div id="search-bar" class="{search_bar_class}">
+            <input type="text" id="search-input" value="{search_query}" placeholder="Rechercher une bière..." autocomplete="off">
+            <button type="button" id="search-close" class="icon-btn" aria-label="Fermer la recherche">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <main id="main-content" class="scroll-container">
+            {content}
+        </main>
+        {nav}
+        {modal}
+        {filter_modal}"#,
         header = header_html,
+        search_bar_class = search_bar_class,
+        search_query = state.search_query,
         content = view_content,
         nav = nav_html,
-        modal = modal_html
+        modal = modal_html,
+        filter_modal = filter_modal_html
     )
 }
 
