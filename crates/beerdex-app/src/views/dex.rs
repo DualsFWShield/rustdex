@@ -8,25 +8,39 @@ pub fn render_dex_view(state: &AppState) -> String {
 
     let mut html = String::with_capacity(beers.len() * 400 + 100);
 
-    // BAC Home Widget
+    // BAC Home Widget (Always displayed on Dex home, matching beerdex.be)
     let bac = state.current_bac();
-    if bac > 0.05 {
-        let gamer_stats = state.current_gamer_stats();
-        let bac_str = format!("{:.2}", bac);
-        html.push_str(&format!(
-            r#"<div class="bac-widget-home" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover)); border-left: 5px solid {color}; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color);">
-                <div>
-                    <div style="font-size: 0.75rem; color: #aaa; text-transform: uppercase; font-weight: bold;">{title}</div>
-                    <div style="font-size: 1.1rem; font-weight: 700; color: {color};">{bac_val} g/L <span style="font-size: 0.85rem; color: #bbb;">({rank})</span></div>
+    let (status_text, color) = if bac < 0.2 {
+        ("Sobre", "#4CAF50")
+    } else if bac < 0.5 {
+        ("Euphorie", "#8BC34A")
+    } else if bac < 0.8 {
+        ("Légère ivresse", "#FF9800")
+    } else {
+        ("Ébriété", "#F44336")
+    };
+    let expired_air = bac / 2.0;
+
+    html.push_str(&format!(
+        r#"<div class="bac-widget-home" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover)); border-left: 5px solid {color}; padding: 15px; border-radius: 12px; margin: 0 0 20px 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 16px rgba(0,0,0,0.5); border: 1px solid var(--border-color); border-left: 5px solid {color};">
+            <div>
+                <div style="font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; font-weight: bold;">ALCOOLÉMIE SPÉCULATIVE</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: {color}; text-shadow: 0 0 10px {color}44;">
+                    {status} <span style="font-size: 0.9rem; color: #fff; font-weight: normal; margin-left: 5px;">({bac:.2} g/l)</span>
                 </div>
-                <div style="font-size: 1.3rem;">🍺</div>
-            </div>"#,
-            color = gamer_stats.rank_color,
-            title = state.i18n.t("bac_speculative_title"),
-            bac_val = bac_str,
-            rank = state.i18n.t(gamer_stats.rank_key)
-        ));
-    }
+                <div style="font-size: 0.75rem; color: #888; margin-top: 5px;">
+                    Air expiré: <span style="color: {color}; font-weight: bold;">{expired_air:.2}</span> mg/l
+                </div>
+            </div>
+            <div style="background: {color}22; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {color}44;">
+                <span style="font-size: 1.2rem;">🩸</span>
+            </div>
+        </div>"#,
+        color = color,
+        status = status_text,
+        bac = bac,
+        expired_air = expired_air
+    ));
 
     html.push_str(&format!(r#"<div class="{}">"#, container_class));
 

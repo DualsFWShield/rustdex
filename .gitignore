@@ -79,4 +79,12 @@ bd-mobile/*.zip
 bd-mobile/*.pem
 base64_keystore.txt
 .playwright-mcp/
+.gemini/
+*.tar.gz
+*.zip
+*.7z
+android/.gradle/
+android/app/build/
+android/captures/
+
 

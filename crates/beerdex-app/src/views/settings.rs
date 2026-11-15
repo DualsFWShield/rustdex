@@ -159,15 +159,61 @@ pub fn render_settings_view(state: &AppState) -> String {
         .t_or("settings_group_system_support", "🛠️ Système & Support");
 
     format!(
-        r#"<div class="settings-container">
-            <h2 class="settings-title">⚙️ {t_title}</h2>
+        r#"<style>
+            .setting-group {{ margin-bottom: 25px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            .setting-group h4 {{ font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent-gold); margin: 0; padding: 12px 16px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }}
+            .setting-row {{ display: flex; justify-content: space-between; align-items: center; padding: 16px; background: transparent; border: none; border-bottom: 1px solid rgba(255, 255, 255, 0.05); margin: 0; transition: background 0.2s; }}
+            .setting-row:last-child {{ border-bottom: none; }}
+            .setting-row:hover {{ background: rgba(255, 255, 255, 0.02); }}
+            .setting-info {{ text-align: left; flex: 1; padding-right: 15px; }}
+            .setting-title {{ color: #fff; display: block; margin-bottom: 4px; font-weight: 500; font-size: 1rem; }}
+            .setting-desc {{ font-size: 0.8rem; color: #aaa; line-height: 1.4; display: block; }}
+            .setting-action {{ display: flex; align-items: center; justify-content: flex-end; min-width: 100px; }}
+            .setting-action select {{ background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; margin: 0; }}
+            .setting-btn {{ background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; text-align: center; width: 100%; }}
+            .setting-btn:hover {{ background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }}
+            .setting-btn.danger {{ color: #ff3b30; border-color: rgba(255, 59, 48, 0.3); background: rgba(255, 59, 48, 0.1); }}
+            .setting-btn.danger:hover {{ background: rgba(255, 59, 48, 0.2); }}
+            .setting-btn.primary {{ color: #000; background: var(--accent-gold); border: none; font-weight: 600; }}
+            .setting-btn.primary:hover {{ background: #ffca28; }}
+            input[type="checkbox"].toggle-switch {{
+                appearance: none;
+                -webkit-appearance: none;
+                width: 46px;
+                height: 26px;
+                background: rgba(255, 255, 255, 0.15);
+                border-radius: 13px;
+                position: relative;
+                outline: none;
+                cursor: pointer;
+                transition: background 0.3s;
+                margin: 0;
+                flex-shrink: 0;
+            }}
+            input[type="checkbox"].toggle-switch::after {{
+                content: '';
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: 22px;
+                height: 22px;
+                background: #fff;
+                border-radius: 50%;
+                transition: transform 0.3s;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }}
+            input[type="checkbox"].toggle-switch:checked {{ background: var(--accent-gold); }}
+            input[type="checkbox"].toggle-switch:checked::after {{ transform: translateX(20px); }}
+        </style>
+        <div class="settings-container" style="max-width: 600px; margin: 0 auto; width: 100%; padding: 20px 10px;">
+            <h2 class="settings-title" style="font-family:'Russo One'; color:var(--accent-gold); text-align:center; margin-bottom:20px;">⚙️ {t_title}</h2>
 
             <!-- 1. Interface & Apparence -->
-            <div class="settings-group" data-group="interface">
+            <div class="setting-group" data-group="interface">
                 <h4 class="settings-group-header">{grp1_title}</h4>
 
                 <!-- Langue -->
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">{lbl_lang}</span>
                         <span class="setting-desc">{desc_lang}</span>
@@ -181,7 +227,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                 </div>
 
                 <!-- Thèmes Prédéfinis -->
-                <div class="settings-row" style="flex-direction: column; align-items: stretch;">
+                <div class="setting-row" style="flex-direction: column; align-items: stretch;">
                     <div class="setting-info" style="margin-bottom: 8px;">
                         <span class="setting-title">Thème & Couleurs</span>
                         <span class="setting-desc">Personnalisez l'ambiance visuelle du Beerdex</span>
@@ -195,7 +241,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                 </div>
 
                 <!-- Police d'écriture -->
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Police d'écriture</span>
                         <span class="setting-desc">Typographie principale de l'application</span>
@@ -210,7 +256,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                 </div>
 
                 <!-- Mode Découverte -->
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Mode Découverte</span>
                         <span class="setting-desc">Affiche des anecdotes et faits historiques zythologiques</span>
@@ -221,7 +267,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                 </div>
 
                 <!-- Mode Musée -->
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Mode Musée (Expérience 3D)</span>
                         <span class="setting-desc">Rideaux d'ouverture dorés et présentoirs prestige</span>
@@ -232,7 +278,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                 </div>
 
                 <!-- Presets de notation -->
-                <div class="settings-row" style="flex-direction: column; align-items: stretch;">
+                <div class="setting-row" style="flex-direction: column; align-items: stretch;">
                     <div class="setting-info" style="margin-bottom: 8px;">
                         <span class="setting-title">Grille de notation des bières</span>
                         <span class="setting-desc">Barème de dégustation personnalisé</span>
@@ -246,10 +292,10 @@ pub fn render_settings_view(state: &AppState) -> String {
             </div>
 
             <!-- 2. Fonctionnalités & Immersion -->
-            <div class="settings-group" data-group="features">
+            <div class="setting-group" data-group="features">
                 <h4 class="settings-group-header">{grp2_title}</h4>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Afficher la carte (Map)</span>
                         <span class="setting-desc">Cartographie interactive mondiale de vos bières dégustées</span>
@@ -259,7 +305,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Assistant IA BrewBrother</span>
                         <span class="setting-desc">Suggestions intelligentes et calcul d'affinités aromatiques</span>
@@ -269,7 +315,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Carte par défaut</span>
                         <span class="setting-desc">Région prioritaire pour la navigation géographique</span>
@@ -286,7 +332,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Rappels & Notifications</span>
                         <span class="setting-desc">Signalement des bières non notées ou consommations doublons</span>
@@ -296,7 +342,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Équivalences alcool</span>
                         <span class="setting-desc">Conversion en verres standards (vin, shots, baignoires)</span>
@@ -307,7 +353,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                 </div>
 
                 <!-- Beer Party & P2P -->
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Beer Party (Peer-to-Peer Chiffré)</span>
                         <span class="setting-desc">Salons de dégustation en direct sans aucun serveur tiers</span>
@@ -317,7 +363,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row" style="background: rgba(255, 192, 0, 0.04); border-left: 3px solid var(--accent-gold);">
+                <div class="setting-row" style="background: rgba(255, 192, 0, 0.04); border-left: 3px solid var(--accent-gold);">
                     <div class="setting-info">
                         <span class="setting-title">Pseudo Beer Party</span>
                         <span class="setting-desc">Votre nom affiché lors des sessions de groupe</span>
@@ -328,7 +374,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Beerdex Wrapped</span>
                         <span class="setting-desc">Bilan annuel immersif et visualisations de votre collection</span>
@@ -338,7 +384,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Effets sonores</span>
                         <span class="setting-desc">Sons de décapsulage et tintements lors des interactions</span>
@@ -348,7 +394,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Vibrations haptiques</span>
                         <span class="setting-desc">Retours tactiles lors de l'ajout de dégustations</span>
@@ -360,10 +406,10 @@ pub fn render_settings_view(state: &AppState) -> String {
             </div>
 
             <!-- 3. Suivi & Statistiques -->
-            <div class="settings-group" data-group="stats">
+            <div class="setting-group" data-group="stats">
                 <h4 class="settings-group-header">{grp3_title}</h4>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Calculateur d'Alcoolémie (BAC)</span>
                         <span class="setting-desc">Simulation physiologique selon la formule de Widmark</span>
@@ -373,7 +419,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Profil Physique</span>
                         <span class="setting-desc">Poids corporel et métabolisme pour le calcul</span>
@@ -388,7 +434,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Réglementation & Conduite</span>
                         <span class="setting-desc">Seuil légal d'alcoolémie pour la reprise du volant</span>
@@ -404,7 +450,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Cacher la rareté non découverte (Anti-Spoil)</span>
                         <span class="setting-desc">Garder la surprise jusqu'à la première dégustation</span>
@@ -414,7 +460,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Animation de rareté une seule fois</span>
                         <span class="setting-desc">Évite la répétition des effets sur les cartes récurrentes</span>
@@ -424,7 +470,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row" style="flex-direction:column; align-items:stretch;">
+                <div class="setting-row" style="flex-direction:column; align-items:stretch;">
                     <div class="setting-info" style="margin-bottom:8px;">
                         <span class="setting-title">Badges affichés sur les cartes</span>
                         <span class="setting-desc">Informations rapides visibles dans la grille</span>
@@ -447,40 +493,40 @@ pub fn render_settings_view(state: &AppState) -> String {
             </div>
 
             <!-- 4. Données & Sauvegarde -->
-            <div class="settings-group" data-group="data">
+            <div class="setting-group" data-group="data">
                 <h4 class="settings-group-header">{grp4_title}</h4>
 
-                <div class="settings-row" style="flex-direction:column; align-items:stretch;">
+                <div class="setting-row" style="flex-direction:column; align-items:stretch;">
                     <div class="setting-info" style="margin-bottom:10px;">
                         <span class="setting-title">Gestion de vos données</span>
                         <span class="setting-desc">Vos notes, dégustations et favoris sont chiffrés localement</span>
                     </div>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                        <button id="btn-manage-export" class="btn-primary">💾 Exporter Sauvegarde (JSON)</button>
-                        <button id="btn-manage-import" class="btn-secondary">📥 Importer Sauvegarde</button>
+                        <button id="btn-manage-export" class="setting-btn primary">💾 Exporter Sauvegarde (JSON)</button>
+                        <button id="btn-manage-import" class="setting-btn">📥 Importer Sauvegarde</button>
                     </div>
                 </div>
 
-                <div class="settings-row" style="flex-direction:column; align-items:stretch;">
+                <div class="setting-row" style="flex-direction:column; align-items:stretch;">
                     <div class="setting-info" style="margin-bottom:10px;">
                         <span class="setting-title" style="color:#ff5252;">Zone de Danger</span>
                         <span class="setting-desc">Opérations de suppression irréversibles</span>
                     </div>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
-                        <button id="btn-reset-ratings" class="btn-danger">Effacer les notes</button>
-                        <button id="btn-reset-history" class="btn-danger">Effacer l'historique</button>
-                        <button id="btn-reset-fav" class="btn-danger">Effacer les favoris</button>
-                        <button id="btn-reset-custom" class="btn-danger">Effacer bières perso</button>
+                        <button id="btn-reset-ratings" class="setting-btn danger">Effacer les notes</button>
+                        <button id="btn-reset-history" class="setting-btn danger">Effacer l'historique</button>
+                        <button id="btn-reset-fav" class="setting-btn danger">Effacer les favoris</button>
+                        <button id="btn-reset-custom" class="setting-btn danger">Effacer bières perso</button>
                     </div>
-                    <button id="btn-reset-app" class="btn-danger" style="background:#b71c1c; color:#fff; font-weight:bold;">🔥 Tout Réinitialiser à Zéro</button>
+                    <button id="btn-reset-app" class="setting-btn danger" style="background:#b71c1c; color:#fff; font-weight:bold;">🔥 Tout Réinitialiser à Zéro</button>
                 </div>
             </div>
 
             <!-- 5. Système, Support & Crédits -->
-            <div class="settings-group" data-group="system">
+            <div class="setting-group" data-group="system">
                 <h4 class="settings-group-header">{grp5_title}</h4>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Vérifier les mises à jour</span>
                         <span class="setting-desc">Version installée : Beerdex Native v5.1.0</span>
@@ -490,7 +536,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Nettoyeur de doublons (Deduplicator Thanos)</span>
                         <span class="setting-desc">Fusion intelligente des variantes et bières créées</span>
@@ -500,7 +546,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row">
+                <div class="setting-row">
                     <div class="setting-info">
                         <span class="setting-title">Diagnostic & Intégrité</span>
                         <span class="setting-desc">Journal des tests, mémoire et statut WebAssembly</span>
@@ -510,7 +556,7 @@ pub fn render_settings_view(state: &AppState) -> String {
                     </div>
                 </div>
 
-                <div class="settings-row" style="flex-direction:column; align-items:center; text-align:center; padding-top:20px; border-top:1px solid #2d2d2d;">
+                <div class="setting-row" style="flex-direction:column; align-items:center; text-align:center; padding-top:20px; border-top:1px solid #2d2d2d;">
                     <div style="font-size:0.8rem; color:var(--accent-gold); font-weight:bold; letter-spacing:1px; margin-bottom:4px;">FONDATEURS & AUTEURS</div>
                     <div style="font-size:0.9rem; color:#fff; margin-bottom:12px;">Dorian Storms, Noah Bruijninckx, Tristan Storms & Maxance Veulemans</div>
                     <div style="font-size:0.75rem; color:#888;">Design & Code natif : <strong>Noah Bruijninckx</strong></div>

@@ -87,9 +87,9 @@ function setupEventListeners() {
         }
 
         // Theme Preset selection
-        const themeBtn = event.target.closest('[data-theme]');
-        if (themeBtn && !themeBtn.classList.contains('nav-item')) {
-            const theme = themeBtn.getAttribute('data-theme');
+        const themeBtn = event.target.closest('button[data-set-theme], .theme-preset-btn[data-theme]');
+        if (themeBtn) {
+            const theme = themeBtn.getAttribute('data-set-theme') || themeBtn.getAttribute('data-theme');
             beerdex_set_theme(theme);
             return;
         }
@@ -129,14 +129,21 @@ function setupEventListeners() {
         }
 
         // Drink from modal
-        const mainDrinkBtn = event.target.closest('.btn-drink-main');
+        const mainDrinkBtn = event.target.closest('#btn-drink, .btn-drink-main');
         if (mainDrinkBtn) {
             const id = mainDrinkBtn.getAttribute('data-id');
-            const activeVolBtn = document.querySelector('.btn-vol.active');
+            const activeVolBtn = document.querySelector('.vol-btn.active, .btn-vol.active');
             const volStr = activeVolBtn ? activeVolBtn.getAttribute('data-vol') : '33cl';
-            const volMl = volStr === '25cl' ? 250 : volStr === '50cl' ? 500 : 330;
+            const volMl = volStr === '15cl' ? 150 : volStr === '25cl' ? 250 : volStr === '50cl' ? 500 : volStr === '75cl' ? 750 : volStr === '150cl' ? 1500 : 330;
             beerdex_log_drink(id, volMl);
             if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+            beerdex_close_modal();
+            return;
+        }
+
+        // Cancel / Undrink from modal
+        const undrinkBtn = event.target.closest('#btn-undrink');
+        if (undrinkBtn) {
             beerdex_close_modal();
             return;
         }
@@ -155,9 +162,22 @@ function setupEventListeners() {
         }
 
         // Volume Selector inside modal
-        const volBtn = event.target.closest('.btn-vol');
+        const volBtn = event.target.closest('.vol-btn, .btn-vol');
         if (volBtn) {
-            document.querySelectorAll('.btn-vol').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.vol-btn, .btn-vol').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'var(--bg-dark, #0a0a0a)';
+                b.style.color = '#fff';
+                b.style.borderColor = '#444';
+                b.style.fontWeight = 'normal';
+            });
+            volBtn.classList.add('active');
+            volBtn.style.background = 'var(--accent-gold)';
+            volBtn.style.color = '#000';
+            volBtn.style.borderColor = 'var(--accent-gold)';
+            volBtn.style.fontWeight = 'bold';
+            return;
+        }
             volBtn.classList.add('active');
             return;
         }
@@ -247,7 +267,7 @@ function setupEventListeners() {
         }
 
         // Modal close
-        if (event.target.closest('#modal-close-btn, #filter-modal-close-btn') || event.target.id === 'beer-detail-modal') {
+        if (event.target.closest('#modal-close-btn, #btn-close-modal, .modal-close, #filter-modal-close-btn') || event.target.id === 'beer-detail-modal') {
             beerdex_close_modal();
             return;
         }
