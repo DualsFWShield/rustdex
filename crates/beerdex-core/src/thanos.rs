@@ -383,11 +383,7 @@ pub fn has_variant_conflict(a: &Beer, b: &Beer) -> bool {
         .filter_map(|t| var_set.get(t.as_str()).copied())
         .collect();
 
-    if !vars_a.is_empty() && !vars_b.is_empty() && vars_a != vars_b {
-        return true;
-    }
-
-    false
+    !vars_a.is_empty() && !vars_b.is_empty() && vars_a != vars_b
 }
 
 pub fn has_number_conflict(a: &Beer, b: &Beer) -> bool {
@@ -413,12 +409,10 @@ pub fn has_number_conflict(a: &Beer, b: &Beer) -> bool {
 
     if !nums_a.is_empty() && !nums_b.is_empty() {
         let set_b: HashSet<u32> = nums_b.into_iter().collect();
-        if !nums_a.iter().any(|n| set_b.contains(n)) {
-            return true;
-        }
+        !nums_a.iter().any(|n| set_b.contains(n))
+    } else {
+        false
     }
-
-    false
 }
 
 pub fn match_beers(a: &Beer, b: &Beer) -> MatchResult {
