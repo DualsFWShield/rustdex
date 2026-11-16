@@ -24,7 +24,7 @@ impl EmbeddedCatalogs {
     pub const NLP_FR: &'static str = include_str!("../../../data/locales/nlp_fr.json");
     pub const NLP_EN: &'static str = include_str!("../../../data/locales/nlp_en.json");
     pub const EVENTS_CONFIG: &'static str = include_str!("../../../event/events-config.json");
-    pub const THANOS_ALIASES: &'static str = "{}";
+    pub const THANOS_ALIASES: &'static str = include_str!("../../../data/thanos_aliases.json");
 
     /// Instantiates and populates the complete official database.
     pub fn load_database() -> Result<BeerDatabase, serde_json::Error> {

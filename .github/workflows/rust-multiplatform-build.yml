@@ -1,4 +1,4 @@
-name: Beerdex Rust Multiplatform CI/CD
+name: Beerdex Multiplatform CI/CD
 
 on:
   push:
@@ -28,10 +28,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install Linux GUI Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
 
       - name: Cargo Cache
         uses: actions/cache@v4
@@ -51,8 +57,11 @@ jobs:
       - name: Clippy Linter Check
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Run Core Test Suite
-        run: cargo test --workspace --verbose
+      - name: Run Core & Platform Unit Tests
+        run: cargo test -p beerdex-core -p beerdex-platform --verbose
+
+      - name: Check wasm32 Target Compilation
+        run: cargo check -p beerdex-core -p beerdex-platform --target wasm32-unknown-unknown
 
   # -------------------------------------------------------------
   # 2. WEB & PWA BUILD
@@ -65,24 +74,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Rust Toolchain (WASM)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Install Wasm-Bindgen CLI
-        run: |
-          cargo install wasm-bindgen-cli --version 0.2.130 --locked || cargo install wasm-bindgen-cli --locked
-
-      - name: Build Web / WASM Release
+      - name: Package Web PWA Release
         run: |
           mkdir -p dist
-          cargo build --release --target wasm32-unknown-unknown -p beerdex-app --lib
-          wasm-bindgen target/wasm32-unknown-unknown/release/beerdex_app.wasm --out-dir dist/wasm --target web
-          cp -r css data icons images js index.html manifest.webmanifest sw.js offline.html CNAME style.css style-museum.css dist/ 2>/dev/null || true
-
-      - name: Package Web PWA Artifact
-        run: |
+          cp -r css data event icons images js tests index.html manifest.webmanifest sw.js offline.html poster-classic.html poster-museum.html identity.html CNAME style.css style-museum.css dist/
           cd dist && zip -r ../beerdex-web-pwa.zip . && cd ..
 
       - name: Upload Web PWA Release Artifact
@@ -141,13 +136,15 @@ jobs:
 
       - name: Build Windows Executable
         run: |
-          cargo build --release --workspace
+          cargo build --release -p beerdex-app
 
-      - name: Package Windows Binary
+      - name: Package Windows Binary & Standalone Bundle
         shell: pwsh
         run: |
           mkdir bin-windows
-          Get-ChildItem -Path target/release/*.exe | Copy-Item -Destination bin-windows/
+          Copy-Item -Path target/release/beerdex-app.exe -Destination bin-windows/
+          Copy-Item -Path index.html, style.css, style-museum.css, offline.html, poster-classic.html, poster-museum.html, identity.html, manifest.webmanifest -Destination bin-windows/
+          Copy-Item -Path css, data, event, icons, images, js, tests -Destination bin-windows/ -Recurse
           Compress-Archive -Path bin-windows/* -DestinationPath beerdex-windows-x64.zip
 
       - name: Upload Windows Artifact
@@ -160,7 +157,7 @@ jobs:
   # 4. LINUX NATIVE BUILD
   # -------------------------------------------------------------
   build-linux:
-    name: Build Linux Native (.deb / Tarball)
+    name: Build Linux Native (.tar.gz)
     needs: check-core
     runs-on: ubuntu-latest
     steps:
@@ -179,12 +176,13 @@ jobs:
 
       - name: Build Linux Executable
         run: |
-          cargo build --release --workspace
+          cargo build --release -p beerdex-app
 
-      - name: Package Linux Binary
+      - name: Package Linux Binary & Standalone Bundle
         run: |
           mkdir -p bin-linux
-          find target/release -maxdepth 1 -type f -executable -exec cp {} bin-linux/ \;
+          cp target/release/beerdex-app bin-linux/
+          cp -r css data event icons images js tests index.html style.css style-museum.css offline.html poster-classic.html poster-museum.html identity.html manifest.webmanifest bin-linux/
           tar -czvf beerdex-linux-x64.tar.gz -C bin-linux .
 
       - name: Upload Linux Artifact
@@ -216,20 +214,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Setup Rust Toolchain (WASM for Web Engine)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Install Wasm-Bindgen CLI
-        run: |
-          cargo install wasm-bindgen-cli --version 0.2.130 --locked || cargo install wasm-bindgen-cli --locked
-
-      - name: Build Web / WASM Release for Android
-        run: |
-          cargo build --release --target wasm32-unknown-unknown -p beerdex-app --lib
-          wasm-bindgen target/wasm32-unknown-unknown/release/beerdex_app.wasm --out-dir wasm --target web
 
       - name: Auto-Increment Version Code
         run: |

@@ -28,15 +28,13 @@ fi
 # Auto-detect Android SDK if not set
 if [ -z "$ANDROID_HOME" ]; then
     COMMON_SDK_PATHS=(
-        "$ANDROID_SDK_ROOT"
-        "/usr/local/lib/android/sdk"
         "/var/home/linuxbrew/.linuxbrew/share/android-commandlinetools"
         "$HOME/Android/Sdk"
         "$HOME/.android-sdk"
         "/usr/lib/android-sdk"
     )
     for path in "${COMMON_SDK_PATHS[@]}"; do
-        if [ -n "$path" ] && [ -d "$path" ]; then
+        if [ -d "$path" ]; then
             export ANDROID_HOME="$path"
             echo "📍 Auto-detected Android SDK at: $ANDROID_HOME"
             break
@@ -113,24 +111,16 @@ build_variant() {
 # --- Execution Matrix ---
 
 # 1. Play Store Online (AAB + APK)
-if [ -d "$ROOT_DIR/bd-mobile/play-store-online" ]; then
-    build_variant "play-store-online" "playstore-online" true true
-fi
+build_variant "play-store-online" "playstore-online" true true
 
 # 2. Play Store Offline (AAB + APK)
-if [ -d "$ROOT_DIR/bd-mobile/play-store-offline" ]; then
-    build_variant "play-store-offline" "playstore-offline" true true
-fi
+build_variant "play-store-offline" "playstore-offline" true true
 
 # 3. GitHub Online (APK Only)
-if [ -d "$ROOT_DIR/bd-mobile/github-online" ]; then
-    build_variant "github-online" "github-online" false true
-fi
+build_variant "github-online" "github-online" false true
 
 # 4. GitHub Offline (APK Only)
-if [ -d "$ROOT_DIR/bd-mobile/github-offline" ]; then
-    build_variant "github-offline" "github-offline" false true
-fi
+build_variant "github-offline" "github-offline" false true
 
 echo "=================================================="
 echo "🎉 ALL BUILDS COMPLETED SUCCESSFULLY!"

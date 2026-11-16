@@ -8,7 +8,7 @@ description = "Core domain logic and data models for Beerdex (Pokédex of beers)
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "alloc", "now"] }
 strsim = "0.11"
 
 [dev-dependencies]

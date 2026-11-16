@@ -1,8 +1,5 @@
-const CACHE_NAME = 'Beerdex-v5.1.2-rust'; // v5.1.2 Pure Rust Multiplatform Engine
+const CACHE_NAME = 'Beerdex-v5.0.6'; // v5.0.6 Trappist badges, new abbeys & achievements
 const ASSETS = [
-    './wasm/beerdex_app.js',
-    './wasm/beerdex_app_bg.wasm',
-    './js/rust-bridge.js',
     './images/Authentic_trappist_product_logo.svg',
     './index.html',
     './style.css',

@@ -1,13 +1,28 @@
 use crate::models::{BacRule, Beer, Brewery};
+use serde::{Deserialize, Serialize};
 use serde_json::Error;
 use std::collections::{HashMap, HashSet};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ThanosAliasValue {
+    String(String),
+    Object {
+        #[serde(rename = "targetId", default)]
+        target_id: Option<String>,
+        #[serde(rename = "targetTitle", default)]
+        target_title: Option<String>,
+        #[serde(rename = "targetBrewery", default)]
+        target_brewery: Option<String>,
+    },
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct BeerDatabase {
     pub beers: Vec<Beer>,
     pub breweries: Vec<Brewery>,
     pub bac_rules: HashMap<String, BacRule>,
-    pub thanos_aliases: HashMap<String, String>,
+    pub thanos_aliases: HashMap<String, ThanosAliasValue>,
 }
 
 impl BeerDatabase {
@@ -58,7 +73,16 @@ impl BeerDatabase {
     /// Resolves an ID via Thanos aliases if it was migrated.
     pub fn resolve_alias<'a>(&'a self, id: &'a str) -> &'a str {
         if let Some(target) = self.thanos_aliases.get(id) {
-            target.as_str()
+            match target {
+                ThanosAliasValue::String(s) => s.as_str(),
+                ThanosAliasValue::Object { target_id, .. } => {
+                    if let Some(ref tid) = target_id {
+                        tid.as_str()
+                    } else {
+                        id
+                    }
+                }
+            }
         } else {
             id
         }

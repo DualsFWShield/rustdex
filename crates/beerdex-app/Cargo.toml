@@ -3,10 +3,10 @@ name = "beerdex-app"
 version = "5.1.0"
 edition = "2021"
 authors = ["DualsFWShield"]
-description = "Universal application engine for Beerdex (Pokédex of beers)"
+description = "Native desktop application runner for Beerdex (Pokédex of beers)"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [[bin]]
 name = "beerdex-app"
@@ -17,19 +17,6 @@ beerdex-core = { path = "../beerdex-core" }
 beerdex-platform = { path = "../beerdex-platform" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2"
-web-sys = { version = "0.3", features = [
-    "Window",
-    "Document",
-    "Element",
-    "HtmlElement",
-    "HtmlHeadElement",
-    "HtmlInputElement",
-    "HtmlTextAreaElement",
-    "Event",
-    "MouseEvent",
-    "InputEvent",
-] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "alloc", "now"] }
+tao = "0.37"
+wry = "0.57"

@@ -19,7 +19,6 @@ FILES=(
     "index.html"
     "style.css"
     "style-museum.css"
-    "wasm"
     "js"
     "css"
     "data"
