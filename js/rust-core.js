@@ -1,14 +1,38 @@
 /**
- * Beerdex Rust WebAssembly Integration Bridge
- * Connects the high-performance Rust core (compiled to WebAssembly)
- * with the browser frontend for ultra-fast calculations.
+ * Beerdex Rust Multiplatform Core Integration Bridge
+ * Connects the high-performance Rust core (via Android JNI Native Library or WebAssembly)
+ * with the application frontend for zero-latency calculations.
  */
 
 let wasmInstance = null;
 let isReady = false;
 
+export function isAndroidNative() {
+    return typeof window !== 'undefined' && 
+           window.BeerdexAndroidNative && 
+           typeof window.BeerdexAndroidNative.isAvailable === 'function' &&
+           window.BeerdexAndroidNative.isAvailable();
+}
+
 export async function initRustCore() {
-    if (isReady) return wasmInstance;
+    // 1. Android Native JNI Engine (Highest Priority - Native ARM64/x86 Machine Code)
+    if (isAndroidNative()) {
+        isReady = true;
+        console.log(
+            '%c🦀 [Beerdex Rust] Android Native JNI Engine Active! Compiled ARM64/x86 Rust shared library (.so) running.',
+            'background: #28a745; color: #fff; font-weight: bold; padding: 4px 8px; border-radius: 4px;'
+        );
+
+        window.dispatchEvent(new CustomEvent('beerdex:rust-ready', {
+            detail: { version: BeerdexRust.version(), mode: 'android-jni' }
+        }));
+
+        updateUiBadge('🦀 Rust Native (Android)', 'Moteur haute performance natif ARM64 Rust (JNI) actif');
+        return window.BeerdexAndroidNative;
+    }
+
+    // 2. WebAssembly Engine (Desktop / Web / PWA / Fallback)
+    if (isReady && wasmInstance) return wasmInstance;
 
     try {
         const wasmModule = await import('../wasm/beerdex_app.js');
@@ -24,17 +48,10 @@ export async function initRustCore() {
         );
 
         window.dispatchEvent(new CustomEvent('beerdex:rust-ready', {
-            detail: { version: BeerdexRust.version() }
+            detail: { version: BeerdexRust.version(), mode: 'wasm' }
         }));
 
-        // Update UI badge if present
-        const badge = document.getElementById('rust-wasm-indicator');
-        if (badge) {
-            badge.style.display = 'inline-flex';
-            badge.textContent = '🦀 Rust WASM';
-            badge.title = 'Moteur haute performance WebAssembly actif (v5.1.0)';
-        }
-
+        updateUiBadge('🦀 Rust WASM', 'Moteur haute performance WebAssembly actif (v5.1.0)');
         return wasmInstance;
     } catch (err) {
         console.warn('[Beerdex Rust] WASM engine initialization notice (using JS fallback):', err.message);
@@ -43,12 +60,28 @@ export async function initRustCore() {
     }
 }
 
+function updateUiBadge(text, title) {
+    const badge = document.getElementById('rust-wasm-indicator');
+    if (badge) {
+        badge.style.display = 'inline-flex';
+        badge.textContent = text;
+        badge.title = title;
+    }
+    const settingsStatus = document.getElementById('settings-rust-status');
+    if (settingsStatus) {
+        settingsStatus.textContent = `Moteur de calcul natif (${BeerdexRust.version()}) : ⚡ Actif (Accélération matérielle)`;
+    }
+}
+
 export const BeerdexRust = {
     isAvailable() {
-        return isReady && wasmInstance !== null;
+        return isAndroidNative() || (isReady && wasmInstance !== null);
     },
 
     version() {
+        if (isAndroidNative()) {
+            return window.BeerdexAndroidNative.version();
+        }
         if (this.isAvailable() && typeof wasmInstance.beerdex_version === 'function') {
             return wasmInstance.beerdex_version();
         }
@@ -56,6 +89,11 @@ export const BeerdexRust = {
     },
 
     validateEan13(barcode) {
+        if (isAndroidNative()) {
+            try {
+                return window.BeerdexAndroidNative.validateEan13(barcode);
+            } catch (_) {}
+        }
         if (this.isAvailable() && typeof wasmInstance.beerdex_validate_ean13 === 'function') {
             try {
                 return wasmInstance.beerdex_validate_ean13(barcode);
@@ -82,16 +120,35 @@ export const BeerdexRust = {
     },
 
     calculateBac(weight, isFemale, age, history, nowMs) {
+        const historyJson = JSON.stringify(history || []);
+        const now = nowMs || Date.now();
+
+        if (isAndroidNative()) {
+            try {
+                return window.BeerdexAndroidNative.calculateBac(weight, !!isFemale, age || 25, historyJson, now);
+            } catch (_) {}
+        }
         if (this.isAvailable() && typeof wasmInstance.beerdex_calculate_bac === 'function') {
             try {
-                const historyJson = JSON.stringify(history || []);
-                return wasmInstance.beerdex_calculate_bac(weight, isFemale, age || 25, historyJson, nowMs || Date.now());
+                return wasmInstance.beerdex_calculate_bac(weight, isFemale, age || 25, historyJson, now);
             } catch (_) {}
         }
         return null;
     },
 
     calculateRarity(country, style, abv, distribution, barrelAged, ingredients) {
+        if (isAndroidNative()) {
+            try {
+                return window.BeerdexAndroidNative.calculateRarity(
+                    country || '',
+                    style || '',
+                    abv || 5.0,
+                    distribution || '',
+                    !!barrelAged,
+                    ingredients || ''
+                );
+            } catch (_) {}
+        }
         if (this.isAvailable() && typeof wasmInstance.beerdex_calculate_rarity === 'function') {
             try {
                 return wasmInstance.beerdex_calculate_rarity(
@@ -108,6 +165,11 @@ export const BeerdexRust = {
     },
 
     compressLz(text) {
+        if (isAndroidNative()) {
+            try {
+                return window.BeerdexAndroidNative.compressLz(text);
+            } catch (_) {}
+        }
         if (this.isAvailable() && typeof wasmInstance.beerdex_compress_lz === 'function') {
             try {
                 return wasmInstance.beerdex_compress_lz(text);
@@ -120,6 +182,11 @@ export const BeerdexRust = {
     },
 
     decompressLz(text) {
+        if (isAndroidNative()) {
+            try {
+                return window.BeerdexAndroidNative.decompressLz(text);
+            } catch (_) {}
+        }
         if (this.isAvailable() && typeof wasmInstance.beerdex_decompress_lz === 'function') {
             try {
                 const res = wasmInstance.beerdex_decompress_lz(text);
@@ -133,6 +200,12 @@ export const BeerdexRust = {
     },
 
     generateQrSvg(text, sizePx = 256) {
+        if (isAndroidNative()) {
+            try {
+                const svg = window.BeerdexAndroidNative.generateQrSvg(text, sizePx);
+                if (svg && svg.length > 0) return svg;
+            } catch (_) {}
+        }
         if (this.isAvailable() && typeof wasmInstance.beerdex_generate_qr_svg === 'function') {
             try {
                 return wasmInstance.beerdex_generate_qr_svg(text, sizePx);
@@ -182,10 +255,11 @@ export const BeerdexRust = {
     }
 };
 
-// Auto-initialize on import
-initRustCore().catch(() => {});
-
-// Global export for developer console & tests
+// Auto-initialize on startup
 if (typeof window !== 'undefined') {
     window.BeerdexRust = BeerdexRust;
+    window.addEventListener('DOMContentLoaded', () => {
+        initRustCore().catch(() => {});
+    });
 }
+initRustCore().catch(() => {});

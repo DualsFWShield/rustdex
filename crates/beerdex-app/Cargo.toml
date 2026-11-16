@@ -6,6 +6,7 @@ authors = ["DualsFWShield"]
 description = "Universal application engine for Beerdex (Pokédex of beers)"
 
 [lib]
+name = "rustdex"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
@@ -22,6 +23,9 @@ chrono = { version = "0.4", default-features = false, features = ["serde", "allo
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tao = "0.37"
 wry = "0.57"
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

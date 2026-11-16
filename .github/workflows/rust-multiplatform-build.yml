@@ -85,8 +85,9 @@ jobs:
 
       - name: Build Web / WASM Release
         run: |
+          mkdir -p dist
           cargo build --release --target wasm32-unknown-unknown -p beerdex-app --lib
-          wasm-bindgen target/wasm32-unknown-unknown/release/beerdex_app.wasm --out-dir wasm --target web
+          wasm-bindgen target/wasm32-unknown-unknown/release/rustdex.wasm --out-dir wasm --target web || wasm-bindgen target/wasm32-unknown-unknown/release/beerdex_app.wasm --out-dir wasm --target web
 
       - name: Package Web PWA Release
         run: |
@@ -124,7 +125,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   # -------------------------------------------------------------
-  # 3. WINDOWS NATIVE BUILD
+  # 3. WINDOWS NATIVE BUILD (STANDALONE SINGLE .EXE)
   # -------------------------------------------------------------
   build-windows:
     name: Build Windows Native (.exe)
@@ -148,27 +149,29 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-win-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build Windows Executable
+      - name: Build Windows Standalone Executable
         run: |
           cargo build --release -p beerdex-app
 
-      - name: Package Windows Binary & Standalone Bundle
+      - name: Package Windows Single Executable
         shell: pwsh
         run: |
+          # Copy standalone binary (all assets, data & wasm are compiled directly inside)
+          Copy-Item -Path target/release/beerdex-app.exe -Destination beerdex-windows-x64.exe
           mkdir bin-windows
-          Copy-Item -Path target/release/beerdex-app.exe -Destination bin-windows/
-          Copy-Item -Path index.html, style.css, style-museum.css, offline.html, poster-classic.html, poster-museum.html, identity.html, manifest.webmanifest -Destination bin-windows/
-          Copy-Item -Path css, data, event, icons, images, js, tests, wasm -Destination bin-windows/ -Recurse
-          Compress-Archive -Path bin-windows/* -DestinationPath beerdex-windows-x64.zip
+          Copy-Item -Path target/release/beerdex-app.exe -Destination bin-windows/beerdex.exe
+          Compress-Archive -Path bin-windows/beerdex.exe -DestinationPath beerdex-windows-x64.zip
 
-      - name: Upload Windows Artifact
+      - name: Upload Windows Standalone Binary
         uses: actions/upload-artifact@v4
         with:
           name: beerdex-windows-x64
-          path: beerdex-windows-x64.zip
+          path: |
+            beerdex-windows-x64.exe
+            beerdex-windows-x64.zip
 
   # -------------------------------------------------------------
-  # 4. LINUX NATIVE BUILD
+  # 4. LINUX NATIVE BUILD (STANDALONE SINGLE BINARY)
   # -------------------------------------------------------------
   build-linux:
     name: Build Linux Native (.tar.gz)
@@ -188,25 +191,27 @@ jobs:
         with:
           targets: x86_64-unknown-linux-gnu
 
-      - name: Build Linux Executable
+      - name: Build Linux Standalone Executable
         run: |
           cargo build --release -p beerdex-app
 
-      - name: Package Linux Binary & Standalone Bundle
+      - name: Package Linux Single Executable
         run: |
+          cp target/release/beerdex-app beerdex-linux-x64
           mkdir -p bin-linux
-          cp target/release/beerdex-app bin-linux/
-          cp -r css data event icons images js tests wasm index.html style.css style-museum.css offline.html poster-classic.html poster-museum.html identity.html manifest.webmanifest bin-linux/
-          tar -czvf beerdex-linux-x64.tar.gz -C bin-linux .
+          cp target/release/beerdex-app bin-linux/beerdex
+          tar -czvf beerdex-linux-x64.tar.gz -C bin-linux beerdex
 
-      - name: Upload Linux Artifact
+      - name: Upload Linux Standalone Binary
         uses: actions/upload-artifact@v4
         with:
           name: beerdex-linux-x64
-          path: beerdex-linux-x64.tar.gz
+          path: |
+            beerdex-linux-x64
+            beerdex-linux-x64.tar.gz
 
   # -------------------------------------------------------------
-  # 5. ANDROID NATIVE BUILD (APK & AAB FOR PLAY STORE)
+  # 5. ANDROID NATIVE BUILD (APK & AAB WITH NATIVE RUST .SO)
   # -------------------------------------------------------------
   build-android:
     name: Build Android Native (APK & Play Store AAB)
@@ -228,6 +233,25 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '22'
+
+      - name: Setup Rust Android Targets & cargo-ndk
+        run: |
+          rustup target add aarch64-linux-android x86_64-linux-android
+          cargo install cargo-ndk --locked || cargo install cargo-ndk
+
+      - name: Build Native Rust Shared Library (.so) for Android
+        run: |
+          mkdir -p target/android-jni
+          cargo ndk -t arm64-v8a -t x86_64 -o target/android-jni build --release -p beerdex-app --lib
+          
+          # Copy compiled native ARM64 & x86_64 librustdex.so to each variant
+          for variant in bd-mobile/*; do
+            if [ -d "$variant/android/app/src/main" ]; then
+              mkdir -p "$variant/android/app/src/main/jniLibs"
+              cp -r target/android-jni/* "$variant/android/app/src/main/jniLibs/"
+              echo "✅ Native Rust .so libraries copied to $variant"
+            fi
+          done
 
       - name: Auto-Increment Version Code
         run: |
@@ -303,9 +327,11 @@ jobs:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v5.1.0' }}
           name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Beerdex v5.1.0 (Latest Multiplatform Release)' }}
           files: |
-            beerdex-web-pwa.zip
+            beerdex-windows-x64.exe
             beerdex-windows-x64.zip
+            beerdex-linux-x64
             beerdex-linux-x64.tar.gz
+            beerdex-web-pwa.zip
             release/*.aab
             release/*.apk
           draft: false

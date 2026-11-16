@@ -9,3 +9,6 @@ pub mod wasm;
 
 #[cfg(target_arch = "wasm32")]
 pub use wasm::*;
+
+#[cfg(target_os = "android")]
+pub mod jni;

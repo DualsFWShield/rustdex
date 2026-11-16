@@ -53,6 +53,7 @@ dependencies = [
  "beerdex-core",
  "beerdex-platform",
  "chrono",
+ "jni",
  "serde",
  "serde_json",
  "tao",
