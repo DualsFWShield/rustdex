@@ -61,7 +61,7 @@ jobs:
         run: cargo test -p beerdex-core -p beerdex-platform --verbose
 
       - name: Check wasm32 Target Compilation
-        run: cargo check -p beerdex-core -p beerdex-platform --target wasm32-unknown-unknown
+        run: cargo check -p beerdex-core -p beerdex-platform -p beerdex-app --lib --target wasm32-unknown-unknown
 
   # -------------------------------------------------------------
   # 2. WEB & PWA BUILD
@@ -74,10 +74,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Rust Toolchain (WASM)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.130 --locked || cargo install wasm-bindgen-cli --locked
+
+      - name: Build Web / WASM Release
+        run: |
+          cargo build --release --target wasm32-unknown-unknown -p beerdex-app --lib
+          wasm-bindgen target/wasm32-unknown-unknown/release/beerdex_app.wasm --out-dir wasm --target web
+
       - name: Package Web PWA Release
         run: |
           mkdir -p dist
-          cp -r css data event icons images js tests index.html manifest.webmanifest sw.js offline.html poster-classic.html poster-museum.html identity.html CNAME style.css style-museum.css dist/
+          cp -r css data event icons images js tests wasm index.html manifest.webmanifest sw.js offline.html poster-classic.html poster-museum.html identity.html CNAME style.css style-museum.css dist/
           cd dist && zip -r ../beerdex-web-pwa.zip . && cd ..
 
       - name: Upload Web PWA Release Artifact
@@ -144,7 +158,7 @@ jobs:
           mkdir bin-windows
           Copy-Item -Path target/release/beerdex-app.exe -Destination bin-windows/
           Copy-Item -Path index.html, style.css, style-museum.css, offline.html, poster-classic.html, poster-museum.html, identity.html, manifest.webmanifest -Destination bin-windows/
-          Copy-Item -Path css, data, event, icons, images, js, tests -Destination bin-windows/ -Recurse
+          Copy-Item -Path css, data, event, icons, images, js, tests, wasm -Destination bin-windows/ -Recurse
           Compress-Archive -Path bin-windows/* -DestinationPath beerdex-windows-x64.zip
 
       - name: Upload Windows Artifact
@@ -182,7 +196,7 @@ jobs:
         run: |
           mkdir -p bin-linux
           cp target/release/beerdex-app bin-linux/
-          cp -r css data event icons images js tests index.html style.css style-museum.css offline.html poster-classic.html poster-museum.html identity.html manifest.webmanifest bin-linux/
+          cp -r css data event icons images js tests wasm index.html style.css style-museum.css offline.html poster-classic.html poster-museum.html identity.html manifest.webmanifest bin-linux/
           tar -czvf beerdex-linux-x64.tar.gz -C bin-linux .
 
       - name: Upload Linux Artifact
@@ -205,13 +219,13 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Java JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -258,7 +272,7 @@ jobs:
   # -------------------------------------------------------------
   publish-release:
     name: Publish Multiplatform Release
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     needs: [build-web, build-windows, build-linux, build-android]
     runs-on: ubuntu-latest
     steps:
@@ -286,6 +300,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v5.1.0' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Beerdex v5.1.0 (Latest Multiplatform Release)' }}
           files: |
             beerdex-web-pwa.zip
             beerdex-windows-x64.zip

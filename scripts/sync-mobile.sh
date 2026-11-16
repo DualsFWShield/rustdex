@@ -29,6 +29,8 @@ FILES=(
     "offline.html"
     "poster-classic.html"
     "poster-museum.html"
+    "identity.html"
+    "wasm"
 )
 
 echo "🚀 Starting Beerdex Mobile Sync..."

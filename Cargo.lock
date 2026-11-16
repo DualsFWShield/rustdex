@@ -56,6 +56,8 @@ dependencies = [
  "serde",
  "serde_json",
  "tao",
+ "wasm-bindgen",
+ "web-sys",
  "wry",
 ]
 

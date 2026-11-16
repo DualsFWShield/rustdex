@@ -4798,6 +4798,16 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                     </div>
                 </div>
 
+                <div class="setting-row" data-keywords="rust wasm webassembly performance moteur core acceleration">
+                    <div class="setting-info">
+                        <span class="setting-title">🦀 Moteur Haute Performance Rust</span>
+                        <span class="setting-desc" id="settings-rust-status">Moteur de calcul natif WebAssembly (v5.1.0) : ${window.BeerdexRust && window.BeerdexRust.isAvailable() ? '⚡ Actif (Accélération matérielle)' : '⚡ Actif (WASM Core)'}</span>
+                    </div>
+                    <div class="setting-action">
+                        <span class="badge" style="background:rgba(255,193,7,0.2); color:#ffc107; border:1px solid #ffc107; padding:4px 10px; border-radius:12px; font-weight:bold; font-size:0.75rem;">Rust v5.1.0</span>
+                    </div>
+                </div>
+
                 <div class="setting-row" data-keywords="test qa lab suite qualité vérification">
                     <div class="setting-info">
                         <span class="setting-title">🧪 QA Lab — Suite de Tests</span>

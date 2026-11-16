@@ -10,7 +10,7 @@ $VARIANTS = @(
 $FILES = @(
     "index.html", "style.css", "style-museum.css", "js", "css", 
     "data", "icons", "event", "manifest.webmanifest", "sw.js", 
-    "offline.html", "poster-classic.html", "poster-museum.html", "identity.html"
+    "offline.html", "poster-classic.html", "poster-museum.html", "identity.html", "wasm"
 )
 
 Write-Host "Starting Beerdex Mobile Sync (PowerShell)..."
