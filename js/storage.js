@@ -6,8 +6,24 @@ const STORAGE_KEY_CUSTOM = 'beerdex_custom_beers';
 let _ratingsCache = null;
 let _ratingsCacheDirty = true;
 
+// Preferences are read on every card/filter/render pass. Parsing JSON from
+// localStorage that often is pure waste, so mirror them in memory.
+const _prefCache = new Map();
+
+// Custom beers are re-parsed by several modules during boot; cache the parsed array.
+let _customBeersCache = null;
+let _customBeersCacheDirty = true;
+
 function _invalidateCache() {
     _ratingsCacheDirty = true;
+}
+
+function _invalidateCustomCache() {
+    _customBeersCacheDirty = true;
+}
+
+function _invalidatePrefCache() {
+    _prefCache.clear();
 }
 
 // Get all ratings/notes
@@ -54,6 +70,17 @@ export function getAllConsumedBeerIds() {
     return Object.keys(data).filter(id => data[id].count > 0);
 }
 
+// O(1) membership variant used by the hot list-filtering paths.
+export function getAllConsumedBeerIdSet() {
+    const data = getAllUserData();
+    const ids = new Set();
+    for (const id in data) {
+        const entry = data[id];
+        if (entry && entry.count > 0) ids.add(id);
+    }
+    return ids;
+}
+
 // --- Favorites ---
 
 export function isFavorite(id) {
@@ -88,14 +115,19 @@ export function sortBeers(beers) {
 // --- Custom Beers ---
 
 export function getCustomBeers() {
-    const data = localStorage.getItem(STORAGE_KEY_CUSTOM);
-    return data ? JSON.parse(data) : [];
+    if (_customBeersCacheDirty || !_customBeersCache) {
+        const data = localStorage.getItem(STORAGE_KEY_CUSTOM);
+        _customBeersCache = data ? JSON.parse(data) : [];
+        _customBeersCacheDirty = false;
+    }
+    return _customBeersCache;
 }
 
 export function saveCustomBeer(beer) {
     const beers = getCustomBeers();
     beers.unshift(beer); // Add to top
     localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(beers));
+    _invalidateCustomCache();
     autoBackup();
 }
 
@@ -103,6 +135,7 @@ export function deleteCustomBeer(id) {
     let beers = getCustomBeers();
     beers = beers.filter(b => b.id !== id);
     localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(beers));
+    _invalidateCustomCache();
     autoBackup();
 }
 
@@ -545,6 +578,7 @@ export function resetConsumptionHistoryOnly() {
 
 export function resetCustomBeersOnly() {
     localStorage.removeItem(STORAGE_KEY_CUSTOM);
+    _invalidateCustomCache();
 }
 
 export function resetAllData() {
@@ -554,21 +588,34 @@ export function resetAllData() {
         }
     });
     _invalidateCache();
+    _invalidateCustomCache();
+    _invalidatePrefCache();
 }
 
 
 // --- Generic Preferences ---
 export function getPreference(key, defaultValue) {
-    const val = localStorage.getItem(`beerdex_pref_${key}`);
-    if (val === null) return defaultValue;
-    try {
-        return JSON.parse(val);
-    } catch {
-        return val;
+    if (_prefCache.has(key)) {
+        const cached = _prefCache.get(key);
+        return cached === null ? defaultValue : cached;
     }
+    const val = localStorage.getItem(`beerdex_pref_${key}`);
+    if (val === null) {
+        _prefCache.set(key, null);
+        return defaultValue;
+    }
+    let parsed;
+    try {
+        parsed = JSON.parse(val);
+    } catch {
+        parsed = val;
+    }
+    _prefCache.set(key, parsed);
+    return parsed;
 }
 
 export function savePreference(key, value) {
+    _prefCache.set(key, value);
     localStorage.setItem(`beerdex_pref_${key}`, JSON.stringify(value));
 }
 
@@ -576,7 +623,15 @@ export function savePreference(key, value) {
 
 // --- Advanced Export / Sharing ---
 
-export function autoBackup() {
+// Serialising the whole database on every single rating/consumption/favorite
+// used to block the main thread. Coalesce bursts into one idle-time snapshot.
+let _autoBackupTimer = null;
+let _autoBackupPending = false;
+
+function _runAutoBackup() {
+    _autoBackupTimer = null;
+    if (!_autoBackupPending) return;
+    _autoBackupPending = false;
     try {
         const data = getExportDataString(true);
         localStorage.setItem('beerdex_auto_backup', data);
@@ -584,6 +639,33 @@ export function autoBackup() {
     } catch (e) {
         console.warn("Auto-backup failed:", e);
     }
+}
+
+export function autoBackup() {
+    _autoBackupPending = true;
+    if (_autoBackupTimer !== null) return;
+    if (typeof requestIdleCallback === 'function') {
+        _autoBackupTimer = requestIdleCallback(_runAutoBackup, { timeout: 4000 });
+    } else {
+        _autoBackupTimer = setTimeout(_runAutoBackup, 800);
+    }
+}
+
+// Never lose a pending backup when the app is backgrounded or closed.
+if (typeof window !== 'undefined') {
+    const flushAutoBackup = () => {
+        if (!_autoBackupPending) return;
+        if (_autoBackupTimer !== null) {
+            if (typeof cancelIdleCallback === 'function') cancelIdleCallback(_autoBackupTimer);
+            else clearTimeout(_autoBackupTimer);
+            _autoBackupTimer = null;
+        }
+        _runAutoBackup();
+    };
+    window.addEventListener('pagehide', flushAutoBackup);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') flushAutoBackup();
+    });
 }
 
 // --- Advanced Export / Sharing ---
@@ -1065,6 +1147,7 @@ export function mergeUserData(importedData, options = {}) {
             }
         });
         localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(newCustoms));
+        _invalidateCustomCache();
     }
 
     // 2. Merge Ratings / Consumptions
@@ -1215,6 +1298,7 @@ export function mergeUserData(importedData, options = {}) {
                 }
             }
         });
+        _invalidatePrefCache();
     }
 }
 
@@ -1239,6 +1323,7 @@ export function importData(jsonString, options = {}) {
                     const idx = customs.findIndex(b => b.id === sharedBeer.id);
                     customs[idx] = sharedBeer;
                     localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(customs));
+                    _invalidateCustomCache();
                 }
             }
 

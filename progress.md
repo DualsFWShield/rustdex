@@ -107,3 +107,48 @@ rustdex/
 - `cargo check -p beerdex-core -p beerdex-platform --target wasm32-unknown-unknown`: **0 warnings, 0 errors**
 - `powershell -File scripts/sync-mobile.ps1`: **All 4 Android variants synced cleanly**
 - Web UI & Service Worker: **100% functional, offline capable, zero regressions**
+
+---
+
+## ⚡ 4. Runtime Performance Pass (2026-11-18)
+
+Zero visual change. Everything below is internal (caches, scheduling, payload size) or a rebuild of a stale artifact.
+
+### 4.1 Critical fix: stale WASM artifact
+
+The committed `wasm/beerdex_app_bg.wasm` (2,023,579 B) was built from an **older** Rust source that still contained the native UI renderer (`beerdex_app::wasm::render_dom`, `AppState`, `beerdex_open_*`). ~1 s after boot it replaced `#app.innerHTML` with a ~2.3 MB pre-rendered shell, which:
+
+- destroyed every listener bound by `setupEventListeners()` (dead filter / nav / view buttons),
+- injected `<style id="beerdex-native-styles">` with `.modal-overlay { display:none !important }` (all modals invisible),
+- added a duplicate `#modal-container` inside `#app`.
+
+**Fix:** rebuilt from the current `crates/beerdex-app/src/wasm.rs` (`cargo build -p beerdex-app --lib --target wasm32-unknown-unknown --release`, then `wasm-bindgen` **0.2.130** to match `Cargo.lock`). New engine is **267 KB** and only exports compute helpers. A defensive handler in `js/app.js` still cleans up leftovers from an old cached wasm and rebinds only when the header node actually changed.
+
+> ⚠️ Always regenerate the wasm from the current Rust source before committing it.
+
+### 4.2 Payload & install size
+
+| Item | Before | After |
+|---|---|---|
+| `images/foam.png` | 87 MB | 220 KB |
+| `icons/logo-bnr.png` | 16.8 MB | 88 KB |
+| `wasm/beerdex_app_bg.wasm` | 2.02 MB | 267 KB |
+| Boot JS (QR scanner + P2P) | ~495 KB parsed at boot | loaded on first use |
+| SW precache (first install) | ~104 MB | ~1.7 MB |
+
+`js/vendor-loader.js` lazy-loads `html5-qrcode` and `peerjs`/`p2p`; small globals stay `defer`.
+
+### 4.3 Runtime work moved off the hot path
+
+- `js/storage.js`: in-memory caches for preferences and custom beers, `getAllConsumedBeerIdSet()` (O(1) membership), idle-coalesced `autoBackup()` with `pagehide`/`visibilitychange` flush.
+- `js/data.js`: memoised enrichment (WeakMap) and a single shared `breweries.json` promise.
+- `js/thanos.js` / `js/utils.js`: memoised per-beer search metadata + per-query analysis, cached region/country normalization.
+- `js/ui.js`: preferences read once per card batch, memoised BAC badge, favorite fast path, background removal on a downscaled copy (≤600 px) with an LRU result cache and idle queue.
+- `js/app.js`: `runWhenIdle()` for deferred JSON loading and deduplication.
+- `sw.js`: `Beerdex-v5.1.1`, precaches wasm/glue, `.wasm` treated as a static asset.
+
+### 4.4 Validation
+
+1,499 beers; pagination 24→48→72→96→120; search; filters/sort; grid/list toggle; stats; drunk; settings; export/import modals; custom beer add/delete; rating/favorite/drink; lazy QR + P2P; offline reload with the server stopped. Zero console errors.
+
+Warm local measurement: DCL **342 ms → 52 ms**, first card **584 ms → 309 ms**, no 2.3 MB shell replacing the DOM.

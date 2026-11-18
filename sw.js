@@ -1,43 +1,58 @@
-const CACHE_NAME = 'Beerdex-v5.0.6'; // v5.0.6 Trappist badges, new abbeys & achievements
+const CACHE_NAME = 'Beerdex-v5.1.1'; // v5.1.1: shell-rebind fix + leaner precache, complete module list
+// App shell only. Multi-megabyte media (foam.png ~85 MB, logo-bnr.png ~16 MB,
+// easter-egg mp3/mp4) is intentionally NOT precached: downloading it on install
+// delayed first-run/offline availability dramatically. It is cached lazily by
+// the fetch handler when actually used.
 const ASSETS = [
     './images/Authentic_trappist_product_logo.svg',
     './index.html',
     './style.css',
     './style-museum.css',
-    './js/app.js',
-    './js/ui.js',
-    './js/import-export.js',
-    './js/ota-sync.js',
-    './js/storage.js',
+    './css/wrapped.css',
+    './css/vendor/animate.min.css',
     './js/achievements.js',
-    './js/data.js',
-    './js/env.js',
-    './js/i18n.js',
     './js/analytics.js',
     './js/api.js',
+    './js/app.js',
+    './js/aroma-wheel.js',
     './js/autoRarity.js',
     './js/bac.js',
+    './js/crashLogger.js',
+    './js/data.js',
+    './js/deduplicator.js',
+    './js/env.js',
     './js/event-system.js',
     './js/feedback.js',
     './js/fx.js',
+    './js/i18n.js',
+    './js/import-export.js',
     './js/map.js',
     './js/match.js',
+    './js/off-api.js',
+    './js/ota-sync.js',
+    './js/recommendation.js',
+    './js/rust-core.js',
     './js/share.js',
-    './js/wrapped.js',
-    './js/widget-bridge.js',
-    './js/crashLogger.js',
-    './js/deduplicator.js',
+    './js/storage.js',
+    './js/thanos.js',
     './js/theme.js',
+    './js/ui.js',
     './js/utils.js',
-    './js/vendor/lz-string.min.js',
-    './js/vendor/qrcode.min.js',
-    './js/vendor/html5-qrcode.min.js',
-    './js/vendor/peerjs.min.js',
-    './js/vendor/p2p.js',
+    './js/vendor-loader.js',
+    './js/widget-bridge.js',
+    './js/wrapped.js',
+    './js/vendor/brewbrother.js',
+    './js/vendor/brewbrother_nlp.js',
     './js/vendor/confetti.browser.min.js',
-    './js/vendor/vanilla-tilt.min.js',
     './js/vendor/haptics-shim.js',
-    './css/vendor/animate.min.css',
+    './js/vendor/html5-qrcode.min.js',
+    './js/vendor/lz-string.min.js',
+    './js/vendor/p2p.js',
+    './js/vendor/peerjs.min.js',
+    './js/vendor/qrcode.min.js',
+    './js/vendor/vanilla-tilt.min.js',
+    './wasm/beerdex_app.js',
+    './wasm/beerdex_app_bg.wasm',
     './data/bac_rules.json',
     './event/events-config.json',
     './data/deutchbeer.json',
@@ -51,10 +66,12 @@ const ASSETS = [
     './data/jpbeer.json',
     './data/cnbeer.json',
     './data/breweries.json',
+    './data/thanos_aliases.json',
     './data/locales/en.json',
     './data/locales/fr.json',
+    './data/locales/nlp_en.json',
+    './data/locales/nlp_fr.json',
     './manifest.webmanifest',
-    './icons/logo-bnr.png',
     './icons/192x192.png',
     './icons/512x512.png',
     './offline.html',
@@ -86,10 +103,7 @@ const ASSETS = [
     './images/beer/nl/brouwerijtij-columbus-fles.png',
     './images/beer/FUT.jpg',
     './images/beer/default.png',
-    './images/music/Trolololo.mp3',
-    './images/Rickroll.mp4',
     './images/Rickroll.png',
-    './images/foam.png',
     './'
 ];
 
@@ -99,8 +113,11 @@ self.addEventListener('install', event => {
         caches.open(CACHE_NAME)
             .then(cache => {
                 console.log('[SW] Caching App Shell');
-                return cache.addAll(ASSETS);
+                // Individual add() so one missing asset can never fail the whole
+                // install (addAll is atomic and would leave us with no cache).
+                return Promise.allSettled(ASSETS.map(asset => cache.add(asset)));
             })
+            .then(() => self.skipWaiting())
     );
 });
 
@@ -114,7 +131,7 @@ self.addEventListener('activate', event => {
                     return caches.delete(key);
                 }
             }));
-        })
+        }).then(() => self.clients.claim())
     );
 });
 
@@ -128,6 +145,7 @@ self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
     const isJSON = url.pathname.endsWith('.json') || url.search.includes('.json');
     const isImage = url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i);
+    const isStatic = url.pathname.match(/\.(js|css|wasm|woff2?)$/i);
     const isRoot = url.pathname === '/' || url.pathname === '/index.html';
     const isGoogleFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
 
@@ -163,7 +181,7 @@ self.addEventListener('fetch', event => {
             // 4. Fallback to Network
             return fetch(event.request).then(networkResponse => {
                 // Cache valid responses on the fly for images and data we encounter
-                if (networkResponse && networkResponse.status === 200 && (isImage || isJSON) && event.request.method === 'GET') {
+                if (networkResponse && networkResponse.status === 200 && (isImage || isJSON || isStatic) && event.request.method === 'GET') {
                     const responseToCache = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache)).catch(() => {});
                 }

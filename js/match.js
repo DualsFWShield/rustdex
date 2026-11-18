@@ -1,5 +1,6 @@
 import * as Storage from './storage.js';
 import * as Utils from './utils.js';
+import { loadP2P } from './vendor-loader.js';
 
 const ANIMAL_NAMES = [
     // Faune forestière & européenne
@@ -139,6 +140,8 @@ const Match = {
     onStateChange: null, // Callback for UI updates
 
     init: async function(allBeers) {
+        // PeerJS + P2PEngine are lazy-loaded on first Party use.
+        try { await loadP2P(); } catch (e) { /* handled below */ }
         if (!window.P2PEngine) {
             console.error("P2PEngine non chargé !");
             return false;

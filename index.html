@@ -34,17 +34,20 @@
 
 
     <!-- Scripts -->
-    <script src="js/vendor/lz-string.min.js"></script>
-    <script src="js/vendor/qrcode.min.js"></script>
-    <script src="js/vendor/html5-qrcode.min.js"></script>
-    <script src="js/vendor/brewbrother.js"></script>
-    <script src="js/vendor/brewbrother_nlp.js"></script>
-    <script src="js/vendor/peerjs.min.js"></script>
-    <script src="js/vendor/p2p.js"></script>
+    <!-- Small/global vendor libs stay synchronously available but never block
+         HTML parsing (defer). Modules run after all defer scripts, so globals
+         such as window.QRCode / window.confetti are still ready for them. -->
+    <script defer src="js/vendor/lz-string.min.js"></script>
+    <script defer src="js/vendor/qrcode.min.js"></script>
+    <script defer src="js/vendor/brewbrother.js"></script>
+    <script defer src="js/vendor/brewbrother_nlp.js"></script>
     <!-- Premium FX Libraries -->
     <link rel="stylesheet" href="css/vendor/animate.min.css">
-    <script src="js/vendor/confetti.browser.min.js"></script>
-    <script src="js/vendor/vanilla-tilt.min.js"></script>
+    <script defer src="js/vendor/confetti.browser.min.js"></script>
+    <script defer src="js/vendor/vanilla-tilt.min.js"></script>
+    <!-- Heavy libs are lazy-loaded by js/vendor-loader.js when actually needed:
+         html5-qrcode.min.js (~375 KB) for QR scanning, peerjs.min.js + p2p.js
+         (~120 KB) for Party/OTA sync. -->
     
     <!-- Chart.js is loaded dynamically when needed -->
 

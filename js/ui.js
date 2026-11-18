@@ -16,11 +16,9 @@ import * as CrashLogger from './crashLogger.js';
 import * as Deduplicator from './deduplicator.js';
 import * as Theme from './theme.js';
 import * as Utils from './utils.js';
+import { loadQrScanner } from './vendor-loader.js';
 
 let editModeBeer = null;
-// We assume global libs: QRCode, Html5Qrcode (handled via CDN)
-const QRCodeLib = window.QRCode;
-const Html5Qrcode = window.Html5Qrcode;
 
 // Helpers
 const modalContainer = document.getElementById('modal-container');
@@ -506,28 +504,139 @@ export async function checkAndShowConsent(onAccept) {
 // --- Renders ---
 
 // Helper to remove background using 'Magic Wand' style flood fill (color distance)
-// Wrapped in requestIdleCallback for performance on low-end devices
-window.removeImageBackground = function (img) {
-    const doWork = () => _removeImageBackgroundSync(img);
-    if (window.requestIdleCallback) {
-        requestIdleCallback(doWork, { timeout: 500 });
-    } else {
-        setTimeout(doWork, 0);
+// Work is queued and executed one image per idle slice so it never competes with
+// scroll/render, and results are cached per source URL (cards are re-rendered often).
+// NOTE: `Map` is shadowed by `import * as Map from './map.js'` in this module.
+const NativeMap = window.Map;
+const _bgRemovalCache = new NativeMap();
+const BG_CACHE_MAX_ENTRIES = 240;
+const BG_CACHE_MAX_CHARS = 16 * 1024 * 1024; // ~16 MB of data URLs
+let _bgCacheChars = 0;
+// Background removal is only ever displayed at card/detail size (<=180px tall),
+// so even 4x-DPR screens need <=720px. Processing a downscaled copy keeps the
+// result visually identical while bounding CPU/memory (some catalog shots are
+// up to 20 megapixels and would otherwise freeze the main thread).
+const BG_MAX_DIM = 600;
+const _bgQueue = [];
+let _bgQueueRunning = false;
+
+function _bgCacheSet(rawSrc, dataUrl) {
+    if (!rawSrc || dataUrl.length > BG_CACHE_MAX_CHARS) return;
+    const src = _bgCacheKey(rawSrc);
+    const existing = _bgRemovalCache.get(src);
+    if (existing) _bgCacheChars -= existing.length;
+    _bgRemovalCache.set(src, dataUrl);
+    _bgCacheChars += dataUrl.length;
+    while (_bgRemovalCache.size > BG_CACHE_MAX_ENTRIES || _bgCacheChars > BG_CACHE_MAX_CHARS) {
+        const firstKey = _bgRemovalCache.keys().next().value;
+        if (firstKey === undefined) break;
+        const old = _bgRemovalCache.get(firstKey);
+        _bgRemovalCache.delete(firstKey);
+        _bgCacheChars -= old ? old.length : 0;
     }
+}
+
+function _bgCacheKey(src) {
+    try {
+        return new URL(src, document.baseURI).href;
+    } catch {
+        return src;
+    }
+}
+
+// Returns an already processed copy for this source, if cached (LRU refresh).
+function _bgCachedSrc(src) {
+    if (!src || src.startsWith('data:')) return null;
+    const key = _bgCacheKey(src);
+    const cached = _bgRemovalCache.get(key);
+    if (!cached) return null;
+    _bgRemovalCache.delete(key);
+    _bgRemovalCache.set(key, cached);
+    return cached;
+}
+
+window.removeImageBackground = function (img) {
+    if (!img || img.dataset.processed) return;
+    const src = img.currentSrc || img.src;
+    if (!src || src.startsWith('data:')) {
+        img.dataset.processed = "true";
+        return;
+    }
+    const cached = _bgCachedSrc(src);
+    if (cached) {
+        img.src = cached;
+        img.dataset.processed = "true";
+        return;
+    }
+    if (img.dataset.bgQueued) return;
+    img.dataset.bgQueued = "true";
+    _bgQueue.push(img);
+    _pumpBgQueue();
 };
+
+function _pumpBgQueue() {
+    if (_bgQueueRunning) return;
+    _bgQueueRunning = true;
+
+    const step = (deadline) => {
+        // Drain as many images as the remaining idle slice allows; large sources
+        // consume the slice on their own while small ones batch together.
+        let processed = 0;
+        while (_bgQueue.length > 0) {
+            const img = _bgQueue.shift();
+            if (img && img.isConnected && !img.dataset.processed) {
+                _removeImageBackgroundSync(img);
+            }
+            processed++;
+            if (deadline && typeof deadline.timeRemaining === 'function') {
+                if (deadline.timeRemaining() < 4) break;
+            } else if (processed >= 2) {
+                break;
+            }
+        }
+        if (_bgQueue.length === 0) {
+            _bgQueueRunning = false;
+            return;
+        }
+        if (typeof requestIdleCallback === 'function') {
+            requestIdleCallback(step, { timeout: 1000 });
+        } else {
+            setTimeout(step, 16);
+        }
+    };
+
+    if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(step, { timeout: 800 });
+    } else {
+        setTimeout(step, 0);
+    }
+}
 
 function _removeImageBackgroundSync(img) {
     if (img.dataset.processed) return;
 
     try {
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+        // Guard against 0-sized (not decoded yet) sources.
+        if (!width || !height) {
+            img.dataset.processed = "true";
+            return;
+        }
+
+        // Downscale oversized sources for the flood fill; output is displayed small.
+        const scale = Math.min(1, BG_MAX_DIM / Math.max(width, height));
+        if (scale < 1) {
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+        }
+
         const canvas = document.createElement('canvas');
-        const width = img.naturalWidth;
-        const height = img.naturalHeight;
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
 
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, width, height);
 
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
@@ -642,11 +751,19 @@ function _removeImageBackgroundSync(img) {
 
         if (hasChanges) {
             ctx.putImageData(imgData, 0, 0);
-            img.src = canvas.toDataURL();
+            const dataUrl = canvas.toDataURL();
+            const src = img.currentSrc || img.src;
+            if (src && src !== dataUrl) {
+                _bgCacheSet(src, dataUrl);
+            }
+            img.src = dataUrl;
+            img.dataset.processed = "true";
+        } else {
             img.dataset.processed = "true";
         }
     } catch (e) {
         // Silent fail
+        img.dataset.processed = "true";
     }
 };
 
@@ -715,6 +832,37 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
     const viewMode = Storage.getPreference('viewMode', 'grid');
     const gridClasses = viewMode === 'list' ? 'beer-grid view-list' : 'beer-grid';
 
+    // Preferences are identical for every card in a batch: read them once.
+    // Previously this caused ~6 synchronous localStorage+JSON.parse per card.
+    const prefRevealRarity = Storage.getPreference('revealRarity', false);
+    const prefAnimOnce = Storage.getPreference('anim_only_once', false);
+    const prefBacEnabled = Storage.getPreference('bac_enabled', true);
+    const prefCardCount = Storage.getPreference('card_stat_count', false);
+    const prefCardVolume = Storage.getPreference('card_stat_volume', false);
+    const prefShowBBPct = Storage.getPreference('card_brewbrother_pct', false)
+        && Storage.getPreference('feat_brewbrother_enabled', true);
+    const prefCardCountOrVolume = prefCardCount || prefCardVolume;
+
+    // Speculative BAC only depends on (volume, alcohol) — memoise per batch.
+    const bacBadgeCache = new NativeMap();
+    const getBacBadge = (volume, alcohol) => {
+        const key = `${volume}|${alcohol}`;
+        if (bacBadgeCache.has(key)) return bacBadgeCache.get(key);
+        let html = '';
+        const driveInfo = BAC.getSpeculativeDriveInfo(volume, alcohol);
+        if (driveInfo) {
+            const timeHtml = driveInfo.timeStr ? `<span class="bac-time"> · ${driveInfo.timeStr}</span>` : '';
+            html = `<div class="beer-card-bac-row" style="display:flex; justify-content:center; margin-top:8px;">
+                    <div class="bac-speculative-badge" style="color:${driveInfo.color}; border-color:${driveInfo.color}33; display:inline-flex;">
+                        <span class="bac-icon">${driveInfo.icon}</span>
+                        <span>+${driveInfo.delta.toFixed(2)}</span>${timeHtml}
+                    </div>
+                </div>`;
+        }
+        bacBadgeCache.set(key, html);
+        return html;
+    };
+
     if (!grid) {
         if (!isAppend) container.innerHTML = '';
         grid = document.createElement('div');
@@ -734,8 +882,8 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
 
         // Apply Rarity Border via CSS classes
         // Logic: Reveal if Drunk OR if Setting "Reveal Rarity" is ON
-        const revealRarity = isDrunk || Storage.getPreference('revealRarity', false);
-        const animOnce = Storage.getPreference('anim_only_once', false);
+        const revealRarity = isDrunk || prefRevealRarity;
+        const animOnce = prefAnimOnce;
         const hasPlayed = window.__playedAnims.has(beer.id);
 
         if (revealRarity && beer.rarity && beer.rarity !== 'base') {
@@ -799,28 +947,19 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
         if (!displayImage || (displayImage.includes('FUT.jpg') && !isKeg(beer.volume))) {
             displayImage = fallbackImage;
         }
+        const cachedDisplayImage = _bgCachedSrc(displayImage);
+        if (cachedDisplayImage) displayImage = cachedDisplayImage;
 
-        const isFavorite = Storage.isFavorite(beer.id);
+        const isFavorite = Boolean(u && u.favorite === true);
 
-        // Speculative BAC badge (if enabled)
-        let bacBadgeHtml = '';
-        if (Storage.getPreference('bac_enabled', true)) {
-            const driveInfo = BAC.getSpeculativeDriveInfo(beer.volume, beer.alcohol);
-            if (driveInfo) {
-                const timeHtml = driveInfo.timeStr ? `<span class="bac-time"> · ${driveInfo.timeStr}</span>` : '';
-                bacBadgeHtml = `<div class="beer-card-bac-row" style="display:flex; justify-content:center; margin-top:8px;">
-                    <div class="bac-speculative-badge" style="color:${driveInfo.color}; border-color:${driveInfo.color}33; display:inline-flex;">
-                        <span class="bac-icon">${driveInfo.icon}</span>
-                        <span>+${driveInfo.delta.toFixed(2)}</span>${timeHtml}
-                    </div>
-                </div>`;
-            }
-        }
+        // Speculative BAC badge (if enabled) — memoised per (volume, alcohol)
+        const bacBadgeHtml = prefBacEnabled ? getBacBadge(beer.volume, beer.alcohol) : '';
+
         // Card Stats Overlay
         let cardStatsHtml = '';
-        if (isDrunk) {
-            const showCount = Storage.getPreference('card_stat_count', false);
-            const showVolume = Storage.getPreference('card_stat_volume', false);
+        if (isDrunk && prefCardCountOrVolume) {
+            const showCount = prefCardCount;
+            const showVolume = prefCardVolume;
             if (showCount || showVolume) {
                 let statsParts = [];
                 if (showCount) statsParts.push(`${u.count}x`);
@@ -847,12 +986,12 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
         }
 
         let bbMatchPct = beer.matchPercentage;
-        if (bbMatchPct === undefined && window.Recommendation && window.Recommendation.getBeerMatchScoreSync) {
+        if (prefShowBBPct && bbMatchPct === undefined && window.Recommendation && window.Recommendation.getBeerMatchScoreSync) {
             const syncMatch = window.Recommendation.getBeerMatchScoreSync(beer);
             if (syncMatch) bbMatchPct = syncMatch.total;
         }
 
-        const showBBPct = Storage.getPreference('card_brewbrother_pct', false) && Storage.getPreference('feat_brewbrother_enabled', true) && bbMatchPct !== undefined;
+        const showBBPct = prefShowBBPct && bbMatchPct !== undefined;
         if (showBBPct) {
             const pct = Math.round(bbMatchPct * 100);
             const color = pct >= 75 ? '#2ecc71' : (pct >= 50 ? '#f1c40f' : '#e74c3c');
@@ -1721,6 +1860,8 @@ export function renderBeerDetail(beer, onSave) {
     if (!displayImage || (displayImage.includes('FUT.jpg') && !isKeg(beer.volume))) {
         displayImage = fallbackImage;
     }
+    const cachedDisplayImage = _bgCachedSrc(displayImage);
+    if (cachedDisplayImage) displayImage = cachedDisplayImage;
 
     const isFav = Storage.isFavorite(beer.id);
 
@@ -2258,6 +2399,8 @@ export function renderBeerDetail(beer, onSave) {
             if (!displayImage || (displayImage.includes('FUT.jpg') && !isKeg(beer.volume))) {
                 displayImage = fallbackImage;
             }
+            const cachedDisplayImage = _bgCachedSrc(displayImage);
+            if (cachedDisplayImage) displayImage = cachedDisplayImage;
 
             // Create Canvas for Particles
             const canvas = document.createElement('canvas');
@@ -7028,8 +7171,10 @@ export function renderMatchModal(allBeersMap, initialCode = null) {
 
 
 
-    wrapper.querySelector('#btn-scan').onclick = () => {
+    wrapper.querySelector('#btn-scan').onclick = async () => {
         switchTab('scan');
+        // html5-qrcode is lazy-loaded: fetch it only when the user wants to scan.
+        try { await loadQrScanner(); } catch (e) { /* handled below */ }
         if (!window.Html5Qrcode) return showAlertModal("Scanner non disponible");
         partyScanner = new window.Html5Qrcode("party-reader");
         partyScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, (text) => {
@@ -8067,7 +8212,9 @@ export function renderBreweryView(breweryName, breweryBeers, container, activeFi
 window.UI = window.UI || {};
 window.UI.openUniversalScanner = openUniversalScanner;
 
-export function openUniversalScanner() {
+export async function openUniversalScanner() {
+    // html5-qrcode is lazy-loaded on first use (~375 KB) to keep boot light.
+    try { await loadQrScanner(); } catch (e) { /* handled below */ }
     if (!window.Html5Qrcode) return showAlertModal("Scanner non disponible", { icon: '❌' });
 
     const wrapper = document.createElement('div');

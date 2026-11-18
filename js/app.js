@@ -40,6 +40,16 @@ window.savePlayedAnims = () => {
 // Init crash logger FIRST so it catches all errors from boot
 CrashLogger.init();
 
+// Schedule non-critical work for idle time. `timeout` is a hard upper bound so
+// deferred work still happens on devices that never go idle.
+function runWhenIdle(fn, timeout = 2000) {
+    if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => fn(), { timeout });
+    } else {
+        setTimeout(fn, Math.min(timeout, 1000));
+    }
+}
+
 // App State
 const state = {
     beers: [],
@@ -58,6 +68,26 @@ const state = {
     migrationPrompts: [], // Deduplicator results
     activeBrewery: null // Store brewery name for brewery view
 };
+
+// The optional Rust/WASM engine used to replace #app with its own pre-rendered
+// shell, which left the freshly-rendered DOM without any listeners (dead
+// buttons). Current engines only expose compute helpers, but an older wasm may
+// still be cached on some devices, so clean up its leftovers and rebind when
+// the shell actually changed.
+let _appHeaderRef = null;
+let _globalHandlersBound = false;
+
+window.addEventListener('beerdex:rust-ready', () => {
+    document.getElementById('beerdex-native-styles')?.remove();
+    document.querySelectorAll('#app #modal-container').forEach(el => el.remove());
+
+    const shell = document.querySelector('.app-header');
+    if (!_appHeaderRef || !shell || shell === _appHeaderRef) return;
+    _appHeaderRef = shell;
+    setupEventListeners();
+    UI.initHeaderParty();
+    if (state.beers.length) renderCurrentView();
+});
 
 // Initialize Wrapped
 Wrapped.init(() => state.beers);
@@ -106,8 +136,9 @@ async function init() {
         // Initial Render
         renderCurrentView();
 
-        // Lazy-load the rest
-        setTimeout(async () => {
+        // Lazy-load the rest of the database during idle time so the first paint
+        // and first interaction are never delayed by ~1000 extra beers + parsing.
+        const loadDeferredData = async () => {
             const restFiles = [
                 'data/deutchbeer.json',
                 'data/frenchbeer.json',
@@ -147,18 +178,21 @@ async function init() {
             // Check for Achievements on Load (Syncs import/offline data with full database)
             Achievements.checkAchievements(state.beers);
 
-            // Run deduplicator later to save performance (only if enabled in Debug)
-            setTimeout(() => {
+            // Run the (expensive) deduplicator in the background, after the app is
+            // fully usable.
+            runWhenIdle(() => {
                 state.migrationPrompts = Deduplicator.runCheck(state.beers);
                 // If there are matches, re-render to show them
                 if (state.migrationPrompts.length > 0 && (state.view === 'home' || state.view === 'drunk')) {
                     renderCurrentView();
                 }
-            }, 5000);
-        }, 1500);
+            }, 6000);
+        };
+        runWhenIdle(loadDeferredData, 2500);
 
         // Setup Event Listeners
         setupEventListeners();
+        _appHeaderRef = document.querySelector('.app-header');
 
         // Initialize Header Party Widget
         UI.initHeaderParty();
@@ -494,6 +528,9 @@ function updateViewToggleIcon() {
 }
 
 function setupEventListeners() {
+    const bindGlobals = !_globalHandlersBound;
+    if (bindGlobals) _globalHandlersBound = true;
+
     // Navigation
     document.querySelectorAll('.nav-item').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -571,9 +608,11 @@ function setupEventListeners() {
     });
 
     // Handle back button closing search bar
-    window.addEventListener('beerdex-close-search', () => {
-        searchBar.classList.add('hidden');
-        searchInput.value = '';
+    if (bindGlobals) window.addEventListener('beerdex-close-search', () => {
+        const bar = document.getElementById('search-bar');
+        const input = document.getElementById('search-input');
+        if (bar) bar.classList.add('hidden');
+        if (input) input.value = '';
         state.filter = '';
         renderCurrentView();
     });
@@ -682,7 +721,7 @@ function setupEventListeners() {
     });
 
     // Magical Search Bar: auto open on keypress (PC)
-    window.addEventListener('keydown', (e) => {
+    if (bindGlobals) window.addEventListener('keydown', (e) => {
         if (!e.key || e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return;
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -1157,8 +1196,8 @@ function renderCurrentView() {
             window.Recommendation.getRecommendedBeers(state.beers, { noLimit: true }).then(scoredBeers => {
                 let filtered = searchBeers(scoredBeers, state.filter);
                 if (isDiscovery && !state.filter) {
-                    const consumedIds = Storage.getAllConsumedBeerIds();
-                    filtered = filtered.filter(b => consumedIds.includes(b.id));
+                    const consumedIds = Storage.getAllConsumedBeerIdSet();
+                    filtered = filtered.filter(b => consumedIds.has(b.id));
                 }
                 filtered = applyFilters(filtered, state.activeFilters);
                 
@@ -1212,8 +1251,8 @@ function renderCurrentView() {
 
         // 2. Discovery Logic
         if (isDiscovery && !state.filter) {
-            const consumedIds = Storage.getAllConsumedBeerIds();
-            filtered = state.beers.filter(b => consumedIds.includes(b.id));
+            const consumedIds = Storage.getAllConsumedBeerIdSet();
+            filtered = state.beers.filter(b => consumedIds.has(b.id));
         }
 
         // 3. Apply Filters (Moved from UI to logic)
@@ -1285,8 +1324,8 @@ function renderCurrentView() {
         }
 
     } else if (state.view === 'drunk') {
-        const consumedIds = Storage.getAllConsumedBeerIds();
-        let drunkBeers = state.beers.filter(b => consumedIds.includes(b.id));
+        const consumedIds = Storage.getAllConsumedBeerIdSet();
+        let drunkBeers = state.beers.filter(b => consumedIds.has(b.id));
 
         // Apply filters to drunk view too? Why not.
         drunkBeers = applyFilters(drunkBeers, state.activeFilters);

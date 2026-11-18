@@ -259,6 +259,22 @@ export function hasVariantConflict(titleA, titleB) {
  * @param {string} query - User search query
  * @returns {Array} Filtered and sorted beers
  */
+// Normalized country/region labels are static per beer; cache them so a search
+// only normalizes the query once instead of ~2 strings per beer per keystroke.
+const _regionNormCache = new WeakMap();
+
+function getNormalizedRegionCountry(beer) {
+    let cached = _regionNormCache.get(beer);
+    if (!cached) {
+        cached = {
+            region: normalize(beer.searchRegion),
+            country: normalize(beer.searchCountry)
+        };
+        _regionNormCache.set(beer, cached);
+    }
+    return cached;
+}
+
 export function fuzzyMatchBeers(beers, query) {
     if (!query || query.trim() === '') return beers;
     
@@ -275,8 +291,7 @@ export function fuzzyMatchBeers(beers, query) {
         let score = Thanos.scoreSearchRelevance(beer, rawQuery);
 
         // Region & Country metadata matching: ONLY apply if user explicitly searched for a full country/region name
-        const normRegion = normalize(beer.searchRegion);
-        const normCountry = normalize(beer.searchCountry);
+        const { region: normRegion, country: normCountry } = getNormalizedRegionCountry(beer);
 
         if (normCountry && (normCountry === normQuery || (normQuery.length >= 4 && normCountry.includes(normQuery)))) {
             score += 40;

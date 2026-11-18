@@ -16,7 +16,18 @@ const ALL_DATA_FILES = [
     'data/cnbeer.json'
 ];
 
-export function enrichBeerMetadata(beer, breweryData = {}) {
+const EMPTY_BREWERY_DATA = {};
+
+// Parsed beer -> enriched beer. The same beer objects are enriched repeatedly
+// (core boot, deferred boot, custom beers, detail views). Enrichment only depends
+// on the beer itself, the shared brewery table and the active locale (which
+// triggers a full reload when changed), so memoising it is safe.
+const _enrichCache = new WeakMap();
+
+export function enrichBeerMetadata(beer, breweryData = EMPTY_BREWERY_DATA) {
+    const cached = _enrichCache.get(beer);
+    if (cached && cached.breweryData === breweryData) return cached.result;
+
     let searchRegion = beer.searchRegion || '';
     let searchCountry = beer.searchCountry || '';
 
@@ -44,12 +55,51 @@ export function enrichBeerMetadata(beer, breweryData = {}) {
         }
     }
 
-    return {
+    const result = {
         ...beer,
         countryCode: countryCode || '',
         searchRegion,
         searchCountry
     };
+
+    _enrichCache.set(beer, { breweryData, result });
+    return result;
+}
+
+// Brewery metadata is static: fetch/parse it once per session and share the
+// in-flight promise between the core and the deferred boot passes.
+let _breweryDataPromise = null;
+
+function getBreweryData() {
+    if (!_breweryDataPromise) {
+        _breweryDataPromise = fetch('data/breweries.json')
+            .then(res => (res.ok ? res.json() : []))
+            .catch(() => [])
+            .then(arr => Array.isArray(arr) ? Object.fromEntries(arr.map(b => [b.name, b])) : (arr || {}));
+    }
+    return _breweryDataPromise;
+}
+
+// Deterministic string hash for IDs, memoised on the beer payload.
+const _idCache = new Map();
+
+const djb2Hash = (str) => {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    }
+    return Math.abs(hash).toString(36);
+};
+
+function _beerId(beer) {
+    if (beer.id) return beer.id;
+    const key = beer.title + '\u0000' + (beer.brewery || '');
+    let id = _idCache.get(key);
+    if (!id) {
+        id = beer.title.replace(/\s+/g, '_').toUpperCase() + '_' + djb2Hash(key);
+        _idCache.set(key, id);
+    }
+    return id;
 }
 
 export async function fetchAllBeers(files = ALL_DATA_FILES) {
@@ -74,17 +124,10 @@ export async function fetchAllBeers(files = ALL_DATA_FILES) {
     );
 
     // We also fetch breweries.json to attach country/region metadata for searching
-    promises.push(
-        fetch('data/breweries.json')
-            .then(res => res.ok ? res.json() : {})
-            .catch(() => ({}))
-    );
+    promises.push(getBreweryData());
 
     const results = await Promise.all(promises);
-    const breweryDataArr = results.pop() || []; // last promise is breweries.json
-    const breweryData = Array.isArray(breweryDataArr) 
-        ? Object.fromEntries(breweryDataArr.map(b => [b.name, b])) 
-        : breweryDataArr;
+    const breweryData = results.pop() || {}; // last promise is breweries.json
 
     results.forEach(data => {
         if (Array.isArray(data)) {
@@ -107,15 +150,6 @@ export async function fetchAllBeers(files = ALL_DATA_FILES) {
         'Fondateur': 'fondateur'
     };
 
-    // Simple deterministic string hash for IDs
-    const djb2Hash = (str) => {
-        let hash = 5381;
-        for (let i = 0; i < str.length; i++) {
-            hash = ((hash << 5) + hash) + str.charCodeAt(i);
-        }
-        return Math.abs(hash).toString(36);
-    };
-
     // Detect user country for dynamic rarity
     const userMapScope = localStorage.getItem('defaultMapScope') || '';
     const bacCountry = Storage.getPreference('bac_country', '');
@@ -134,7 +168,7 @@ export async function fetchAllBeers(files = ALL_DATA_FILES) {
         
         return {
             ...enriched,
-            id: beer.id || beer.title.replace(/\s+/g, '_').toUpperCase() + '_' + djb2Hash(beer.title + (beer.brewery || '')),
+            id: _beerId(beer),
             rarity: dynamicResult.rarity,
             baseRarity: dynamicResult.baseRarity,
             importBonus: dynamicResult.importBonus,

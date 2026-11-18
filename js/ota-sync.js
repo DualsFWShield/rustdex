@@ -12,6 +12,7 @@
  */
 
 import * as Storage from './storage.js';
+import { loadP2P } from './vendor-loader.js';
 
 // Device naming helper
 function getLocalDeviceName() {
@@ -130,6 +131,8 @@ export const OTASyncManager = {
      */
     createSession: async function(initialScopes = {}, syncMode = 'unilateral', onUpdate = null) {
         await this.closeSession();
+        // PeerJS + P2PEngine are lazy-loaded on first sync use.
+        try { await loadP2P(); } catch (e) { /* handled by _ensureP2P */ }
         this._ensureP2P();
         this.isHost = true;
         this.onUpdate = onUpdate;
@@ -171,6 +174,8 @@ export const OTASyncManager = {
      */
     joinSession: async function(roomCode, onUpdate = null) {
         await this.closeSession();
+        // PeerJS + P2PEngine are lazy-loaded on first sync use.
+        try { await loadP2P(); } catch (e) { /* handled by _ensureP2P */ }
         this._ensureP2P();
         this.isHost = false;
         this.onUpdate = onUpdate;

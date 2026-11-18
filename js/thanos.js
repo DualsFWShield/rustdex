@@ -713,20 +713,62 @@ export function matchBeers(beerA, beerB) {
  * - Barcode or exact ID matches top the search with 1000 pts.
  * - Non-matching beers receive 0 pts and are not shown.
  */
+// Search metadata (canonical form, normalized title/brewery, token set) is
+// recomputed for every beer on every keystroke. It only depends on immutable
+// beer fields, so cache it per beer object.
+const _searchMetaCache = new WeakMap();
+
+function _beerSearchKey(beer) {
+    return `${beer.title || ''}\u0000${beer.brewery || ''}\u0000${beer.volume || ''}\u0000${beer.alcohol || ''}\u0000${beer.degree || ''}`;
+}
+
+function getBeerSearchMeta(beer) {
+    const key = _beerSearchKey(beer);
+    const cached = _searchMetaCache.get(beer);
+    if (cached && cached.key === key) return cached;
+
+    const canon = buildCanonicalBeer(beer);
+    const normTitle = normalizeText(beer.title);
+    const meta = {
+        key,
+        canon,
+        normTitle,
+        normBrewery: normalizeText(beer.brewery),
+        cleanTitleNoSpaces: normTitle.replace(/\s+/g, ''),
+        tokenSet: new Set(canon.tokens)
+    };
+    _searchMetaCache.set(beer, meta);
+    return meta;
+}
+
+// All beers in one search share the same query: analyse it once.
+let _lastQueryRaw = null;
+let _lastQueryMeta = null;
+
+function getQueryMeta(rawQuery) {
+    if (rawQuery === _lastQueryRaw && _lastQueryMeta) return _lastQueryMeta;
+    const normQuery = normalizeText(rawQuery);
+    _lastQueryMeta = {
+        normQuery,
+        queryTokens: extractCanonicalTokens(rawQuery),
+        cleanQueryNoSpaces: normQuery.replace(/\s+/g, ''),
+        upperQuery: rawQuery.toUpperCase()
+    };
+    _lastQueryRaw = rawQuery;
+    return _lastQueryMeta;
+}
+
 export function scoreSearchRelevance(beer, rawQuery) {
     if (!rawQuery || !rawQuery.trim()) return 1;
 
     const query = rawQuery.trim();
-    const normQuery = normalizeText(query);
-    const queryTokens = extractCanonicalTokens(query);
+    const { normQuery, queryTokens, cleanQueryNoSpaces, upperQuery } = getQueryMeta(query);
 
     // 1. Direct Barcode or ID Match
     if (beer.barcode && beer.barcode === query) return 1000;
-    if (beer.id && beer.id.toUpperCase() === query.toUpperCase()) return 900;
+    if (beer.id && beer.id.toUpperCase() === upperQuery) return 900;
 
-    const canon = buildCanonicalBeer(beer);
-    const normTitle = normalizeText(beer.title);
-    const normBrewery = normalizeText(beer.brewery);
+    const { canon, normTitle, normBrewery, cleanTitleNoSpaces, tokenSet } = getBeerSearchMeta(beer);
 
     let score = 0;
 
@@ -736,8 +778,6 @@ export function scoreSearchRelevance(beer, rawQuery) {
     else if (normTitle.includes(normQuery)) score += 80;
 
     // Agglutinated containment check (e.g. "le fort" matching "lefort")
-    const cleanQueryNoSpaces = normQuery.replace(/\s+/g, '');
-    const cleanTitleNoSpaces = normTitle.replace(/\s+/g, '');
     if (cleanTitleNoSpaces === cleanQueryNoSpaces) {
         score += 250;
     } else if (cleanTitleNoSpaces.startsWith(cleanQueryNoSpaces)) {
@@ -752,7 +792,7 @@ export function scoreSearchRelevance(beer, rawQuery) {
         let tokenHit = false;
 
         // Matches beer title token (stem or canonical)
-        if (canon.tokens.includes(qTok)) {
+        if (tokenSet.has(qTok)) {
             score += 40;
             tokenHit = true;
         } else if (normTitle.includes(qTok)) {

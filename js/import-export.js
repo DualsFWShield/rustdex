@@ -6,6 +6,7 @@ import { i18n } from './i18n.js';
 import * as Storage from './storage.js';
 import { openModal, closeModal, showToast } from './ui.js';
 import { OTASyncManager } from './ota-sync.js';
+import { loadQrScanner } from './vendor-loader.js';
 
 // --- Auto Backup Prompt ---
 
@@ -999,7 +1000,8 @@ export function renderOtaSyncModal(initialExportOptions = null, defaultTab = 'ho
                 };
 
                 // Camera Scanner Handler
-                btnToggleScanner.onclick = () => {
+                btnToggleScanner.onclick = async () => {
+                    try { await loadQrScanner(); } catch (e) { /* handled below */ }
                     if (!window.Html5Qrcode) {
                         showToast(i18n.t('ota_camera_unavailable'), "error");
                         return;
