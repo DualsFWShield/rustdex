@@ -30,13 +30,19 @@ impl BeerDatabase {
         Self::default()
     }
 
+    #[inline]
+    fn strip_bom(s: &str) -> &str {
+        s.strip_prefix("\u{feff}").unwrap_or(s)
+    }
+
     /// Loads beer catalog from raw JSON string, injecting the country code if omitted.
     pub fn load_beer_catalog_json(
         &mut self,
         json_str: &str,
         country_code: &str,
     ) -> Result<usize, Error> {
-        let mut loaded: Vec<Beer> = serde_json::from_str(json_str)?;
+        let clean = Self::strip_bom(json_str);
+        let mut loaded: Vec<Beer> = serde_json::from_str(clean)?;
         for beer in &mut loaded {
             if beer.country.is_none() {
                 beer.country = Some(country_code.to_string());
@@ -52,7 +58,8 @@ impl BeerDatabase {
 
     /// Loads breweries from raw JSON string.
     pub fn load_breweries_json(&mut self, json_str: &str) -> Result<usize, Error> {
-        let loaded: Vec<Brewery> = serde_json::from_str(json_str)?;
+        let clean = Self::strip_bom(json_str);
+        let loaded: Vec<Brewery> = serde_json::from_str(clean)?;
         let count = loaded.len();
         self.breweries.extend(loaded);
         Ok(count)
@@ -60,13 +67,15 @@ impl BeerDatabase {
 
     /// Loads BAC rules from raw JSON string.
     pub fn load_bac_rules_json(&mut self, json_str: &str) -> Result<(), Error> {
-        self.bac_rules = serde_json::from_str(json_str)?;
+        let clean = Self::strip_bom(json_str);
+        self.bac_rules = serde_json::from_str(clean)?;
         Ok(())
     }
 
     /// Loads Thanos aliases dictionary from JSON string.
     pub fn load_thanos_aliases_json(&mut self, json_str: &str) -> Result<(), Error> {
-        self.thanos_aliases = serde_json::from_str(json_str)?;
+        let clean = Self::strip_bom(json_str);
+        self.thanos_aliases = serde_json::from_str(clean)?;
         Ok(())
     }
 

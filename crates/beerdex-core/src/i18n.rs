@@ -27,7 +27,8 @@ impl I18nEngine {
         lang: &str,
         json_str: &str,
     ) -> Result<(), serde_json::Error> {
-        let parsed: HashMap<String, Value> = serde_json::from_str(json_str)?;
+        let clean = json_str.strip_prefix("\u{feff}").unwrap_or(json_str);
+        let parsed: HashMap<String, Value> = serde_json::from_str(clean)?;
         let mut map = HashMap::new();
         for (k, v) in parsed {
             if let Some(s) = v.as_str() {
