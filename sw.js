@@ -57,6 +57,7 @@ const ASSETS = [
     './event/events-config.json',
     './data/deutchbeer.json',
     './data/belgiumbeer.json',
+    './data/saison.json',
     './data/frenchbeer.json',
     './data/nlbeer.json',
     './data/usbeer.json',

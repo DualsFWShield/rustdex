@@ -120,7 +120,7 @@ async function init() {
         showSkeletonLoading(document.getElementById('main-content'));
 
         // Lazy-loading: Load Core Beers first for fast render
-        const coreFiles = ['data/newbeer.json', 'data/belgiumbeer.json'];
+        const coreFiles = ['data/newbeer.json', 'data/belgiumbeer.json', 'data/saison.json'];
         const staticBeers = await Data.fetchAllBeers(coreFiles);
         const customBeers = Storage.getCustomBeers().map(b => Data.enrichBeerMetadata(b));
         state.beers = [...customBeers, ...staticBeers];

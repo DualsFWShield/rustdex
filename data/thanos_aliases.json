@@ -615,5 +615,26 @@
     "targetTitle": "Chimay Bleu (Grande Reserve)",
     "targetBrewery": "Abbaye Notre-Dame de Scourmont",
     "originalTitle": "Chimay Blauw (Grande Reserve) - 33cl"
+  },
+  "CAROLUS XMAS_BRUNE_20": {
+    "targetId": "GOUDEN_CAROLUS_NO_L_AMBREE_0.33",
+    "targetTitle": "GOUDEN CAROLUS CHRISTMAS",
+    "targetBrewery": "BROUWERIJ HET ANKER",
+    "originalTitle": "Gouden Carolus Noël",
+    "originalBrewery": "Het Anker"
+  },
+  "HIBERNATUS_NOIRE_0.75": {
+    "targetId": "LUPULUS_HIBERNATUS_BRUNE_0.33",
+    "targetTitle": "LUPULUS HIBERNATUS",
+    "targetBrewery": "BRASSERIE LUPULUS",
+    "originalTitle": "Lupulus Hibernatus",
+    "originalBrewery": "Brasserie Les 3 Fourquets"
+  },
+  "BON_SECOURS_BLONDE_DE_NOEL_BLONDE_0.33": {
+    "targetId": "BONSECOURS NOEL_BLONDE_0.33",
+    "targetTitle": "BONSECOURS DE NOËL",
+    "targetBrewery": "BRASSERIE CAULIER",
+    "originalTitle": "BONSECOURS NOEL",
+    "originalBrewery": "CAULIER"
   }
 }

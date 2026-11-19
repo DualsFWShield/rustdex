@@ -349,21 +349,6 @@
     "rarity_rank": "Rare"
   },
   {
-    "title": "BONSECOURS NOEL",
-    "brewery": "CAULIER",
-    "type": "Blonde",
-    "volume": "0.33 L",
-    "alcohol": "9°",
-    "id": "BONSECOURS NOEL_BLONDE_0.33",
-    "image": "images/beer/be/BONSECOURS_NOEL_BLONDE_033.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.5,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "BORNEM DOUBLE",
     "brewery": "VAN STEENBERGE",
     "type": "Brune",
@@ -471,36 +456,6 @@
     "barcode": "5411551310817"
   },
   {
-    "title": "BUSH DE NUITS",
-    "brewery": "DUBUISSON",
-    "type": "Brune",
-    "volume": "0.75 L",
-    "alcohol": "12.5°",
-    "id": "BUSH DE NUITS_BRUNE_0.75",
-    "image": "images/beer/be/BUSH_DE_NUITS_BRUNE_075.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes experts",
-    "barrel_aged": true,
-    "community_rating": 4.1,
-    "ingredients": "Fût Nuits-St-Georges",
-    "rarity_rank": "Super Rare"
-  },
-  {
-    "title": "BUSH NOEL",
-    "brewery": "DUBUISSON",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "12°",
-    "id": "BUSH NOEL_BRUNE_0.33",
-    "image": "images/beer/be/BUSH_NOEL_BRUNE_033.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes & Supermarchés",
-    "barrel_aged": false,
-    "community_rating": 3.8,
-    "ingredients": "Malt grillé",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "GOUDEN CAROLUS TRIPEL",
     "brewery": "HET ANKER",
     "type": "Blonde",
@@ -515,21 +470,6 @@
     "ingredients": "East Kent Golding Hop",
     "rarity_rank": "Commun",
     "barcode": "5425006240116"
-  },
-  {
-    "title": "CAROLUS XMAS",
-    "brewery": "HET ANKER",
-    "type": "Brune",
-    "volume": "20 L",
-    "alcohol": "10.5°",
-    "id": "CAROLUS XMAS_BRUNE_20",
-    "image": "",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes & Supermarchés",
-    "barrel_aged": false,
-    "community_rating": 3.9,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "CHARLES QUINT BLONDE DOREE",
@@ -817,21 +757,6 @@
     "community_rating": 3.5,
     "ingredients": "Malts torréfiés",
     "rarity_rank": "Commun"
-  },
-  {
-    "title": "DELIRIUM NOEL",
-    "brewery": "HUYGHE",
-    "type": "Ambrée",
-    "volume": "0.33 L",
-    "alcohol": "10°",
-    "id": "DELIRIUM NOEL_AMBREE_0.33",
-    "image": "images/beer/be/DELIRIUM_NOEL_AMBREE_033.png",
-    "production_volume": "Industrielle",
-    "distribution": "Partout",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "DELIRIUM RED",
@@ -1165,21 +1090,6 @@
     "barrel_aged": false,
     "community_rating": 3.7,
     "ingredients": "Stout",
-    "rarity_rank": "Rare"
-  },
-  {
-    "title": "HIBERNATUS",
-    "brewery": "Lupulus",
-    "type": "Noire",
-    "volume": "0.75 L",
-    "alcohol": "9.5°",
-    "id": "HIBERNATUS_NOIRE_0.75",
-    "image": "images/beer/be/HIBERNATUS_NOIRE_075.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Orge torréfiée",
     "rarity_rank": "Rare"
   },
   {
@@ -1746,21 +1656,6 @@
     "rarity_rank": "Base"
   },
   {
-    "title": "MERE NOEL",
-    "brewery": "HUYGHE",
-    "type": "Blonde",
-    "volume": "0.33 L",
-    "alcohol": "8.5°",
-    "id": "MERE NOEL_BLONDE_0.33",
-    "image": "images/beer/be/MERE_NOEL_BLONDE_033.png",
-    "production_volume": "Industrielle",
-    "distribution": "Cavistes & Supermarchés",
-    "barrel_aged": false,
-    "community_rating": 3.4,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "MOINETTE AMBREE",
     "brewery": "Dupont",
     "type": "Ambrée",
@@ -2324,21 +2219,6 @@
     "community_rating": 3.7,
     "ingredients": "Houblonnage à cru",
     "rarity_rank": "Commun"
-  },
-  {
-    "title": "ST FEUILLIEN NOEL",
-    "brewery": "SAINT FEUILLIEN",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "9°",
-    "id": "ST FEUILLIEN NOEL_BRUNE_0.33",
-    "image": "images/beer/be/ST_FEUILLIEN_NOEL_BRUNE_033.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes & Supermarchés",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "ST FEUILLIEN QUADRUPLE",
@@ -3048,21 +2928,6 @@
     "community_rating": 3.4,
     "ingredients": "Standard",
     "rarity_rank": "Rare"
-  },
-  {
-    "title": "BERTINCHAMPS HIVER",
-    "brewery": "BERTINCHAMPS",
-    "type": "Blonde",
-    "volume": "0.50 L",
-    "alcohol": "8°",
-    "id": "BERTINCHAMPS_HIVER_BLONDE_0.50",
-    "image": "images/beer/be/b-hiver-bottle.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.3,
-    "ingredients": "Épices d'hiver",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "BERTINCHAMPS ZERO ALCOOL",
@@ -5738,21 +5603,6 @@
     "rarity_rank": "Commun"
   },
   {
-    "title": "CHOUFFE SOLEIL",
-    "brewery": "BRASSERIE D'ACHOUFFE",
-    "type": "Blonde",
-    "volume": "0.33 L",
-    "alcohol": "6.0°",
-    "id": "CHOUFFE_SOLEIL_BLONDE_0.33",
-    "image": "images/beer/be/chouffe-soleil-33cl.png",
-    "production_volume": "Industrielle",
-    "distribution": "Partout",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Standard",
-    "rarity_rank": "Saisonniere"
-  },
-  {
     "title": "CHOUFFE IPA",
     "brewery": "BRASSERIE D'ACHOUFFE",
     "type": "IPA",
@@ -6231,25 +6081,9 @@
     "production_volume": "Industrielle",
     "distribution": "Partout",
     "barrel_aged": false,
-    "community_rating": 3.0,
+    "community_rating": 3,
     "ingredients": "Bière lager Mythos, jus de citron concentré",
     "rarity_rank": "Commun",
     "barcode": "5201309338015"
-  },
-  {
-    "title": "Gordon Xmas",
-    "brewery": "Gordon (John Martin)",
-    "type": "Xmas",
-    "volume": "0.33 L",
-    "alcohol": "8.8°",
-    "id": "BE_GORDON_XMAS_033",
-    "image": "images/beer/be/gordon-xmas.png",
-    "production_volume": "Industrielle",
-    "distribution": "Supermarché",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Eau, malt d'orge, houblon, levure, arôme toffee",
-    "rarity_rank": "Saisonnière",
-    "description": "Gordon Xmas kicked off the tradition of Christmas brews in the 1930s. The perfect accompaniment at Christmas dinners and New Year’s parties, this beer dons its glad rags, while its supple foam melts in the mouth and the white flakes against a red background tickle the nose. A perfect gift for under the Christmas tree! With everyone chanting in unison: Merry Gordon Xmas!"
   }
 ]

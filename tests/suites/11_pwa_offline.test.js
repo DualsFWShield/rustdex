@@ -73,6 +73,7 @@ describe('📶 PWA & Intégrité Offline', () => {
         '../js/utils.js',
         '../js/theme.js',
         '../data/belgiumbeer.json',
+        '../data/saison.json',
         '../data/locales/fr.json',
         '../data/locales/en.json',
         '../data/bac_rules.json',
@@ -127,6 +128,7 @@ describe('📶 PWA & Intégrité Offline', () => {
     // ── Data Files Accessible ──
     const dataFiles = [
         '../data/belgiumbeer.json',
+        '../data/saison.json',
         '../data/newbeer.json',
         '../data/frenchbeer.json',
         '../data/deutchbeer.json',

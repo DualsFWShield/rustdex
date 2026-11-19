@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen(start)]
+#[wasm_bindgen]
 pub fn wasm_init() -> Result<(), JsValue> {
     web_sys::console::log_1(&"[Beerdex Rust] 🦀 WebAssembly Engine v5.1.0 initialized successfully. Native acceleration ready.".into());
     Ok(())

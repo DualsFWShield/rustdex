@@ -5,6 +5,7 @@ import * as Storage from './storage.js';
 
 const ALL_DATA_FILES = [
     'data/belgiumbeer.json',
+    'data/saison.json',
     'data/deutchbeer.json',
     'data/frenchbeer.json',
     'data/nlbeer.json',

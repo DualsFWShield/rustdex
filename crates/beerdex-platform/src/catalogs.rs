@@ -6,6 +6,7 @@ pub struct EmbeddedCatalogs;
 
 impl EmbeddedCatalogs {
     pub const BELGIUM_BEER: &'static str = include_str!("../../../data/belgiumbeer.json");
+    pub const SAISON_BEER: &'static str = include_str!("../../../data/saison.json");
     pub const FRENCH_BEER: &'static str = include_str!("../../../data/frenchbeer.json");
     pub const DEUTCH_BEER: &'static str = include_str!("../../../data/deutchbeer.json");
     pub const NL_BEER: &'static str = include_str!("../../../data/nlbeer.json");
@@ -32,6 +33,7 @@ impl EmbeddedCatalogs {
 
         db.load_beer_catalog_json(Self::NEW_BEER, "BE")?;
         db.load_beer_catalog_json(Self::BELGIUM_BEER, "BE")?;
+        db.load_beer_catalog_json(Self::SAISON_BEER, "BE")?;
         db.load_beer_catalog_json(Self::DEUTCH_BEER, "DE")?;
         db.load_beer_catalog_json(Self::FRENCH_BEER, "FR")?;
         db.load_beer_catalog_json(Self::NL_BEER, "NL")?;

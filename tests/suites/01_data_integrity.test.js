@@ -8,6 +8,7 @@ import { Sandbox } from '../core/sandbox.js';
 
 const DATA_FILES = [
     '../data/belgiumbeer.json',
+    '../data/saison.json',
     '../data/newbeer.json',
     '../data/frenchbeer.json',
     '../data/deutchbeer.json',

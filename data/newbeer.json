@@ -588,37 +588,6 @@
     "rarity_rank": "Commun"
   },
   {
-    "title": "Stille Nacht de Noel",
-    "brewery": "De Dolle Brouwers",
-    "type": "Brune (Fort)",
-    "volume": "0.33 L",
-    "alcohol": "12°",
-    "id": "STILLE_NACHT_DE_NOEL_BIERE_0.33",
-    "image": "images/beer/be/stille-nacht-de-noel-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 4.2,
-    "ingredients": "Malt pâle, Sucre candi",
-    "rarity_rank": "Saisonnière"
-  },
-  {
-    "title": "Grimbergen Hiver",
-    "brewery": "Grimbergen",
-    "type": "Ambree",
-    "volume": "0.33 L",
-    "alcohol": "6.5°",
-    "id": "GRIMBERGEN_HIVER_AMBREE_0.33",
-    "image": "images/beer/be/grimbergen-hiver-33cl.png",
-    "production_volume": "Industrielle",
-    "distribution": "Partout",
-    "barrel_aged": false,
-    "community_rating": 3.1,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière",
-    "barcode": "3080216052434"
-  },
-  {
     "title": "Mort Subite Crime of Passion",
     "brewery": "Alken-Maes",
     "type": "Blonde",
@@ -632,21 +601,6 @@
     "community_rating": 3.2,
     "ingredients": "Standard",
     "rarity_rank": "Commun"
-  },
-  {
-    "title": "Père Noël",
-    "brewery": "De Ranke",
-    "type": "Ambree",
-    "volume": "0.33 L",
-    "alcohol": "7°",
-    "id": "P_RE_NO_L_AMBREE_0.33",
-    "image": "images/beer/be/pere-noel-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.7,
-    "ingredients": "Réglisse",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Primus",
@@ -1677,21 +1631,6 @@
     "rarity_rank": "Rare"
   },
   {
-    "title": "Gouden Carolus Noël",
-    "brewery": "Het Anker",
-    "type": "Ambree",
-    "volume": "0.33 L",
-    "alcohol": "10.5°",
-    "id": "GOUDEN_CAROLUS_NO_L_AMBREE_0.33",
-    "image": "images/beer/be/gouden-carolus-noel-33cl.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes & Supermarchés",
-    "barrel_aged": false,
-    "community_rating": 3.9,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Bavik Premium Pils",
     "brewery": "Bavik",
     "type": "Blonde",
@@ -1765,21 +1704,6 @@
     "community_rating": 3,
     "ingredients": "Standard",
     "rarity_rank": "Commun"
-  },
-  {
-    "title": "La Senne Schieve Christmas",
-    "brewery": "Brasserie De La Senne",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "8°",
-    "id": "LA_SENNE_SCHIEVE_CHRISTMAS_BRUNE_0.33",
-    "image": "images/beer/be/la-senne-schieve-christmas-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Standard",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "St Hubertus Blond",
@@ -3751,36 +3675,6 @@
     "rarity_rank": "Commun"
   },
   {
-    "title": "Tongerlo de Noel",
-    "brewery": "Tongerlo",
-    "type": "Blonde",
-    "volume": "0.33 L",
-    "alcohol": "7°",
-    "id": "TONGERLO_DE_NOEL_BLONDE_0.33",
-    "image": "images/beer/be/tongerlo-de-noel-33cl.png",
-    "production_volume": "Industrielle",
-    "distribution": "Supermarché",
-    "barrel_aged": false,
-    "community_rating": 3.3,
-    "ingredients": "Standard",
-    "rarity_rank": "Saisonnière"
-  },
-  {
-    "title": "Slaapmutske de Noel",
-    "brewery": "Slaapmutske",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "7.4°",
-    "id": "SLAAPMUTSKE_DE_NOEL_BRUNE_0.33",
-    "image": "images/beer/be/slaapmutske-de-noel-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.4,
-    "ingredients": "Standard",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "St Louis Premium Kriek",
     "brewery": "Van Honsebrouck",
     "type": "Ambree",
@@ -3931,21 +3825,6 @@
     "rarity_rank": "Super Rare"
   },
   {
-    "title": "Paljas Winter",
-    "brewery": "De Leite",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "7.5°",
-    "id": "PALJAS_WINTER_BRUNE_0.33",
-    "image": "images/beer/be/paljas-winter-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.4,
-    "ingredients": "Standard",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Bon Secours Prestige Tripel",
     "brewery": "Brasserie Caulier",
     "type": "Blonde",
@@ -4034,36 +3913,6 @@
     "community_rating": 3.6,
     "ingredients": "Coriandre",
     "rarity_rank": "Rare"
-  },
-  {
-    "title": "Bon Secours Blonde de Noel",
-    "brewery": "Caulier",
-    "type": "Blonde",
-    "volume": "0.33 L",
-    "alcohol": "10°",
-    "id": "BON_SECOURS_BLONDE_DE_NOEL_BLONDE_0.33",
-    "image": "images/beer/be/bon-secours-blonde-de-noel-33cl.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
-    "title": "Leffe de Noel (Winter)",
-    "brewery": "AB InBev",
-    "type": "Ambree",
-    "volume": "0.33 L",
-    "alcohol": "6.6°",
-    "id": "LEFFE_DE_NOEL_WINTER_AMBREE_0.33",
-    "image": "images/beer/be/leffe-de-noel-winter-33cl.png",
-    "production_volume": "Industrielle",
-    "distribution": "Partout",
-    "barrel_aged": false,
-    "community_rating": 3.2,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Timmermans Peche",
@@ -4334,21 +4183,6 @@
     "community_rating": 3.4,
     "ingredients": "Copeaux chêne fumé",
     "rarity_rank": "Commun"
-  },
-  {
-    "title": "Broeder Jacob Winterklokje",
-    "brewery": "Broeder Jacob",
-    "type": "Rouge / Fruit",
-    "volume": "0.33 L",
-    "alcohol": "9°",
-    "id": "BROEDER_JACOB_WINTERKLOKJE_ROUGE___FRUIT_0.33",
-    "image": "images/beer/be/broeder-jacob-winterklokje-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.2,
-    "ingredients": "Standard",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Nonkel Pater",
@@ -4695,21 +4529,6 @@
     "community_rating": 3.6,
     "ingredients": "Seigle (Rye)",
     "rarity_rank": "Super Rare"
-  },
-  {
-    "title": "Enghien de Noel",
-    "brewery": "Brasserie de Silly",
-    "type": "Brune (Noël)",
-    "volume": "0.33 L",
-    "alcohol": "9°",
-    "id": "ENGHIEN_DE_NOEL_BIERE_0.33",
-    "image": "images/beer/be/enghien-de-noel-33cl.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes généralistes",
-    "barrel_aged": false,
-    "community_rating": 3.3,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Bacchus Kriek / Cerise  test",
@@ -6757,21 +6576,6 @@
     "rarity_rank": "Rare"
   },
   {
-    "title": "Lupulus Hibernatus",
-    "brewery": "Brasserie Les 3 Fourquets",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "9.5°",
-    "id": "LUPULUS_HIBERNATUS_BRUNE_0.33",
-    "image": "images/beer/be/lupulus-hibernatus-33cl.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes & Supermarchés",
-    "barrel_aged": false,
-    "community_rating": 3.7,
-    "ingredients": "Malt torréfié",
-    "rarity_rank": "Rare"
-  },
-  {
     "title": "St Bernardus Tokyo Blik",
     "brewery": "St Bernardus",
     "type": "Blanche",
@@ -7417,21 +7221,6 @@
     "rarity_rank": "Commun"
   },
   {
-    "title": "Bink de Noel Winterbinkske",
-    "brewery": "Kerkom",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "8.3°",
-    "id": "BINK_DE_NOEL_WINTERBINKSKE_BRUNE_0.33",
-    "image": "images/beer/be/bink-de-noel-winterbinkske-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.5,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Kapittel Blonde",
     "brewery": "Van Eecke",
     "type": "Blonde",
@@ -8031,36 +7820,6 @@
     "community_rating": 3.8,
     "ingredients": "Malts torréfiés/Fumé",
     "rarity_rank": "Super Rare"
-  },
-  {
-    "title": "Ter Dolen de Noel",
-    "brewery": "Ter Dolen",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "9.1°",
-    "id": "TER_DOLEN_DE_NOEL_BRUNE_0.33",
-    "image": "images/beer/be/ter-dolen-de-noel-33cl.png",
-    "production_volume": "Régionale",
-    "distribution": "Supermarché",
-    "barrel_aged": false,
-    "community_rating": 3.4,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
-    "title": "Corsendonk Christmas",
-    "brewery": "Corsendonk",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "8.1°",
-    "id": "CORSENDONK_CHRISTMAS_BRUNE_0.33",
-    "image": "images/beer/be/corsendonk-christmas-33cl.png",
-    "production_volume": "Industrielle",
-    "distribution": "Partout",
-    "barrel_aged": false,
-    "community_rating": 3.5,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "St Sebastiaan Brune",
@@ -8667,21 +8426,6 @@
     "rarity_rank": "Rare"
   },
   {
-    "title": "Vicaris Winter de Noel",
-    "brewery": "Dilewyns",
-    "type": "Brune (Noël)",
-    "volume": "0.33 L",
-    "alcohol": "10°",
-    "id": "VICARIS_WINTER_DE_NOEL_BIERE_0.33",
-    "image": "images/beer/be/vicaris-winter-de-noel-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Broeder Jacob Double Port",
     "brewery": "Freres Jacques",
     "type": "Brune",
@@ -8937,21 +8681,6 @@
     "rarity_rank": "Épique"
   },
   {
-    "title": "Canaster Winterscotch",
-    "brewery": "De Glazen Toren",
-    "type": "Ambree",
-    "volume": "0.33 L",
-    "alcohol": "8.7°",
-    "id": "CANASTER_WINTERSCOTCH_AMBREE_0.33",
-    "image": "images/beer/be/canaster-winterscotch-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Scotch Ale",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Meesterke Douze",
     "brewery": "De Meester",
     "type": "Brune",
@@ -9040,21 +8769,6 @@
     "community_rating": 3.8,
     "ingredients": "Houblons juteux",
     "rarity_rank": "Super Rare"
-  },
-  {
-    "title": "Pimpelmeesch Kerst Snol",
-    "brewery": "De Pimpelmeesch",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "8.5°",
-    "id": "PIMPELMEESCH_KERST_SNOL_BRUNE_0.33",
-    "image": "images/beer/be/pimpelmeesch-kerst-snol-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.2,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Dochter Finesse Pure Oak",
@@ -9162,21 +8876,6 @@
     "rarity_rank": "Rare"
   },
   {
-    "title": "Jour de Fete",
-    "brewery": "De Ranke",
-    "type": "Blonde",
-    "volume": "0.33 L",
-    "alcohol": "4°",
-    "id": "JOUR_DE_FETE_BIERE_0.33",
-    "image": "images/beer/be/jour-de-fete-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.4,
-    "ingredients": "Houblons",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Hertenheer",
     "brewery": "Brasserie Het Nest",
     "type": "Ambrée",
@@ -9235,21 +8934,6 @@
     "community_rating": 3.2,
     "ingredients": "Standard",
     "rarity_rank": "Rare"
-  },
-  {
-    "title": "De Bie Winter Bie",
-    "brewery": "De Bie",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "8°",
-    "id": "DE_BIE_WINTER_BIE_BRUNE_0.33",
-    "image": "images/beer/be/de-bie-winter-bie-33cl.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes généralistes",
-    "barrel_aged": false,
-    "community_rating": 3.1,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Clement Blonde",
@@ -9689,21 +9373,6 @@
     "rarity_rank": "Super Rare"
   },
   {
-    "title": "Dochter Esprit de Noel",
-    "brewery": "Dochter van de Korenaar",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "8°",
-    "id": "DOCHTER_ESPRIT_DE_NOEL_BRUNE_0.33",
-    "image": "images/beer/be/dochter-esprit-de-noel-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": true,
-    "community_rating": 3.7,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Meesterke Vals",
     "brewery": "De Meester",
     "type": "Black",
@@ -9732,21 +9401,6 @@
     "community_rating": 3.2,
     "ingredients": "Standard",
     "rarity_rank": "Rare"
-  },
-  {
-    "title": "Ne Flierefluiter Christmas",
-    "brewery": "Fisser",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "10°",
-    "id": "NE_FLIEREFLUITER_CHRISTMAS_BRUNE_0.33",
-    "image": "images/beer/be/ne-flierefluiter-christmas-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.3,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Circus Session IPA",
@@ -10442,21 +10096,6 @@
     "rarity_rank": "Super Rare"
   },
   {
-    "title": "Hedonis Go With the Snow",
-    "brewery": "Hedonis Ambachtsbier",
-    "type": "Brune",
-    "volume": "0.33 L",
-    "alcohol": "10°",
-    "id": "HEDONIS_GO_WITH_THE_SNOW_BRUNE_0.33",
-    "image": "images/beer/be/hedonis-go-with-the-snow-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.6,
-    "ingredients": "Hiver",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Betty Ford",
     "brewery": "Wilderen",
     "type": "Ambree",
@@ -10607,21 +10246,6 @@
     "rarity_rank": "Rare"
   },
   {
-    "title": "Kompel Christmas",
-    "brewery": "Kompel",
-    "type": "Brune (Noël)",
-    "volume": "0.33 L",
-    "alcohol": "8.5°",
-    "id": "KOMPEL_CHRISTMAS_BIERE_0.33",
-    "image": "images/beer/be/kompel-christmas-33cl.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.4,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
-  },
-  {
     "title": "Gebrouwen Door Vrouwen Tricky Tripel",
     "brewery": "Gebrouwen door Vrouwen",
     "type": "Triple (Blonde)",
@@ -10755,21 +10379,6 @@
     "community_rating": 3.1,
     "ingredients": "Standard",
     "rarity_rank": "Rare"
-  },
-  {
-    "title": "Barbe Noel",
-    "brewery": "Verhaeghe",
-    "type": "Brune (Noël)",
-    "volume": "0.33 L",
-    "alcohol": "7.2°",
-    "id": "BARBE_NOEL_BIERE_0.33",
-    "image": "images/beer/be/barbe-noel-33cl.png",
-    "production_volume": "Régionale",
-    "distribution": "Cavistes généralistes",
-    "barrel_aged": false,
-    "community_rating": 3.4,
-    "ingredients": "Epices",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Duivels Bier",
@@ -11385,21 +10994,6 @@
     "community_rating": 3.4,
     "ingredients": "Standard",
     "rarity_rank": "Rare"
-  },
-  {
-    "title": "Santa Bee",
-    "brewery": "Boelens",
-    "type": "Brune (Miel/Noël)",
-    "volume": "0.33 L",
-    "alcohol": "8.5°",
-    "id": "SANTA_BEE_BIERE_0.33",
-    "image": "images/beer/be/santa-bee-33cl.png",
-    "production_volume": "Micro-brasserie",
-    "distribution": "Cavistes spécialisés",
-    "barrel_aged": false,
-    "community_rating": 3.3,
-    "ingredients": "Miel",
-    "rarity_rank": "Saisonnière"
   },
   {
     "title": "Martha Guilty Pleasure",
