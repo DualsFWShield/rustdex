@@ -441,11 +441,11 @@ fn set_timeout_once<F: FnOnce() + 'static>(f: F, ms: i32) -> i32 {
 }
 
 // ============================================================================
-// Point d'entrée (exécuté au chargement du module WASM)
+// Point d'entrée optionnel (exécutable si le mode full Rust est demandé)
 // ============================================================================
 
-#[wasm_bindgen(start)]
-pub fn start() {
+#[wasm_bindgen]
+pub fn rust_app_start() {
     let win = window();
     let doc = document();
 

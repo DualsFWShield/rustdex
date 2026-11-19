@@ -4943,11 +4943,11 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
 
                 <div class="setting-row" data-keywords="rust wasm webassembly performance moteur core acceleration">
                     <div class="setting-info">
-                        <span class="setting-title">🦀 Moteur Haute Performance Rust</span>
-                        <span class="setting-desc" id="settings-rust-status">Moteur de calcul natif WebAssembly (v5.1.0) : ${window.BeerdexRust && window.BeerdexRust.isAvailable() ? '⚡ Actif (Accélération matérielle)' : '⚡ Actif (WASM Core)'}</span>
+                        <span class="setting-title"><img src="icons/rust.png" alt="Rust" style="width:18px; height:18px; vertical-align:middle; margin-right:6px;"> Moteur Haute Performance Rust</span>
+                        <span class="setting-desc" id="settings-rust-status">Moteur de calcul natif WebAssembly (v5.1.0) : ${Storage.getPreference('feat_rust_enabled', true) && window.BeerdexRust && window.BeerdexRust.isAvailable() ? '⚡ Actif (Accélération matérielle)' : 'Inactif (Mode JavaScript)'}</span>
                     </div>
                     <div class="setting-action">
-                        <span class="badge" style="background:rgba(255,193,7,0.2); color:#ffc107; border:1px solid #ffc107; padding:4px 10px; border-radius:12px; font-weight:bold; font-size:0.75rem;">Rust v5.1.0</span>
+                        <input type="checkbox" id="toggle-feat-rust" class="toggle-switch" ${Storage.getPreference('feat_rust_enabled', true) ? 'checked' : ''}>
                     </div>
                 </div>
 
@@ -5115,7 +5115,8 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
         { id: '#toggle-party-share-top', key: 'beermatch_share_top' },
         { id: '#toggle-party-share-unique', key: 'beermatch_share_unique' },
         { id: '#toggle-party-share-achievements', key: 'beermatch_share_achievements' },
-        { id: '#toggle-feat-wrapped', key: 'feat_wrapped_enabled' }
+        { id: '#toggle-feat-wrapped', key: 'feat_wrapped_enabled' },
+        { id: '#toggle-feat-rust', key: 'feat_rust_enabled' }
     ];
 
     toggles.forEach(t => {
@@ -5123,6 +5124,20 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
         if (el) {
             el.addEventListener('change', (e) => {
                 Storage.savePreference(t.key, e.target.checked);
+                if (t.key === 'feat_rust_enabled') {
+                    const isChecked = e.target.checked;
+                    const statusEl = container.querySelector('#settings-rust-status');
+                    if (statusEl) {
+                        statusEl.textContent = isChecked ? 'Moteur de calcul natif WebAssembly (v5.1.0) : ⚡ Actif (Accélération matérielle)' : 'Moteur de calcul natif WebAssembly (v5.1.0) : Inactif (Mode JavaScript)';
+                    }
+                    const indicator = document.getElementById('rust-wasm-indicator');
+                    if (indicator) {
+                        indicator.style.display = isChecked ? 'inline-block' : 'none';
+                    }
+                    if (isChecked && window.initRustCore) {
+                        window.initRustCore().catch(() => {});
+                    }
+                }
                 if (t.key === 'feat_beermatch_enabled') {
                     const partySubRows = container.querySelectorAll('.party-sub-row');
                     partySubRows.forEach(r => r.style.display = e.target.checked ? 'flex' : 'none');

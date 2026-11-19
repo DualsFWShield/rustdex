@@ -27,7 +27,7 @@ export function beerdex_validate_ean13(barcode: string): boolean;
 
 export function beerdex_version(): string;
 
-export function start(): void;
+export function rust_app_start(): void;
 
 export function wasm_init(): void;
 
@@ -48,7 +48,7 @@ export interface InitOutput {
     readonly beerdex_trigger_haptic: (a: number, b: number) => void;
     readonly beerdex_validate_ean13: (a: number, b: number) => number;
     readonly beerdex_version: () => [number, number];
-    readonly start: () => void;
+    readonly rust_app_start: () => void;
     readonly wasm_init: () => [number, number];
     readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue__core_37ee0ce0c4cd57d5___result__Result_____wasm_bindgen_ce6734f7863d3998___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true_: (a: number, b: number, c: any) => void;

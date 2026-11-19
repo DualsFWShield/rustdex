@@ -6,6 +6,17 @@
 
 let wasmInstance = null;
 let isReady = false;
+let _initPromise = null;
+
+export function isRustEnabledPreference() {
+    try {
+        const val = localStorage.getItem('beerdex_pref_feat_rust_enabled');
+        if (val === null) return true;
+        return JSON.parse(val) !== false;
+    } catch {
+        return true;
+    }
+}
 
 export function isAndroidNative() {
     return typeof window !== 'undefined' && 
@@ -15,6 +26,12 @@ export function isAndroidNative() {
 }
 
 export async function initRustCore() {
+    if (!isRustEnabledPreference()) {
+        const indicator = document.getElementById('rust-wasm-indicator');
+        if (indicator) indicator.style.display = 'none';
+        return null;
+    }
+
     // 1. Android Native JNI Engine (Highest Priority - Native ARM64/x86 Machine Code)
     if (isAndroidNative()) {
         isReady = true;
@@ -27,45 +44,56 @@ export async function initRustCore() {
             detail: { version: BeerdexRust.version(), mode: 'android-jni' }
         }));
 
-        updateUiBadge('🦀 Rust Native (Android)', 'Moteur haute performance natif ARM64 Rust (JNI) actif');
+        updateUiBadge('Moteur haute performance natif ARM64 Rust (JNI) actif');
         return window.BeerdexAndroidNative;
     }
 
     // 2. WebAssembly Engine (Desktop / Web / PWA / Fallback)
-    if (isReady && wasmInstance) return wasmInstance;
-
-    try {
-        const wasmModule = await import('../wasm/beerdex_app.js');
-        const wasmUrl = new URL('../wasm/beerdex_app_bg.wasm', import.meta.url);
-        
-        await wasmModule.default(wasmUrl);
-        wasmInstance = wasmModule;
-        isReady = true;
-
-        console.log(
-            '%c🦀 [Beerdex Rust] WebAssembly Engine v5.1.0 loaded successfully! Native acceleration active.',
-            'background: #ffc107; color: #111; font-weight: bold; padding: 4px 8px; border-radius: 4px;'
-        );
-
-        window.dispatchEvent(new CustomEvent('beerdex:rust-ready', {
-            detail: { version: BeerdexRust.version(), mode: 'wasm' }
-        }));
-
-        updateUiBadge('🦀 Rust WASM', 'Moteur haute performance WebAssembly actif (v5.1.0)');
+    if (isReady && wasmInstance) {
+        updateUiBadge('Moteur haute performance WebAssembly actif (v5.1.0)');
         return wasmInstance;
-    } catch (err) {
-        console.warn('[Beerdex Rust] WASM engine initialization notice (using JS fallback):', err.message);
-        isReady = false;
-        return null;
     }
+
+    if (_initPromise) return _initPromise;
+
+    _initPromise = (async () => {
+        try {
+            const wasmModule = await import('../wasm/beerdex_app.js');
+            const wasmUrl = new URL('../wasm/beerdex_app_bg.wasm', import.meta.url);
+            
+            await wasmModule.default({ module_or_path: wasmUrl });
+            wasmInstance = wasmModule;
+            isReady = true;
+
+            console.log(
+                '%c🦀 [Beerdex Rust] WebAssembly Engine v5.1.0 loaded successfully! Native acceleration active.',
+                'background: #ffc107; color: #111; font-weight: bold; padding: 4px 8px; border-radius: 4px;'
+            );
+
+            window.dispatchEvent(new CustomEvent('beerdex:rust-ready', {
+                detail: { version: BeerdexRust.version(), mode: 'wasm' }
+            }));
+
+            updateUiBadge('Moteur haute performance WebAssembly actif (v5.1.0)');
+            return wasmInstance;
+        } catch (err) {
+            console.warn('[Beerdex Rust] WASM engine initialization notice (using JS fallback):', err.message);
+            isReady = false;
+            return null;
+        } finally {
+            _initPromise = null;
+        }
+    })();
+
+    return _initPromise;
 }
 
-function updateUiBadge(text, title) {
+function updateUiBadge(title) {
+    if (!isRustEnabledPreference()) return;
     const badge = document.getElementById('rust-wasm-indicator');
     if (badge) {
-        badge.style.display = 'inline-flex';
-        badge.textContent = text;
-        badge.title = title;
+        badge.style.display = 'inline-block';
+        badge.title = title || 'Moteur haute performance WebAssembly actif (v5.1.0)';
     }
     const settingsStatus = document.getElementById('settings-rust-status');
     if (settingsStatus) {
@@ -75,6 +103,7 @@ function updateUiBadge(text, title) {
 
 export const BeerdexRust = {
     isAvailable() {
+        if (!isRustEnabledPreference()) return false;
         return isAndroidNative() || (isReady && wasmInstance !== null);
     },
 
@@ -258,8 +287,12 @@ export const BeerdexRust = {
 // Auto-initialize on startup
 if (typeof window !== 'undefined') {
     window.BeerdexRust = BeerdexRust;
-    window.addEventListener('DOMContentLoaded', () => {
+    window.initRustCore = initRustCore;
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', () => {
+            initRustCore().catch(() => {});
+        });
+    } else {
         initRustCore().catch(() => {});
-    });
+    }
 }
-initRustCore().catch(() => {});

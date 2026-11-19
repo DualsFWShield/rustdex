@@ -13,31 +13,31 @@ import * as import4 from "../js/storage.js"
 import * as import5 from "../js/utils.js"
 import * as import6 from "../js/widget-bridge.js"
 import * as import7 from "../js/ui.js"
-import * as import8 from "../js/ui.js"
+import * as import8 from "../js/storage.js"
 import * as import9 from "../js/ui.js"
-import * as import10 from "../js/storage.js"
+import * as import10 from "../js/ui.js"
 import * as import11 from "../js/theme.js"
 import * as import12 from "../js/theme.js"
-import * as import13 from "../js/env.js"
-import * as import14 from "../js/utils.js"
-import * as import15 from "../js/storage.js"
-import * as import16 from "../js/storage.js"
-import * as import17 from "../js/ui.js"
+import * as import13 from "../js/crashLogger.js"
+import * as import14 from "../js/wrapped.js"
+import * as import15 from "../js/env.js"
+import * as import16 from "../js/utils.js"
+import * as import17 from "../js/storage.js"
 import * as import18 from "../js/storage.js"
 import * as import19 from "../js/ui.js"
-import * as import20 from "../js/data.js"
+import * as import20 from "../js/storage.js"
 import * as import21 from "../js/ui.js"
-import * as import22 from "../js/bac.js"
-import * as import23 from "../js/bac.js"
-import * as import24 from "../js/deduplicator.js"
-import * as import25 from "../js/utils.js"
-import * as import26 from "../js/data.js"
-import * as import27 from "../js/ui.js"
-import * as import28 from "../js/utils.js"
-import * as import29 from "../js/storage.js"
-import * as import30 from "../js/storage.js"
-import * as import31 from "../js/crashLogger.js"
-import * as import32 from "../js/wrapped.js"
+import * as import22 from "../js/data.js"
+import * as import23 from "../js/ui.js"
+import * as import24 from "../js/bac.js"
+import * as import25 from "../js/bac.js"
+import * as import26 from "../js/deduplicator.js"
+import * as import27 from "../js/utils.js"
+import * as import28 from "../js/data.js"
+import * as import29 from "../js/ui.js"
+import * as import30 from "../js/utils.js"
+import * as import31 from "../js/storage.js"
+import * as import32 from "../js/storage.js"
 import * as import33 from "../js/api.js"
 
 
@@ -275,8 +275,8 @@ export function beerdex_version() {
     }
 }
 
-export function start() {
-    wasm.start();
+export function rust_app_start() {
+    wasm.rust_app_start();
 }
 
 export function wasm_init() {
@@ -1043,31 +1043,31 @@ function __wbg_get_imports() {
         "../js/utils.js": import5,
         "../js/widget-bridge.js": import6,
         "../js/ui.js": import7,
-        "../js/ui.js": import8,
+        "../js/storage.js": import8,
         "../js/ui.js": import9,
-        "../js/storage.js": import10,
+        "../js/ui.js": import10,
         "../js/theme.js": import11,
         "../js/theme.js": import12,
-        "../js/env.js": import13,
-        "../js/utils.js": import14,
-        "../js/storage.js": import15,
-        "../js/storage.js": import16,
-        "../js/ui.js": import17,
+        "../js/crashLogger.js": import13,
+        "../js/wrapped.js": import14,
+        "../js/env.js": import15,
+        "../js/utils.js": import16,
+        "../js/storage.js": import17,
         "../js/storage.js": import18,
         "../js/ui.js": import19,
-        "../js/data.js": import20,
+        "../js/storage.js": import20,
         "../js/ui.js": import21,
-        "../js/bac.js": import22,
-        "../js/bac.js": import23,
-        "../js/deduplicator.js": import24,
-        "../js/utils.js": import25,
-        "../js/data.js": import26,
-        "../js/ui.js": import27,
-        "../js/utils.js": import28,
-        "../js/storage.js": import29,
-        "../js/storage.js": import30,
-        "../js/crashLogger.js": import31,
-        "../js/wrapped.js": import32,
+        "../js/data.js": import22,
+        "../js/ui.js": import23,
+        "../js/bac.js": import24,
+        "../js/bac.js": import25,
+        "../js/deduplicator.js": import26,
+        "../js/utils.js": import27,
+        "../js/data.js": import28,
+        "../js/ui.js": import29,
+        "../js/utils.js": import30,
+        "../js/storage.js": import31,
+        "../js/storage.js": import32,
         "../js/api.js": import33,
     };
 }
