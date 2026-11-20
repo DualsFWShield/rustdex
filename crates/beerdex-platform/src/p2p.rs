@@ -75,8 +75,12 @@ impl IncomingTransfer {
     }
 
     pub fn insert_chunk(&mut self, index: usize, data: Vec<u8>) -> bool {
-        self.received_bytes += data.len();
-        self.chunks.insert(index, data);
+        // Only count bytes for newly inserted chunks, not duplicates.
+        let len = data.len();
+        let is_new = self.chunks.insert(index, data).is_none();
+        if is_new {
+            self.received_bytes += len;
+        }
         self.is_complete()
     }
 

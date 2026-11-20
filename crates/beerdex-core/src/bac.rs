@@ -138,9 +138,10 @@ pub fn simulate_bac(
         }
 
         // Termination condition: after now, all drinks injected, queue empty, and BAC back to zero
+        // Use epsilon comparison to avoid floating-point exactness issues.
         if sim_time > now
             && drink_idx >= recent_drinks.len()
-            && current_bac == 0.0
+            && current_bac < 0.001
             && absorption_queue.iter().all(|q| q.remaining_grams <= 0.0)
         {
             curve.push(BacCurvePoint {

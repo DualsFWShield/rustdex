@@ -599,19 +599,46 @@ pub fn find_custom_matches_with_safety(
 pub fn scan_catalog_duplicates(official_beers: &[Beer], min_score: u32) -> Vec<CatalogDuplicate> {
     let mut duplicates = Vec::new();
     let len = official_beers.len();
+    if len < 2 {
+        return duplicates;
+    }
 
-    for i in 0..len {
-        for j in (i + 1)..len {
-            let a = &official_beers[i];
-            let b = &official_beers[j];
-            let res = match_beers(a, b);
-            if res.is_match && res.score >= min_score {
-                duplicates.push(CatalogDuplicate {
-                    a: a.clone(),
-                    b: b.clone(),
-                    score: res.score,
-                    reason: res.reasons.join(", "),
-                });
+    // Pré-filtre : regrouper les bières par première lettre du titre normalisé.
+    // Deux doublons ont quasi systématiquement le même premier caractère (après
+    // suppression des articles et accents via normalize_text). Cela réduit le
+    // nombre de comparaisons de O(n²) pur à O(Σ group_size²), bien plus petit
+    // sur un catalogue de plusieurs milliers de bières.
+    let mut groups: std::collections::HashMap<char, Vec<usize>> =
+        std::collections::HashMap::new();
+    for (i, beer) in official_beers.iter().enumerate() {
+        let norm = normalize_text(&beer.title);
+        let first = norm.chars().next().unwrap_or('\0');
+        groups.entry(first).or_default().push(i);
+    }
+
+    for (_, indices) in groups {
+        let n = indices.len();
+        for a_idx in 0..n {
+            for b_idx in (a_idx + 1)..n {
+                let i = indices[a_idx];
+                let j = indices[b_idx];
+                let a = &official_beers[i];
+                let b = &official_beers[j];
+
+                // Pré-filtres rapides (peu coûteux) avant l'appel complet à match_beers.
+                if has_variant_conflict(a, b) || has_number_conflict(a, b) {
+                    continue;
+                }
+
+                let res = match_beers(a, b);
+                if res.is_match && res.score >= min_score {
+                    duplicates.push(CatalogDuplicate {
+                        a: a.clone(),
+                        b: b.clone(),
+                        score: res.score,
+                        reason: res.reasons.join(", "),
+                    });
+                }
             }
         }
     }

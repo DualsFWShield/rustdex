@@ -157,3 +157,18 @@ pub fn beerdex_trigger_haptic(pattern: &str) {
         _ => beerdex_platform::haptics::HapticsEngine::vibrate(15),
     }
 }
+
+#[wasm_bindgen]
+pub fn beerdex_get_import_bonus(beer_country: &str, user_country: &str) -> String {
+    let (bonus, reason) = beerdex_core::rarity::get_import_bonus(beer_country, user_country);
+    let reason_json = match reason {
+        Some(r) => format!("\"{}\"", r.replace('"', "\\\"")),
+        None => "null".to_string(),
+    };
+    format!("{{\"bonus\":{},\"reason\":{}}}", bonus, reason_json)
+}
+
+#[wasm_bindgen]
+pub fn beerdex_promote_rarity(base_rarity: &str, bonus: u32) -> String {
+    beerdex_core::rarity::promote_rarity_with_import(base_rarity, bonus).to_string()
+}

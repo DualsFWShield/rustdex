@@ -120,9 +120,7 @@ pub const FEMININE_ANIMALS: &[&str] = &[
     "Martre",
     "Hermine",
     "Panthère",
-    "Pie",
-    "Raie",
-    "Gargouille",
+    // "Pie", "Raie", "Gargouille" retirés : absents de ANIMAL_NAMES, donc jamais matchés (code mort)
 ];
 
 pub const FEMININE_TITLES: &[(&str, &str)] = &[
@@ -147,7 +145,9 @@ pub const FEMININE_ADJECTIVES: &[(&str, &str)] = &[
     ("Épicé", "Épicée"),
     ("Rafraîchissant", "Rafraîchissante"),
     ("Brasseur", "Brasseuse"),
+    ("Sommelier", "Sommelière"),
     ("Gourmet", "Gourmande"),
+    ("Convivial", "Conviviale"),
     ("Assoiffé", "Assoiffée"),
     ("Joyeux", "Joyeuse"),
     ("Festif", "Festive"),
@@ -161,6 +161,8 @@ pub const FEMININE_ADJECTIVES: &[(&str, &str)] = &[
     ("Brillant", "Brillante"),
     ("Vaillant", "Vaillante"),
     ("Flamboyant", "Flamboyante"),
+    // Adjectifs invariables (pas de forme féminine distincte) : Rapide, Agile, Énigmatique,
+    // Nocturne, Féroce, Intrépide, Épique, Légendaire, Invincible, Hilare, Espiègle — omis volontairement.
 ];
 
 pub fn get_random_pseudo(seed: u64) -> String {

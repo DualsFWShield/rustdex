@@ -54,9 +54,17 @@ export function renderShareLink(link) {
     wrapper.innerHTML = `
         <h2>Lien de Partage</h2>
         <p style="color:#888; font-size:0.85rem; margin-bottom:15px;">Si l'image ne s'affiche pas, utilisez ce lien :</p>
-        <textarea readonly style="width:100%; height:80px; background:#111; color:#0f0; border:1px solid #333; margin-bottom:10px;">${link}</textarea>
-        <button class="btn-primary" onclick="navigator.clipboard.writeText('${link}').then(() => showToast(i18n.t('toast_copied')))">${i18n.t('match_btn_copy')}</button>
+        <textarea readonly id="share-link-textarea" style="width:100%; height:80px; background:#111; color:#0f0; border:1px solid #333; margin-bottom:10px;"></textarea>
+        <button id="share-link-copy-btn" class="btn-primary">${i18n.t('match_btn_copy')}</button>
     `;
+    const textarea = wrapper.querySelector('#share-link-textarea');
+    if (textarea) textarea.textContent = link;
+    const btn = wrapper.querySelector('#share-link-copy-btn');
+    if (btn) {
+        btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(link).then(() => showToast(i18n.t('toast_copied')));
+        });
+    }
     openModal(wrapper);
 }
 

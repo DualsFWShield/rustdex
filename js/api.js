@@ -131,10 +131,16 @@ function handleImport(params) {
     // Attempt decompression
     let jsonStr = dataStr;
     try {
-        if (window.LZString) {
-            const decompressed = LZString.decompressFromEncodedURIComponent(dataStr);
-            if (decompressed) jsonStr = decompressed;
+        let decompressed;
+        if (window.BeerdexRust && window.BeerdexRust.isAvailable()) {
+            // Priorité au moteur Rust/WASM (LZ-String natif)
+            decompressed = window.BeerdexRust.decompressLz(dataStr);
+        } else if (window.LZString) {
+            decompressed = LZString.decompressFromEncodedURIComponent(dataStr);
+        } else {
+            decompressed = decodeURIComponent(dataStr);
         }
+        if (decompressed) jsonStr = decompressed;
     } catch (e) {
         console.warn("[API] Decompression failed, trying raw", e);
     }

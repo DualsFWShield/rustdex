@@ -17,6 +17,23 @@
 */
 
 export function calculateRarity(beer) {
+    // Priorité au moteur Rust/WASM pour le calcul de rareté (plus performant sur gros catalogs)
+    if (window.BeerdexRust && window.BeerdexRust.isAvailable() && typeof window.BeerdexRust.calculateRarity === 'function') {
+        try {
+            const rustRarity = window.BeerdexRust.calculateRarity(
+                beer.country || '',
+                beer.type || '',
+                parseFloat((beer.alcohol || '0').replace('%', '').replace(',', '.')) || 0,
+                beer.distribution || '',
+                !!beer.barrel_aged,
+                beer.ingredients || ''
+            );
+            // Retourne un objet compatible avec l'API JS existante
+            return { score: 0, rarity: rustRarity, reasons: ['Rust/WASM native calculation'] };
+        } catch (_) {}
+    }
+
+    // Fallback JS
     let score = 0;
     const reasons = [];
 
@@ -187,6 +204,14 @@ const GEO_GROUPS = {
  * @returns {{ bonus: number, reason: string|null }}
  */
 export function getImportBonus(beerCountry, userCountry) {
+    // Priorité au moteur Rust/WASM
+    if (window.BeerdexRust && window.BeerdexRust.isAvailable() && typeof window.BeerdexRust.getImportBonus === 'function') {
+        try {
+            return window.BeerdexRust.getImportBonus(beerCountry, userCountry);
+        } catch (_) {}
+    }
+
+    // Fallback JS
     if (!beerCountry || !userCountry) return { bonus: 0, reason: null };
     
     const bc = beerCountry.toUpperCase();
@@ -245,6 +270,14 @@ export function getImportBonus(beerCountry, userCountry) {
  * @returns {string} Promoted rarity string
  */
 export function promoteRarity(baseRarity, ranks) {
+    // Priorité au moteur Rust/WASM
+    if (window.BeerdexRust && window.BeerdexRust.isAvailable() && typeof window.BeerdexRust.promoteRarity === 'function') {
+        try {
+            return window.BeerdexRust.promoteRarity(baseRarity, ranks);
+        } catch (_) {}
+    }
+
+    // Fallback JS
     if (ranks <= 0) return baseRarity;
     const currentIndex = RARITY_RANKS.indexOf(baseRarity);
     if (currentIndex < 0) return baseRarity; // Unknown rarity, return as-is

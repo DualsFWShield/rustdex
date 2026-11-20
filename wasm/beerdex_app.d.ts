@@ -17,7 +17,11 @@ export function beerdex_french_typography(text: string): string;
 
 export function beerdex_generate_qr_svg(text: string, size_px: number): string;
 
+export function beerdex_get_import_bonus(beer_country: string, user_country: string): string;
+
 export function beerdex_parse_scan(payload: string): string;
+
+export function beerdex_promote_rarity(base_rarity: string, bonus: number): string;
 
 export function beerdex_similarity(a: string, b: string): number;
 
@@ -43,7 +47,9 @@ export interface InitOutput {
     readonly beerdex_french_elision: (a: number, b: number) => [number, number];
     readonly beerdex_french_typography: (a: number, b: number) => [number, number];
     readonly beerdex_generate_qr_svg: (a: number, b: number, c: number) => [number, number];
+    readonly beerdex_get_import_bonus: (a: number, b: number, c: number, d: number) => [number, number];
     readonly beerdex_parse_scan: (a: number, b: number) => [number, number];
+    readonly beerdex_promote_rarity: (a: number, b: number, c: number) => [number, number];
     readonly beerdex_similarity: (a: number, b: number, c: number, d: number) => number;
     readonly beerdex_trigger_haptic: (a: number, b: number) => void;
     readonly beerdex_validate_ean13: (a: number, b: number) => number;
@@ -52,9 +58,9 @@ export interface InitOutput {
     readonly wasm_init: () => [number, number];
     readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue__core_37ee0ce0c4cd57d5___result__Result_____wasm_bindgen_ce6734f7863d3998___JsError___true_: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true_: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__17: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__18: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__19: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__20: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__21: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___js_sys_2fe9354b94106d01___Array__true_: (a: number, b: number) => any;
     readonly wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke_______true_: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;

@@ -53,8 +53,15 @@ impl DesktopStorage {
         let json_str = serde_json::to_string_pretty(state)
             .map_err(|e| format!("Failed to serialize state: {}", e))?;
 
-        fs::write(&path, json_str)
-            .map_err(|e| format!("Failed to write state file {:?}: {}", path, e))
+        // Atomic write: write to a temp file then rename, to avoid corruption
+        // if the process crashes mid-write.
+        let tmp_path = path.with_extension("json.tmp");
+        fs::write(&tmp_path, &json_str)
+            .map_err(|e| format!("Failed to write temp state file {:?}: {}", tmp_path, e))?;
+        fs::rename(&tmp_path, &path)
+            .map_err(|e| format!("Failed to rename temp state file {:?} -> {:?}: {}", tmp_path, path, e))?;
+
+        Ok(())
     }
 
     /// Writes an export backup file to a specific destination path.

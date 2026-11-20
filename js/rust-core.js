@@ -281,6 +281,29 @@ export const BeerdexRust = {
         if (navigator.vibrate) {
             navigator.vibrate(15);
         }
+    },
+
+    getImportBonus(beerCountry, userCountry) {
+        if (this.isAvailable() && typeof wasmInstance.beerdex_get_import_bonus === 'function') {
+            try {
+                const res = wasmInstance.beerdex_get_import_bonus(beerCountry || '', userCountry || '');
+                return JSON.parse(res);
+            } catch (_) {}
+        }
+        return { bonus: 0, reason: null };
+    },
+
+    promoteRarity(baseRarity, bonus) {
+        if (this.isAvailable() && typeof wasmInstance.beerdex_promote_rarity === 'function') {
+            try {
+                return wasmInstance.beerdex_promote_rarity(baseRarity || 'commun', bonus || 0);
+            } catch (_) {}
+        }
+        // JS fallback: simple rank shift
+        const ranks = ["base", "commun", "rare", "super_rare", "epique", "mythique", "legendaire", "ultra_legendaire"];
+        const idx = ranks.indexOf(baseRarity);
+        if (idx < 0) return baseRarity;
+        return ranks[Math.min(idx + (bonus || 0), ranks.length - 1)];
     }
 };
 

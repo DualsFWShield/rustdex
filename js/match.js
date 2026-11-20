@@ -164,7 +164,8 @@ const Match = {
         p.pseudo = pseudo;
 
         const userData = Storage.getAllUserData();
-        const ratings = ratingsOverride || userData.ratings || userData;
+        // ratingsOverride > userData.ratings > {} (never fall back to raw userData)
+        const ratings = ratingsOverride || (userData && userData.ratings) || {};
         
         const validKeys = Object.keys(ratings).filter(k => ratings[k] && ratings[k].count > 0);
         const allConsumed = validKeys; 

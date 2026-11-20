@@ -28,7 +28,6 @@ const ASSETS = [
     './js/import-export.js',
     './js/map.js',
     './js/match.js',
-    './js/off-api.js',
     './js/ota-sync.js',
     './js/recommendation.js',
     './js/rust-core.js',

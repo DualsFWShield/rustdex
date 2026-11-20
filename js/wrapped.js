@@ -37,19 +37,32 @@ function calculateStats() {
         i18n.t('month_sep'), i18n.t('month_oct'), i18n.t('month_nov'), i18n.t('month_dec')
     ];
 
+    // Build O(1) lookup indexes by ID for all beers (avoids O(n) find() in the loop below)
+    const beerById = new Map();
+    const beerByTitleNorm = new Map();
+    const addBeerToIndex = (b) => {
+        if (!b || !b.id) return;
+        beerById.set(b.id, b);
+        const norm = String(b.title || '').toUpperCase().trim();
+        if (norm && !beerByTitleNorm.has(norm)) {
+            beerByTitleNorm.set(norm, b);
+        }
+    };
+    (allBeers || []).forEach(addBeerToIndex);
+    (customBeers || []).forEach(addBeerToIndex);
+
     let uniqueCount = 0;
 
     Object.keys(userData).forEach(key => {
         const entry = userData[key];
         const beerId = key;
 
-        let beer = allBeers.find(b => b.id == beerId);
-        if (!beer) beer = customBeers.find(b => b.id == beerId);
+        let beer = beerById.get(beerId);
 
         if (!beer) {
+            // Fallback: match by normalized title (first match wins, best effort)
             const cleanKey = beerId.toUpperCase().trim();
-            beer = allBeers.find(b => b.title.toUpperCase().trim() === cleanKey);
-            if (!beer) beer = customBeers.find(b => b.title.toUpperCase().trim() === cleanKey);
+            beer = beerByTitleNorm.get(cleanKey);
         }
 
         if (!beer && entry.count > 0) {

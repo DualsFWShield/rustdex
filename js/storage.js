@@ -892,8 +892,15 @@ export function getShareableLink(options = {}, downloadMode = false) {
     // Minimal overhead
     const jsonStr = JSON.stringify(exportObj);
 
-    if (!window.LZString) return null;
-    const compressed = LZString.compressToEncodedURIComponent(jsonStr);
+    let compressed;
+    if (window.BeerdexRust && window.BeerdexRust.isAvailable()) {
+        // Priorité au moteur Rust/WASM (LZ-String natif)
+        compressed = window.BeerdexRust.compressLz(jsonStr);
+    } else if (window.LZString) {
+        compressed = LZString.compressToEncodedURIComponent(jsonStr);
+    } else {
+        return null;
+    }
 
     // Construct absolute URL
     // We assume index.html is root, so just ?action=import...

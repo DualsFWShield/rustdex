@@ -1,4 +1,4 @@
-/* @ts-self-types="./beerdex_app.d.ts" */
+/* @ts-self-types="./rustdex.d.ts" */
 import { Analytics } from '../js/analytics.js';
 import { EventSystem } from '../js/event-system.js';
 import { Feedback } from '../js/feedback.js';
@@ -200,6 +200,35 @@ export function beerdex_generate_qr_svg(text, size_px) {
 }
 
 /**
+ * @param {string} beer_country
+ * @param {string} user_country
+ * @returns {string}
+ */
+export function beerdex_get_import_bonus(beer_country, user_country) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        let ptr0, len0, ptr1, len1;
+        try {
+            ptr0 = passStringToWasm0(beer_country, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            len0 = WASM_VECTOR_LEN;
+            ptr1 = passStringToWasm0(user_country, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            len1 = WASM_VECTOR_LEN;
+        } catch (e) {
+            if (ptr1) { wasm.__wbindgen_free(ptr1, len1 * 1, 1); }
+            if (ptr0) { wasm.__wbindgen_free(ptr0, len0 * 1, 1); }
+            throw e;
+        }
+        const ret = wasm.beerdex_get_import_bonus(ptr0, len0, ptr1, len1);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
  * @param {string} payload
  * @returns {string}
  */
@@ -215,6 +244,27 @@ export function beerdex_parse_scan(payload) {
         return getStringFromWasm0(ret[0], ret[1]);
     } finally {
         wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * @param {string} base_rarity
+ * @param {number} bonus
+ * @returns {string}
+ */
+export function beerdex_promote_rarity(base_rarity, bonus) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const val2 = +bonus;
+        const ptr0 = passStringToWasm0(base_rarity, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.beerdex_promote_rarity(ptr0, len0, val2);
+        deferred3_0 = ret[0];
+        deferred3_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
     }
 }
 
@@ -980,37 +1030,37 @@ function __wbg_get_imports() {
             console.warn(arg0, arg1);
         },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 135, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 136, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true_);
             return ret;
         },
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 236, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 237, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue__core_37ee0ce0c4cd57d5___result__Result_____wasm_bindgen_ce6734f7863d3998___JsError___true_);
             return ret;
         },
         __wbindgen_generic_0000000000000003: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("Array<any>")], shim_idx: 135, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__17);
-            return ret;
-        },
-        __wbindgen_generic_0000000000000004: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("Event")], shim_idx: 135, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__18);
-            return ret;
-        },
-        __wbindgen_generic_0000000000000005: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 135, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("Array<any>")], shim_idx: 136, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__19);
             return ret;
         },
+        __wbindgen_generic_0000000000000004: function(arg0, arg1) {
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("Event")], shim_idx: 136, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__20);
+            return ret;
+        },
+        __wbindgen_generic_0000000000000005: function(arg0, arg1) {
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [NamedExternref("KeyboardEvent")], shim_idx: 136, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__21);
+            return ret;
+        },
         __wbindgen_generic_0000000000000006: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 140, ret: NamedExternref("Array<any>"), inner_ret: Some(NamedExternref("Array<any>")) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 139, ret: NamedExternref("Array<any>"), inner_ret: Some(NamedExternref("Array<any>")) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___js_sys_2fe9354b94106d01___Array__true_);
             return ret;
         },
         __wbindgen_generic_0000000000000007: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 142, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 141, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke_______true_);
             return ret;
         },
@@ -1035,7 +1085,7 @@ function __wbg_get_imports() {
     };
     return {
         __proto__: null,
-        "./beerdex_app_bg.js": import0,
+        "./rustdex_bg.js": import0,
         "../js/storage.js": import1,
         "../js/achievements.js": import2,
         "../js/storage.js": import3,
@@ -1085,16 +1135,16 @@ function wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bin
     wasm.wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true_(arg0, arg1, arg2);
 }
 
-function wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__17(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__17(arg0, arg1, arg2);
-}
-
-function wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__18(arg0, arg1, arg2) {
-    wasm.wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__18(arg0, arg1, arg2);
-}
-
 function wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__19(arg0, arg1, arg2) {
     wasm.wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__19(arg0, arg1, arg2);
+}
+
+function wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__20(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__20(arg0, arg1, arg2);
+}
+
+function wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__21(arg0, arg1, arg2) {
+    wasm.wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue______true__21(arg0, arg1, arg2);
 }
 
 function wasm_bindgen_ce6734f7863d3998___convert__closures_____invoke___wasm_bindgen_ce6734f7863d3998___JsValue__core_37ee0ce0c4cd57d5___result__Result_____wasm_bindgen_ce6734f7863d3998___JsError___true_(arg0, arg1, arg2) {
@@ -1403,7 +1453,7 @@ async function __wbg_init_once(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        module_or_path = new URL('beerdex_app_bg.wasm', import.meta.url);
+        module_or_path = new URL('rustdex_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 

@@ -22,10 +22,11 @@ pub fn generate_widget_payload(
     rule: &BacRule,
     weight_kg: f64,
     gender: Gender,
+    age: u32,
     vehicle: &str,
     current_time_ms: i64,
 ) -> WidgetPayload {
-    let sim = simulate_bac(bac_history, current_time_ms, weight_kg, gender, 15);
+    let sim = simulate_bac(bac_history, current_time_ms, weight_kg, gender, age);
     let to_drive = hours_to_drive(&sim, rule, current_time_ms);
     let to_zero = hours_to_zero(&sim, current_time_ms);
 

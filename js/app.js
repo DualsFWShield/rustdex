@@ -337,11 +337,6 @@ function setupNetworkListeners() {
         if (isOnline) {
             Analytics.flush();
         }
-        
-        // Update UI components (Scan button, OFF button, etc.)
-        if (UI.updateNetworkStatus) {
-            UI.updateNetworkStatus(isOnline);
-        }
     };
 
     window.addEventListener('online', handleStatusChange);

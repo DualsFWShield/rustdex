@@ -61,10 +61,6 @@ window.UI.renderOtaSyncModal = renderOtaSyncModal;
  * Update UI state based on network connectivity
  * @param {boolean} isOnline 
  */
-export function updateNetworkStatus(isOnline) {
-    // Network status hook (OFF API removed)
-}
-
 export function showToast(message, type = 'default') {
     toastQueue.push({ message, type });
     processToastQueue();
