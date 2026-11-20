@@ -58,8 +58,12 @@ impl DesktopStorage {
         let tmp_path = path.with_extension("json.tmp");
         fs::write(&tmp_path, &json_str)
             .map_err(|e| format!("Failed to write temp state file {:?}: {}", tmp_path, e))?;
-        fs::rename(&tmp_path, &path)
-            .map_err(|e| format!("Failed to rename temp state file {:?} -> {:?}: {}", tmp_path, path, e))?;
+        fs::rename(&tmp_path, &path).map_err(|e| {
+            format!(
+                "Failed to rename temp state file {:?} -> {:?}: {}",
+                tmp_path, path, e
+            )
+        })?;
 
         Ok(())
     }

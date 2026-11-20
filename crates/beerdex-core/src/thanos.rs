@@ -608,8 +608,7 @@ pub fn scan_catalog_duplicates(official_beers: &[Beer], min_score: u32) -> Vec<C
     // suppression des articles et accents via normalize_text). Cela réduit le
     // nombre de comparaisons de O(n²) pur à O(Σ group_size²), bien plus petit
     // sur un catalogue de plusieurs milliers de bières.
-    let mut groups: std::collections::HashMap<char, Vec<usize>> =
-        std::collections::HashMap::new();
+    let mut groups: std::collections::HashMap<char, Vec<usize>> = std::collections::HashMap::new();
     for (i, beer) in official_beers.iter().enumerate() {
         let norm = normalize_text(&beer.title);
         let first = norm.chars().next().unwrap_or('\0');
