@@ -16,16 +16,30 @@ pub struct WidgetPayload {
     pub timestamp: i64,
 }
 
-pub fn generate_widget_payload(
-    bac_history: &[BacHistoryEntry],
-    user_data: &HashMap<String, UserBeerData>,
-    rule: &BacRule,
-    weight_kg: f64,
-    gender: Gender,
-    age: u32,
-    vehicle: &str,
-    current_time_ms: i64,
-) -> WidgetPayload {
+/// Regroupe tous les paramètres nécessaires au calcul du widget BAC.
+/// Évite d'avoir trop d'arguments dans `generate_widget_payload`.
+pub struct WidgetParams<'a> {
+    pub bac_history: &'a [BacHistoryEntry],
+    pub user_data: &'a HashMap<String, UserBeerData>,
+    pub rule: &'a BacRule,
+    pub weight_kg: f64,
+    pub gender: Gender,
+    pub age: u32,
+    pub vehicle: &'a str,
+    pub current_time_ms: i64,
+}
+
+pub fn generate_widget_payload(params: WidgetParams) -> WidgetPayload {
+    let WidgetParams {
+        bac_history,
+        user_data,
+        rule,
+        weight_kg,
+        gender,
+        age,
+        vehicle,
+        current_time_ms,
+    } = params;
     let sim = simulate_bac(bac_history, current_time_ms, weight_kg, gender, age);
     let to_drive = hours_to_drive(&sim, rule, current_time_ms);
     let to_zero = hours_to_zero(&sim, current_time_ms);
