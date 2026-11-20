@@ -61,6 +61,17 @@ window.UI.renderOtaSyncModal = renderOtaSyncModal;
  * Update UI state based on network connectivity
  * @param {boolean} isOnline 
  */
+/**
+ * Update UI state based on network connectivity
+ * @param {boolean} isOnline
+ * Kept as a no-op export because `crates/beerdex-app/src/app.rs` binds to it
+ * via wasm-bindgen `raw_module = "../js/ui.js"`. The actual offline handling
+ * is done in `app.js::handleStatusChange` (adds/removes the `is-offline` class).
+ */
+export function updateNetworkStatus(isOnline) {
+    // No-op: network status UI is already handled by app.js handleStatusChange
+}
+
 export function showToast(message, type = 'default') {
     toastQueue.push({ message, type });
     processToastQueue();
