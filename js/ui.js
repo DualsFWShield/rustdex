@@ -989,6 +989,7 @@ export function renderBeerDetail(beer, onSave) {
 
     // --- Consumption Section ---
     const consumptionWrapper = document.createElement('div');
+    consumptionWrapper.className = 'beer-consumption-card';
     consumptionWrapper.style.cssText = 'background:var(--bg-card); padding:15px; border-radius:12px; margin-bottom:20px; text-align:center;';
 
     // Default Volume logic: always use the beer's own volume
@@ -1266,7 +1267,7 @@ export function renderBeerDetail(beer, onSave) {
 
                 ${renderFoodPairingSection(beer, existingData)}
 
-                <details style="background:var(--bg-card); padding:10px; border-radius:12px; margin-bottom:20px;">
+                <details class="beer-tasting-details" style="background:var(--bg-card); padding:10px; border-radius:12px; margin-bottom:20px;">
                     <summary style="font-weight:bold; cursor:pointer; list-style:none;">📝 ${i18n.t('info_label_tasting_note')} ${existingData.score ? '✅' : ''}</summary>
                     <form id="rating-form" style="margin-top:15px;">
                         ${formFields}
@@ -1466,7 +1467,9 @@ export function renderBeerDetail(beer, onSave) {
     const updateVolUI = (vol, isDirectCustom = false) => {
         if (isDirectCustom || vol === 'custom') {
             volBtns.forEach(btn => {
-                if (btn.dataset.vol === 'custom') {
+                const isSelected = btn.dataset.vol === 'custom';
+                btn.classList.toggle('is-active', isSelected);
+                if (isSelected) {
                     btn.style.background = 'var(--accent-gold)';
                     btn.style.color = '#000';
                     btn.style.borderColor = 'var(--accent-gold)';
@@ -1492,7 +1495,9 @@ export function renderBeerDetail(beer, onSave) {
 
         if (matchingPreset) {
             volBtns.forEach(btn => {
-                if (btn.dataset.vol === matchingPreset.key) {
+                const isSelected = btn.dataset.vol === matchingPreset.key;
+                btn.classList.toggle('is-active', isSelected);
+                if (isSelected) {
                     btn.style.background = 'var(--accent-gold)';
                     btn.style.color = '#000';
                     btn.style.borderColor = 'var(--accent-gold)';
@@ -1508,7 +1513,9 @@ export function renderBeerDetail(beer, onSave) {
             hiddenVol.value = matchingPreset.key;
         } else {
             volBtns.forEach(btn => {
-                if (btn.dataset.vol === 'custom') {
+                const isSelected = btn.dataset.vol === 'custom';
+                btn.classList.toggle('is-active', isSelected);
+                if (isSelected) {
                     btn.style.background = 'var(--accent-gold)';
                     btn.style.color = '#000';
                     btn.style.borderColor = 'var(--accent-gold)';

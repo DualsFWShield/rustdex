@@ -1535,5 +1535,9 @@
     "uni_room_detected": "Salon détecté : {code}",
     "uni_room_choice_desc": "Ce code peut correspondre à une Beer Party ou à une session DraftSync. Quel salon souhaitez-vous rejoindre ?",
     "uni_btn_join_beerparty": "🍻 Rejoindre la Beer Party",
-    "uni_btn_join_draftsync": "📡 Rejoindre DraftSync (P2P)"
+    "uni_btn_join_draftsync": "📡 Rejoindre DraftSync (P2P)",
+    "settings_perf_mode_title": "Mode Performance (Low-End)",
+    "brewbrother_mood_label": "Envie du moment (Mood)",
+    "brewbrother_no_strong_match": "Profil de recommandation global.",
+    "migration_dismissed": "Suggestion ignorée."
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Beerdex-v5.3.1'; // v5.3.1: fix _bgCachedSrc import, passport regions mapping & modal cancel button CSS
+const CACHE_NAME = 'Beerdex-v5.3.11'; // v5.3.11: M3 Expressive & Nothing OS mobile header fit
 // App shell only. Multi-megabyte media (foam.png ~85 MB, logo-bnr.png ~16 MB,
 // easter-egg mp3/mp4) is intentionally NOT precached: downloading it on install
 // delayed first-run/offline availability dramatically. It is cached lazily by
@@ -28,6 +28,7 @@ const ASSETS = [
     './js/idb-store.js',
     './js/import-export.js',
     './js/label-scanner.js',
+    './js/liquid-glass.js',
     './js/map.js',
     './js/match.js',
     './js/ota-sync.js',

@@ -164,8 +164,11 @@ const Match = {
         p.pseudo = pseudo;
 
         const userData = Storage.getAllUserData();
-        // ratingsOverride > userData.ratings > {} (never fall back to raw userData)
-        const ratings = ratingsOverride || (userData && userData.ratings) || {};
+        // Storage.getAllUserData() returns a flat { [beerId]: { count, history, ... } } map;
+        // support wrapped { ratings: { ... } } objects as well as flat maps.
+        const ratings = ratingsOverride
+            || (userData && userData.ratings && typeof userData.ratings === 'object' && !Array.isArray(userData.ratings) ? userData.ratings : null)
+            || (userData && typeof userData === 'object' ? userData : {});
         
         const validKeys = Object.keys(ratings).filter(k => ratings[k] && ratings[k].count > 0);
         const allConsumed = validKeys; 

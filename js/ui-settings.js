@@ -378,7 +378,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             </div>
         </div>
 
-        <div class="setting-row setting-row--stack" data-keywords="thème theme couleurs color preset custom palette dark gold cyberpunk forest ocean sunset">
+        <div class="setting-row setting-row--stack" data-keywords="thème theme couleurs color preset custom palette dark gold cyberpunk forest ocean sunset material expressive m3e nothing os dot matrix monochrome">
             <div class="setting-info">
                 <span class="setting-title">${i18n.t('settings_theme_preset') || 'Thème & Couleurs'}</span>
                 <span class="setting-desc" data-i18n="settings_theme_desc">Personnalisez l'apparence de l'application</span>
@@ -454,7 +454,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             </div>
         </div>
 
-        <div class="setting-row setting-row--split" data-keywords="style cartes arrondi radius glass neon flat minimal">
+        <div class="setting-row setting-row--split" data-keywords="style cartes arrondi radius glass m3e material expressive nothing os dot matrix neon flat minimal">
             <div class="setting-split-col">
                 <span class="setting-desc">Arrondi des cartes</span>
                 <select id="select-card-radius" class="form-select">
@@ -462,12 +462,26 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                 </select>
             </div>
             <div class="setting-split-col">
-                <span class="setting-desc">Style des cartes</span>
+                <span class="setting-desc">Style de l'interface</span>
                 <select id="select-card-style" class="form-select">
                     <option value="default" ${Storage.getPreference('pref_card_style', 'default') === 'default' ? 'selected' : ''}>Standard</option>
-                    <option value="glass" ${Storage.getPreference('pref_card_style', 'default') === 'glass' ? 'selected' : ''}>Verre (Glass)</option>
-                    <option value="flat" ${Storage.getPreference('pref_card_style', 'default') === 'flat' ? 'selected' : ''}>Minimal (Flat)</option>
+                    <option value="glass" ${Storage.getPreference('pref_card_style', 'default') === 'glass' ? 'selected' : ''}>Liquid Glass (Apple)</option>
+                    <option value="m3e" ${Storage.getPreference('pref_card_style', 'default') === 'm3e' ? 'selected' : ''}>Material 3 Expressive (Google)</option>
+                    <option value="nothing" ${Storage.getPreference('pref_card_style', 'default') === 'nothing' ? 'selected' : ''}>Nothing OS (Dot-Matrix)</option>
+                    <option value="flat" ${Storage.getPreference('pref_card_style', 'default') === 'flat' ? 'selected' : ''}>Plat (Flat)</option>
                     <option value="neon" ${Storage.getPreference('pref_card_style', 'default') === 'neon' ? 'selected' : ''}>Néon</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-row" id="row-glass-quality" style="display:${Storage.getPreference('pref_card_style', 'default') === 'glass' ? 'flex' : 'none'};" data-keywords="liquid glass qualité qualite modales réfraction refraction performance">
+            <div class="setting-info">
+                <span class="setting-title">Qualité Liquid Glass (Modales)</span>
+                <span class="setting-desc">Réfraction optique SVG complète sur les modales ou rendu GPU allégé (60 FPS)</span>
+            </div>
+            <div class="setting-action">
+                <select id="select-glass-quality" class="form-select">
+                    ${Object.entries(Theme.GLASS_QUALITIES).map(([k, cfg]) => `<option value="${k}" ${Storage.getPreference('pref_glass_quality', 'full') === k ? 'selected' : ''}>${cfg.label}</option>`).join('')}
                 </select>
             </div>
         </div>
@@ -1411,6 +1425,13 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                 Theme.applyColors(Theme.getActiveColors());
             } else {
                 Theme.applyPreset(preset);
+                if (preset === 'm3e' || preset === 'nothing') {
+                    Theme.applyCardStyle(preset);
+                    const styleSel = container.querySelector('#select-card-style');
+                    if (styleSel) styleSel.value = preset;
+                    const glassQualRow = container.querySelector('#row-glass-quality');
+                    if (glassQualRow) glassQualRow.style.display = 'none';
+                }
             }
             syncThemeButtonsUI();
             showToast(i18n.t('toast_theme_applied') || 'Thème appliqué !', 'success');
@@ -1472,6 +1493,10 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             if (radSel) radSel.value = 'default';
             const styleSel = container.querySelector('#select-card-style');
             if (styleSel) styleSel.value = 'default';
+            const glassQualSel = container.querySelector('#select-glass-quality');
+            if (glassQualSel) glassQualSel.value = 'full';
+            const glassQualRow = container.querySelector('#row-glass-quality');
+            if (glassQualRow) glassQualRow.style.display = 'none';
             const redToggle = container.querySelector('#toggle-reduced-motion');
             if (redToggle) redToggle.checked = false;
             showToast(i18n.t('toast_theme_reset') || 'Thème réinitialisé', 'info');
@@ -1514,7 +1539,17 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
     if (cardStyleSelect) {
         cardStyleSelect.addEventListener('change', (e) => {
             Theme.applyCardStyle(e.target.value);
-            showToast('Style des cartes mis à jour');
+            const glassQualRow = container.querySelector('#row-glass-quality');
+            if (glassQualRow) glassQualRow.style.display = e.target.value === 'glass' ? 'flex' : 'none';
+            showToast("Style d'interface mis à jour");
+        });
+    }
+
+    const glassQualitySelect = container.querySelector('#select-glass-quality');
+    if (glassQualitySelect) {
+        glassQualitySelect.addEventListener('change', (e) => {
+            Theme.applyGlassQuality(e.target.value);
+            showToast('Qualité Liquid Glass mise à jour');
         });
     }
 

@@ -100,4 +100,18 @@ describe('🎨 Moteur de Thèmes', () => {
             expect(typeof font.css).toBe('string');
         });
     });
+
+    // ── Styles & Nouveaux Design Systems (M3 Expressive & Nothing OS) ──
+    it('CARD_STYLES contient glass, m3e et nothing', () => {
+        expect(Theme.CARD_STYLES).toContain('glass');
+        expect(Theme.CARD_STYLES).toContain('m3e');
+        expect(Theme.CARD_STYLES).toContain('nothing');
+    });
+
+    it('THEME_PRESETS contient Material Expressive (m3e) et Nothing OS (nothing)', () => {
+        expect(Theme.THEME_PRESETS).toHaveProperty('m3e');
+        expect(Theme.THEME_PRESETS).toHaveProperty('nothing');
+        expect(Theme.THEME_PRESETS.nothing.colors['--bg-dark']).toBe('#000000');
+        expect(Theme.THEME_PRESETS.nothing.colors['--accent-gold']).toBe('#ff3030');
+    });
 });

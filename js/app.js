@@ -818,6 +818,92 @@ function setupEventListeners() {
         }
         if (searchInput) searchInput.focus();
     });
+
+    // Easter egg: Ferris Rust crab click jokes + 5-click Crab Rave
+    const rustCrab = document.getElementById('rust-wasm-indicator');
+    if (bindGlobals && rustCrab) {
+        let _crabClicks = [];
+        let _crabIdx = 0;
+        let _crabRaveActive = false;
+        const CRAB_JOKES_FR = [
+            '🦀 Ferris vérifie que ton verre est bien memory-safe !',
+            '🦀 Zero-cost abstraction : 0% de mousse gaspillée.',
+            '🦀 Borrow Checker : interdiction d’emprunter la pinte du voisin !',
+            '🦀 unsafe { boire_sans_moderation(); } // Erreur de compilation',
+            '🦀 panic!("Verre vide ! Recharge requise.");',
+            '🦀 Compilé avec cargo brew --release --extra-hops ⚡'
+        ];
+        const CRAB_JOKES_EN = [
+            '🦀 Ferris ensures your pint is 100% memory-safe!',
+            '🦀 Zero-cost abstraction: 0% wasted foam.',
+            '🦀 Borrow Checker: cannot borrow neighbor\'s beer as mutable!',
+            '🦀 unsafe { drink_without_limits(); } // Rejected by compiler',
+            '🦀 panic!("Empty glass! Refill required.");',
+            '🦀 Built with cargo brew --release --extra-hops ⚡'
+        ];
+
+        rustCrab.addEventListener('click', () => {
+            rustCrab.classList.remove('rust-crab-wiggle');
+            void rustCrab.offsetWidth;
+            rustCrab.classList.add('rust-crab-wiggle');
+            setTimeout(() => rustCrab.classList.remove('rust-crab-wiggle'), 480);
+
+            const rect = rustCrab.getBoundingClientRect();
+            const emojis = ['🦀', '🍺', '⚡', '✨'];
+            emojis.forEach((em, idx) => {
+                const sp = document.createElement('span');
+                sp.className = 'ferris-spark';
+                sp.textContent = em;
+                const angle = (-120 + idx * 45) * (Math.PI / 180);
+                sp.style.left = `${rect.left + rect.width / 2}px`;
+                sp.style.top = `${rect.top + rect.height / 2}px`;
+                sp.style.setProperty('--spark-dx', `${Math.round(Math.cos(angle) * 44)}px`);
+                sp.style.setProperty('--spark-dy', `${Math.round(Math.sin(angle) * 34 - 18)}px`);
+                document.body.appendChild(sp);
+                setTimeout(() => sp.remove(), 850);
+            });
+
+            const now = Date.now();
+            _crabClicks = _crabClicks.filter(t => now - t < 4000);
+            _crabClicks.push(now);
+
+            const isEn = i18n.getLanguage() === 'en';
+            if (_crabClicks.length >= 5 && !_crabRaveActive) {
+                _crabClicks = [];
+                _crabRaveActive = true;
+                const logoTitle = document.querySelector('.logo h1');
+                const origTitle = logoTitle ? logoTitle.textContent : 'Beerdex';
+                if (logoTitle) logoTitle.textContent = 'Rustdex 🦀';
+
+                UI.showToast(isEn
+                    ? '🦀🪩 CRAB RAVE! Ferris took over Rustdex (100% Memory Safe)!'
+                    : '🦀🪩 CRAB RAVE ! Ferris prend le contrôle du Rustdex (100% Memory Safe) !');
+
+                const layer = document.createElement('div');
+                layer.className = 'ferris-parade-layer';
+                for (let i = 0; i < 7; i++) {
+                    const runner = document.createElement('div');
+                    runner.className = `ferris-runner ${i % 2 === 0 ? 'from-left' : 'from-right'}`;
+                    runner.style.animationDelay = `${i * 0.35}s`;
+                    runner.style.bottom = `${10 + (i % 3) * 18}px`;
+                    runner.innerHTML = `<img src="icons/rust.png" alt="Ferris"><span>🍺</span>`;
+                    layer.appendChild(runner);
+                }
+                document.body.appendChild(layer);
+
+                setTimeout(() => {
+                    layer.remove();
+                    if (logoTitle) logoTitle.textContent = origTitle;
+                    _crabRaveActive = false;
+                }, 6200);
+                return;
+            }
+
+            const jokes = isEn ? CRAB_JOKES_EN : CRAB_JOKES_FR;
+            UI.showToast(jokes[_crabIdx % jokes.length]);
+            _crabIdx++;
+        });
+    }
 }
 
 // Logic fix for Filtering:

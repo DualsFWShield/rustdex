@@ -39,6 +39,7 @@ function processToastQueue() {
     const { message } = toastQueue.shift();
 
     const toast = document.createElement('div');
+    toast.className = 'app-toast';
     toast.style.position = 'fixed';
     toast.style.bottom = '80px';
     toast.style.left = '50%';

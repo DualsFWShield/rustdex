@@ -6,6 +6,7 @@
  */
 
 import * as Storage from './storage.js';
+import * as LiquidGlass from './liquid-glass.js';
 
 // ============================== //
 // Customizable CSS Variables     //
@@ -48,7 +49,9 @@ export const FONTS = {
     'poppins': { label: 'Poppins', css: '"Poppins", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;700&display=swap' },
     'space_grotesk': { label: 'Space Grotesk', css: '"Space Grotesk", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap' },
     'montserrat': { label: 'Montserrat', css: '"Montserrat", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap' },
-    'jetbrains': { label: 'JetBrains Mono', css: '"JetBrains Mono", monospace', url: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap' }
+    'jetbrains': { label: 'JetBrains Mono', css: '"JetBrains Mono", monospace', url: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap' },
+    'roboto_flex': { label: 'Roboto Flex / Plus Jakarta (M3 Expressive)', css: '"Roboto Flex", "Plus Jakarta Sans", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..900&display=swap' },
+    'dotgothic': { label: 'Doto / Inter / JetBrains (Nothing OS)', css: '"NType 82", "Inter", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Doto:wght@500;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap' }
 };
 
 export const GRID_DENSITIES = {
@@ -69,7 +72,12 @@ export const CARD_RADII = {
     round: { label: 'Arrondi (24px)', radius: '24px' }
 };
 
-export const CARD_STYLES = ['default', 'glass', 'flat', 'neon'];
+export const CARD_STYLES = ['default', 'glass', 'm3e', 'nothing', 'flat', 'neon'];
+
+export const GLASS_QUALITIES = {
+    full: { label: 'Complet (Réfraction SVG)' },
+    light: { label: 'Allégé (Performance)' }
+};
 
 // ============================== //
 // Presets                        //
@@ -280,6 +288,40 @@ export const THEME_PRESETS = {
             '--success': '#52b788',
             '--danger': '#e63946',
         }
+    },
+    m3e: {
+        name: 'Material Expressive',
+        emoji: '🎨',
+        colors: {
+            '--bg-dark': '#15121c',
+            '--bg-card': '#231e2e',
+            '--bg-card-hover': '#302940',
+            '--text-primary': '#f3ecf9',
+            '--text-secondary': '#cbc2d9',
+            '--accent-gold': '#d5baff',
+            '--accent-amber': '#ffb0c8',
+            '--accent-foam': '#efe3ff',
+            '--border-color': '#4c435c',
+            '--success': '#98f0b6',
+            '--danger': '#ffb4ab',
+        }
+    },
+    nothing: {
+        name: 'Nothing OS',
+        emoji: '●',
+        colors: {
+            '--bg-dark': '#000000',
+            '--bg-card': '#0d0d0d',
+            '--bg-card-hover': '#242424',
+            '--text-primary': '#ffffff',
+            '--text-secondary': '#999999',
+            '--accent-gold': '#ff3030',
+            '--accent-amber': '#ffffff',
+            '--accent-foam': '#ffffff',
+            '--border-color': '#2e2e2e',
+            '--success': '#ffffff',
+            '--danger': '#ff3030',
+        }
     }
 };
 
@@ -350,6 +392,10 @@ export function applyColors(colors, scheme = null) {
     if (accentGold) {
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', accentGold);
     }
+
+    if (document.body?.classList.contains('card-style-glass') && !document.body.classList.contains('perf-low-end')) {
+        LiquidGlass.refreshLiquidGlass();
+    }
 }
 
 /**
@@ -393,6 +439,7 @@ export function resetTheme() {
     Storage.savePreference('pref_font_scale', 'md');
     Storage.savePreference('pref_card_radius', 'default');
     Storage.savePreference('pref_card_style', 'default');
+    Storage.savePreference('pref_glass_quality', 'full');
     Storage.savePreference('pref_reduced_motion', false);
     applyColors(THEME_PRESETS.default.colors, 'dark');
     applyAllCustomizations();
@@ -420,6 +467,24 @@ export function applyCardRadius(radiusKey = Storage.getPreference('pref_card_rad
     const cfg = CARD_RADII[radiusKey] || CARD_RADII.default;
     Storage.savePreference('pref_card_radius', CARD_RADII[radiusKey] ? radiusKey : 'default');
     document.documentElement.style.setProperty('--card-radius', cfg.radius);
+    if (document.body?.classList.contains('card-style-glass') && !document.body.classList.contains('perf-low-end')) {
+        LiquidGlass.refreshLiquidGlass();
+    }
+}
+
+export function applyGlassQuality(qualityKey = Storage.getPreference('pref_glass_quality', 'full')) {
+    const valid = GLASS_QUALITIES[qualityKey] ? qualityKey : 'full';
+    Storage.savePreference('pref_glass_quality', valid);
+    LiquidGlass.setLiquidGlassQuality(valid);
+}
+
+function _ensureStylesheetLink(id, href) {
+    if (typeof document === 'undefined' || !document.head || document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
 }
 
 export function applyCardStyle(styleKey = Storage.getPreference('pref_card_style', 'default')) {
@@ -428,6 +493,16 @@ export function applyCardStyle(styleKey = Storage.getPreference('pref_card_style
     if (document.body) {
         CARD_STYLES.forEach(s => document.body.classList.remove(`card-style-${s}`));
         if (valid !== 'default') document.body.classList.add(`card-style-${valid}`);
+        if (valid === 'm3e') {
+            _ensureStylesheetLink('font-style-m3e', FONTS.roboto_flex.url);
+        } else if (valid === 'nothing') {
+            _ensureStylesheetLink('font-style-nothing', FONTS.dotgothic.url);
+        }
+        if (valid === 'glass' && !document.body.classList.contains('perf-low-end')) {
+            LiquidGlass.enableLiquidGlass(Storage.getPreference('pref_glass_quality', 'full'));
+        } else {
+            LiquidGlass.disableLiquidGlass();
+        }
     }
 }
 
@@ -460,6 +535,7 @@ export function applyAllCustomizations() {
     applyGridDensity();
     applyFontScale();
     applyCardRadius();
+    applyGlassQuality();
     applyCardStyle();
     applyReducedMotion();
     applyNavCustomization();
@@ -479,14 +555,7 @@ export function applyFont(fontKey) {
 
     // Inject Google Fonts link if URL exists and not already injected
     if (font.url) {
-        let linkId = `font-${fontKey}`;
-        if (!document.getElementById(linkId)) {
-            const link = document.createElement('link');
-            link.id = linkId;
-            link.rel = 'stylesheet';
-            link.href = font.url;
-            document.head.appendChild(link);
-        }
+        _ensureStylesheetLink(`font-${fontKey}`, font.url);
     }
 
     // Apply CSS variable
@@ -513,6 +582,7 @@ export function exportTheme() {
         fontScale: Storage.getPreference('pref_font_scale', 'md'),
         radius: Storage.getPreference('pref_card_radius', 'default'),
         cardStyle: Storage.getPreference('pref_card_style', 'default'),
+        glassQuality: Storage.getPreference('pref_glass_quality', 'full'),
         gridDensity: Storage.getPreference('pref_grid_density', 'normal'),
         exportDate: new Date().toISOString()
     };
@@ -549,6 +619,7 @@ export function importTheme(code) {
         if (data.font && FONTS[data.font]) applyFont(data.font);
         if (data.fontScale && FONT_SCALES[data.fontScale]) applyFontScale(data.fontScale);
         if (data.radius && CARD_RADII[data.radius]) applyCardRadius(data.radius);
+        if (data.glassQuality && GLASS_QUALITIES[data.glassQuality]) applyGlassQuality(data.glassQuality);
         if (data.cardStyle && CARD_STYLES.includes(data.cardStyle)) applyCardStyle(data.cardStyle);
         if (data.gridDensity && GRID_DENSITIES[data.gridDensity]) applyGridDensity(data.gridDensity);
 

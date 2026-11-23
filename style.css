@@ -1140,10 +1140,10 @@ body.keyboard-open #main-content {
     align-items: center;
     gap: 3px;
     cursor: pointer;
-    transition: color 0.18s ease, transform 0.15s ease;
-    padding: 6px 10px;
-    border-radius: 12px;
-    min-width: 54px;
+    transition: color 0.18s ease, transform 0.15s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+    padding: 6px 14px;
+    border-radius: 999px;
+    min-width: 56px;
     position: relative;
 }
 
@@ -1151,16 +1151,34 @@ body.keyboard-open #main-content {
     width: 21px;
     height: 21px;
     flex-shrink: 0;
-    transition: transform 0.18s ease;
+    transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.nav-item:hover:not(.active) {
+    color: var(--text-primary);
 }
 
 .nav-item.active {
     color: var(--accent-gold);
-    background: var(--accent-soft);
+    background: transparent;
 }
 
 .nav-item.active svg {
     transform: translateY(-1px);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent-gold) 45%, transparent));
+}
+
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18px;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--accent-gold);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent-gold) 65%, transparent);
 }
 
 /* Utilities */
@@ -1259,6 +1277,22 @@ body.keyboard-open #main-content {
     color: var(--text-primary);
     font-family: inherit;
     font-size: 1rem;
+}
+
+select,
+.form-select {
+    color-scheme: dark;
+}
+
+[data-color-scheme="light"] select,
+[data-color-scheme="light"] .form-select {
+    color-scheme: light;
+}
+
+select option,
+select optgroup {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
 }
 
 .form-input:focus {
@@ -2189,11 +2223,15 @@ body.modal-open {
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        width: 400px;
-        border-radius: 30px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        width: auto;
+        min-width: 380px;
+        max-width: calc(100vw - 32px);
+        height: auto;
+        padding: 6px 12px;
+        gap: 6px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        padding-bottom: 0;
     }
 }
 
@@ -2969,8 +3007,8 @@ body.modal-open {
 
 .notification-dot {
     position: absolute;
-    top: 2px;
-    right: 2px;
+    top: 4px;
+    right: 12px;
     width: 8px;
     height: 8px;
     background: #F44336;
@@ -5001,23 +5039,23 @@ input[type="checkbox"].toggle-switch:checked::after {
    Low-End Mobile & Reduced-Motion Performance Mode
    ========================================================================== */
 @media (hover: none) and (pointer: coarse) {
-    .app-header,
-    .bottom-nav,
-    .modal-overlay,
-    .header-party-widget,
-    .info-panel,
-    .brewery-stats-row,
-    .similar-beer-card {
+    body:not(.card-style-glass) .app-header,
+    body:not(.card-style-glass) .bottom-nav,
+    body:not(.card-style-glass) .modal-overlay,
+    body:not(.card-style-glass) .header-party-widget,
+    body:not(.card-style-glass) .info-panel,
+    body:not(.card-style-glass) .brewery-stats-row,
+    body:not(.card-style-glass) .similar-beer-card {
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
 
-    .app-header,
-    .bottom-nav {
+    body:not(.card-style-glass) .app-header,
+    body:not(.card-style-glass) .bottom-nav {
         background: rgba(12, 12, 14, 0.97);
     }
 
-    .modal-overlay {
+    body:not(.card-style-glass) .modal-overlay {
         background: rgba(0, 0, 0, 0.88);
     }
 }
@@ -5931,27 +5969,1634 @@ body.perf-low-end .settings-accordion-body {
     background: rgba(0, 0, 0, 0.2);
 }
 
-/* Card Styles */
+/* ==========================================================================
+   Interface Styles (Standard, Apple Liquid Glass, Plat/Flat, Néon)
+   ========================================================================== */
+
+/* 1. Apple Liquid Glass (iOS 26 / macOS Tahoe inspired + SVG displacement refraction) */
+body.card-style-glass {
+    --lg-surface: linear-gradient(155deg, rgba(255, 255, 255, 0.11) 0%, rgba(9, 9, 11, 0.24) 48%, rgba(255, 255, 255, 0.07) 100%);
+    --lg-surface-strong: linear-gradient(160deg, rgba(255, 255, 255, 0.16) 0%, rgba(9, 9, 11, 0.30) 52%, rgba(255, 255, 255, 0.10) 100%);
+    --lg-surface-control: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+    --lg-modal-surface: linear-gradient(155deg, rgba(255, 255, 255, 0.13) 0%, rgba(12, 12, 16, 0.42) 52%, rgba(255, 255, 255, 0.08) 100%);
+    --lg-nested-surface: linear-gradient(155deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 100%);
+    --lg-border: rgba(255, 255, 255, 0.26);
+    --lg-border-strong: rgba(255, 255, 255, 0.42);
+    --lg-specular: inset 0 0 4px rgba(250, 250, 250, 0.42), inset 0 1.5px 0 rgba(255, 255, 255, 0.52), inset 1.5px 0 0 rgba(150, 215, 255, 0.24), inset -1.5px 0 0 rgba(255, 195, 145, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.14);
+    --lg-shadow: 0 12px 34px rgba(0, 0, 0, 0.44), 0 2px 8px rgba(0, 0, 0, 0.24);
+    --lg-blur: blur(22px) saturate(190%) brightness(1.06);
+    background-color: var(--bg-dark);
+}
+
+body.card-style-glass::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    transform: translateZ(0);
+    background-image:
+        radial-gradient(ellipse 68% 58% at 12% 8%, color-mix(in srgb, var(--accent-gold) 32%, transparent) 0%, transparent 68%),
+        radial-gradient(ellipse 62% 52% at 88% 18%, color-mix(in srgb, var(--accent-amber) 26%, transparent) 0%, transparent 70%),
+        radial-gradient(ellipse 65% 55% at 22% 78%, rgba(56, 189, 248, 0.16) 0%, transparent 68%),
+        radial-gradient(ellipse 70% 60% at 62% 92%, rgba(99, 102, 241, 0.20) 0%, transparent 70%);
+}
+
+[data-color-scheme="light"] body.card-style-glass {
+    --lg-surface: linear-gradient(155deg, rgba(255, 255, 255, 0.56) 0%, rgba(255, 255, 255, 0.28) 50%, rgba(255, 255, 255, 0.46) 100%);
+    --lg-surface-strong: linear-gradient(160deg, rgba(255, 255, 255, 0.70) 0%, rgba(255, 255, 255, 0.40) 55%, rgba(255, 255, 255, 0.58) 100%);
+    --lg-surface-control: linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.42) 100%);
+    --lg-modal-surface: linear-gradient(155deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.46) 55%, rgba(255, 255, 255, 0.62) 100%);
+    --lg-nested-surface: linear-gradient(155deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.34) 100%);
+    --lg-border: rgba(255, 255, 255, 0.86);
+    --lg-border-strong: rgba(255, 255, 255, 0.98);
+    --lg-specular: inset 0 0 4px rgba(255, 255, 255, 0.85), inset 0 1.5px 0 rgba(255, 255, 255, 0.96), inset 1px 0 0 rgba(255, 255, 255, 0.65), inset -1px 0 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+    --lg-shadow: 0 12px 32px rgba(25, 20, 15, 0.14), 0 2px 8px rgba(25, 20, 15, 0.06);
+    --lg-blur: blur(26px) saturate(190%) brightness(1.04);
+    background-color: var(--bg-dark);
+}
+
+[data-color-scheme="light"] body.card-style-glass::before {
+    background-image:
+        radial-gradient(ellipse 68% 58% at 14% 10%, color-mix(in srgb, var(--accent-gold) 32%, transparent) 0%, transparent 70%),
+        radial-gradient(ellipse 58% 52% at 86% 20%, rgba(96, 165, 250, 0.24) 0%, transparent 70%),
+        radial-gradient(ellipse 72% 58% at 50% 90%, color-mix(in srgb, var(--accent-amber) 22%, transparent) 0%, transparent 70%);
+}
+
+body.card-style-glass #app {
+    position: relative;
+    z-index: 1;
+    background: transparent;
+}
+
+body.card-style-glass .app-header,
+body.card-style-glass .search-bar {
+    background: var(--lg-surface-strong);
+    backdrop-filter: var(--lg-backdrop-filter, var(--lg-blur));
+    -webkit-backdrop-filter: var(--lg-backdrop-filter, var(--lg-blur));
+    border: 1px solid var(--lg-border);
+    box-shadow: var(--lg-specular), var(--lg-shadow);
+    will-change: transform;
+}
+
+body.card-style-glass .app-header {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    min-height: 54px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    z-index: 120;
+    overflow: visible;
+}
+
+body.card-style-glass #main-content {
+    padding-top: calc(var(--header-height) + env(safe-area-inset-top) + 22px);
+}
+
+body.card-style-glass .search-bar {
+    top: calc(var(--header-height) + env(safe-area-inset-top) + 18px);
+    left: 12px;
+    right: 12px;
+    transform: none;
+    width: auto;
+    max-width: none;
+    border-radius: 20px;
+    z-index: 115;
+}
+
+@media (min-width: 768px) {
+    body.card-style-glass .app-header {
+        left: 32px;
+        right: 32px;
+        max-width: calc(100vw - 64px);
+        padding: 8px 20px;
+    }
+
+    body.card-style-glass .search-bar {
+        left: 32px;
+        right: 32px;
+    }
+}
+
+body.card-style-glass .bottom-nav {
+    position: fixed;
+    bottom: calc(12px + min(env(safe-area-inset-bottom), 34px));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    height: auto;
+    min-height: 60px;
+    padding: 6px 8px;
+    gap: 2px;
+    border-radius: 999px;
+    z-index: 120;
+    background: var(--lg-surface-strong);
+    backdrop-filter: var(--lg-backdrop-filter, var(--lg-blur));
+    -webkit-backdrop-filter: var(--lg-backdrop-filter, var(--lg-blur));
+    border: 1px solid var(--lg-border);
+    box-shadow: var(--lg-specular), var(--lg-shadow);
+    will-change: transform;
+}
+
+body.card-style-glass .bottom-nav .nav-item {
+    padding: 6px 6px;
+    min-width: 0;
+    flex: 1 1 0;
+}
+
+@media (min-width: 768px) {
+    body.card-style-glass .bottom-nav {
+        bottom: 20px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%) translateZ(0);
+        width: auto;
+        min-width: 380px;
+        max-width: calc(100vw - 32px);
+        padding: 6px 12px;
+        gap: 6px;
+    }
+
+    body.card-style-glass .bottom-nav .nav-item {
+        padding: 6px 14px;
+        min-width: 56px;
+        flex: 0 0 auto;
+    }
+}
+
+body.card-style-glass .nav-item.active {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.08) 100%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.60), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 4px 14px rgba(0, 0, 0, 0.22);
+    border-radius: 999px;
+}
+
+[data-color-scheme="light"] body.card-style-glass .nav-item.active {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.56) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.98), inset 0 -1px 0 rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.10);
+}
+
+body.card-style-glass .nav-item.active::after {
+    display: none;
+}
+
+body.card-style-glass .beer-card,
+body.card-style-glass .beer-grid.view-list .beer-card,
+body.card-style-glass .skeleton-card,
+body.card-style-glass .bac-widget-home,
+body.card-style-glass .brewbrother-active-banner,
+body.card-style-glass .active-filters-bar,
+body.card-style-glass .unrated-banner-modern,
+body.card-style-glass .settings-accordion,
+body.card-style-glass .settings-search-box,
+body.card-style-glass .stat-card,
+body.card-style-glass .stats-tool-btn,
+body.card-style-glass .comp-item,
+body.card-style-glass .food-pairing-card,
+body.card-style-glass .beerparty-hero-card,
+body.card-style-glass .bb-mini-pick,
+body.card-style-glass .compare-col,
+body.card-style-glass .passport-card,
+body.card-style-glass .patchnote-section,
+body.card-style-glass .gamer-hud-container,
+body.card-style-glass .info-panel {
+    background: var(--lg-surface);
+    border: 1px solid var(--lg-border);
+    box-shadow: var(--lg-specular), var(--lg-shadow);
+}
+
 body.card-style-glass .beer-card {
-    background: color-mix(in srgb, var(--bg-card) 68%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
+    position: relative;
+    border-color: var(--lg-border) !important;
 }
 
-body.card-style-flat .beer-card {
-    box-shadow: none;
-    background: var(--bg-card);
-    border-width: 1px;
+body.card-style-glass .beer-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 46%;
+    background: radial-gradient(ellipse 85% 65% at 50% -10%, rgba(255, 255, 255, 0.22) 0%, transparent 72%);
+    pointer-events: none;
+    z-index: 0;
 }
 
-body.card-style-neon .beer-card {
-    border-color: color-mix(in srgb, var(--accent-gold) 45%, transparent);
+body.card-style-glass .beer-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+body.card-style-glass .beer-card:hover {
+    border-color: var(--lg-border-strong) !important;
+    box-shadow: var(--lg-specular), 0 16px 40px rgba(0, 0, 0, 0.48);
+}
+
+body.card-style-glass .beer-card.card-rarity-commun {
+    border-color: color-mix(in srgb, var(--rarity-commun) 65%, rgba(255, 255, 255, 0.3)) !important;
+    background: linear-gradient(155deg, color-mix(in srgb, var(--rarity-commun) 22%, rgba(255, 255, 255, 0.10)) 0%, rgba(255, 255, 255, 0.03) 65%) !important;
+}
+
+body.card-style-glass .beer-card.card-rarity-rare {
+    border-color: color-mix(in srgb, var(--rarity-rare) 65%, rgba(255, 255, 255, 0.3)) !important;
+    background: linear-gradient(155deg, color-mix(in srgb, var(--rarity-rare) 24%, rgba(255, 255, 255, 0.10)) 0%, rgba(255, 255, 255, 0.03) 65%) !important;
+}
+
+body.card-style-glass .beer-card.card-rarity-super_rare {
+    border-color: color-mix(in srgb, var(--rarity-super_rare) 65%, rgba(255, 255, 255, 0.3)) !important;
+    background: linear-gradient(155deg, color-mix(in srgb, var(--rarity-super_rare) 26%, rgba(255, 255, 255, 0.10)) 0%, rgba(255, 255, 255, 0.03) 65%) !important;
+}
+
+body.card-style-glass .beer-card.card-rarity-epique {
+    border-color: color-mix(in srgb, var(--rarity-epique) 68%, rgba(255, 255, 255, 0.3)) !important;
+    background: linear-gradient(155deg, color-mix(in srgb, var(--rarity-epique) 28%, rgba(255, 255, 255, 0.10)) 0%, rgba(255, 255, 255, 0.04) 65%) !important;
+}
+
+body.card-style-glass .beer-card.card-rarity-mythique {
+    border-color: color-mix(in srgb, var(--rarity-mythique) 72%, rgba(255, 255, 255, 0.3)) !important;
+    background: linear-gradient(155deg, color-mix(in srgb, var(--rarity-mythique) 30%, rgba(255, 255, 255, 0.10)) 0%, rgba(255, 255, 255, 0.04) 68%) !important;
+}
+
+body.card-style-glass .beer-card.card-rarity-legendaire {
+    border-color: color-mix(in srgb, var(--rarity-legendaire) 75%, rgba(255, 255, 255, 0.35)) !important;
+    background: linear-gradient(155deg, color-mix(in srgb, var(--rarity-legendaire) 32%, rgba(255, 255, 255, 0.12)) 0%, rgba(255, 255, 255, 0.04) 68%) !important;
+}
+
+body.card-style-glass .beer-card.card-rarity-ultra_legendaire,
+body.card-style-glass .beer-card.card-anim-ultra_legendary {
+    border-color: rgba(217, 119, 255, 0.78) !important;
+    background: linear-gradient(145deg, rgba(255, 0, 204, 0.22) 0%, rgba(0, 204, 255, 0.14) 45%, rgba(255, 255, 255, 0.05) 80%) !important;
+}
+
+body.card-style-glass .beer-card.card-rarity-fondateur {
+    border-color: rgba(255, 215, 0, 0.82) !important;
+    background: linear-gradient(155deg, rgba(255, 215, 0, 0.28) 0%, rgba(255, 248, 220, 0.12) 48%, rgba(255, 255, 255, 0.05) 82%) !important;
+}
+
+body.card-style-glass #modal-container,
+body.card-style-glass .modal-overlay {
+    background: rgba(0, 0, 0, 0.28) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+[data-color-scheme="light"] body.card-style-glass #modal-container,
+[data-color-scheme="light"] body.card-style-glass .modal-overlay {
+    background: rgba(20, 16, 12, 0.16) !important;
+}
+
+body.card-style-glass .modal-content,
+body.card-style-glass .modal-dialog {
+    background: var(--lg-modal-surface) !important;
+    backdrop-filter: var(--lg-backdrop-filter, var(--lg-blur)) !important;
+    -webkit-backdrop-filter: var(--lg-backdrop-filter, var(--lg-blur)) !important;
+    border: 1.5px solid var(--lg-border-strong) !important;
+    border-radius: 24px;
+    box-shadow: var(--lg-specular), 0 28px 70px rgba(0, 0, 0, 0.55) !important;
+}
+
+body.card-style-glass .achievement-toast,
+body.card-style-glass .app-toast,
+body.card-style-glass .update-toast {
+    background: var(--lg-modal-surface) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1.5px solid var(--lg-border-strong) !important;
+    border-radius: 24px;
+    box-shadow: var(--lg-specular), 0 20px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.card-style-glass .app-toast {
+    background: linear-gradient(160deg, color-mix(in srgb, var(--accent-gold) 78%, #ffffff) 0%, color-mix(in srgb, var(--accent-gold) 72%, rgba(0, 0, 0, 0.15)) 100%) !important;
+    color: #000 !important;
+    border: 1px solid rgba(255, 255, 255, 0.65) !important;
+    border-radius: 999px !important;
+    box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.72), 0 14px 36px rgba(0, 0, 0, 0.42) !important;
+}
+
+[data-color-scheme="light"] body.card-style-glass .modal-content,
+[data-color-scheme="light"] body.card-style-glass .modal-dialog {
+    box-shadow: var(--lg-specular), 0 24px 60px rgba(25, 20, 15, 0.22) !important;
+}
+
+body.card-style-glass .modal-content.modal-rarity-base {
+    border-color: var(--lg-border-strong) !important;
+}
+body.card-style-glass .modal-content.modal-rarity-commun {
+    border-color: color-mix(in srgb, var(--rarity-commun) 75%, rgba(255, 255, 255, 0.35)) !important;
+}
+body.card-style-glass .modal-content.modal-rarity-rare {
+    border-color: color-mix(in srgb, var(--rarity-rare) 75%, rgba(255, 255, 255, 0.35)) !important;
+}
+body.card-style-glass .modal-content.modal-rarity-super_rare {
+    border-color: color-mix(in srgb, var(--rarity-super_rare) 78%, rgba(255, 255, 255, 0.35)) !important;
+}
+body.card-style-glass .modal-content.modal-rarity-epique {
+    border-color: color-mix(in srgb, var(--rarity-epique) 80%, rgba(255, 255, 255, 0.35)) !important;
+}
+body.card-style-glass .modal-content.modal-rarity-mythique {
+    border-color: color-mix(in srgb, var(--rarity-mythique) 85%, rgba(255, 255, 255, 0.35)) !important;
+}
+body.card-style-glass .modal-content.modal-rarity-legendaire {
+    border-color: color-mix(in srgb, var(--rarity-legendaire) 88%, rgba(255, 255, 255, 0.4)) !important;
+}
+body.card-style-glass .modal-content.modal-rarity-ultra_legendaire {
+    background-image: var(--lg-modal-surface), conic-gradient(from var(--ultra-angle), #ff00cc, #3333ff, #00ccff, #ff6600, #ff00cc) !important;
+    border-color: rgba(217, 119, 255, 0.85) !important;
+}
+body.card-style-glass .modal-content.modal-rarity-fondateur {
+    background-image: var(--lg-modal-surface), conic-gradient(from var(--fondateur-angle), #FFD700, #FFF8DC, #DAA520, #B8860B, #FFD700) !important;
+    border-color: rgba(255, 215, 0, 0.88) !important;
+}
+
+body.card-style-glass .beer-consumption-card,
+body.card-style-glass .beer-tasting-details,
+body.card-style-glass .bb-detail-card,
+body.card-style-glass .modal-content .info-panel,
+body.card-style-glass .modal-content .food-pairing-card,
+body.card-style-glass .info-stat-card,
+body.card-style-glass .similar-beer-card,
+body.card-style-glass .compare-col,
+body.card-style-glass .passport-card,
+body.card-style-glass .compare-empty,
+body.card-style-glass .compare-search-results,
+body.card-style-glass .brewery-stats-row,
+body.card-style-glass .brewery-header,
+body.card-style-glass .settings-credits-card,
+body.card-style-glass .stats-order-item {
+    background: var(--lg-nested-surface) !important;
+    border: 1px solid var(--lg-border) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    border-radius: 16px;
+}
+
+body.card-style-glass .setting-btn,
+body.card-style-glass .theme-preset-btn,
+body.card-style-glass .bb-banner-btn,
+body.card-style-glass .bb-mood-chip,
+body.card-style-glass .bb-vote-btn,
+body.card-style-glass .filter-chip,
+body.card-style-glass .beer-meta-pill,
+body.card-style-glass .form-input,
+body.card-style-glass .form-select,
+body.card-style-glass .form-textarea,
+body.card-style-glass .header-party-widget,
+body.card-style-glass .compare-cell,
+body.card-style-glass .passport-region-pill,
+body.card-style-glass .vol-btn:not(.is-active),
+body.card-style-glass #consumption-date,
+body.card-style-glass #btn-undrink,
+body.card-style-glass .modal-dialog .btn-cancel,
+body.card-style-glass .compare-chip-add,
+body.card-style-glass .scanner-tab-btn,
+body.card-style-glass .modal-content .rarity-hidden {
+    background: var(--lg-surface-control) !important;
+    border: 1px solid var(--lg-border) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    border-radius: 12px;
+    transition: transform 0.25s ease-out, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.card-style-glass select,
+body.card-style-glass .form-select {
+    background-color: color-mix(in srgb, var(--bg-card) 92%, var(--bg-dark)) !important;
+    background-image: var(--lg-surface-control) !important;
+    color: var(--text-primary) !important;
+}
+
+body.card-style-glass select option,
+body.card-style-glass select optgroup {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+}
+
+body.card-style-glass .vol-btn.is-active {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent-gold) 88%, #ffffff) 0%, var(--accent-gold) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    color: #000 !important;
+    border-radius: 12px;
+    box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.65), 0 4px 14px color-mix(in srgb, var(--accent-gold) 35%, transparent) !important;
+}
+
+body.card-style-glass #btn-drink {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--success) 84%, #ffffff) 0%, var(--success) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border-radius: 14px;
+    box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.6), 0 8px 22px color-mix(in srgb, var(--success) 38%, transparent) !important;
+}
+
+body.card-style-glass .setting-btn:hover,
+body.card-style-glass .bb-banner-btn:hover,
+body.card-style-glass .bb-mood-chip:hover {
+    transform: scale(1.02);
+}
+
+body.card-style-glass .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+body.card-style-glass .btn-primary:not(#btn-drink):not(#btn-undrink),
+body.card-style-glass .setting-btn.primary,
+body.card-style-glass .bb-mood-chip.is-active,
+body.card-style-glass .modal-dialog .btn-confirm,
+body.card-style-glass .modal-dialog .btn-ok {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent-gold) 88%, #ffffff) 0%, var(--accent-gold) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.65), 0 6px 18px color-mix(in srgb, var(--accent-gold) 35%, transparent);
+}
+
+/* 2. Plat (Flat) — Zéro ombre, zéro flou, surfaces mates et bordures franches */
+body.card-style-flat .app-header,
+body.card-style-flat .bottom-nav,
+body.card-style-flat .search-bar,
+body.card-style-flat .modal-content,
+body.card-style-flat .modal-dialog,
+body.card-style-flat .achievement-toast,
+body.card-style-flat .beer-card,
+body.card-style-flat .beer-grid.view-list .beer-card,
+body.card-style-flat .skeleton-card,
+body.card-style-flat .bac-widget-home,
+body.card-style-flat .brewbrother-active-banner,
+body.card-style-flat .active-filters-bar,
+body.card-style-flat .unrated-banner-modern,
+body.card-style-flat .settings-accordion,
+body.card-style-flat .settings-search-box,
+body.card-style-flat .stat-card,
+body.card-style-flat .stats-tool-btn,
+body.card-style-flat .comp-item,
+body.card-style-flat .food-pairing-card,
+body.card-style-flat .beerparty-hero-card,
+body.card-style-flat .bb-mini-pick,
+body.card-style-flat .compare-col,
+body.card-style-flat .passport-card,
+body.card-style-flat .patchnote-section,
+body.card-style-flat .setting-btn,
+body.card-style-flat .theme-preset-btn,
+body.card-style-flat .bb-banner-btn,
+body.card-style-flat .bb-mood-chip,
+body.card-style-flat .bb-vote-btn,
+body.card-style-flat .form-input,
+body.card-style-flat .form-select,
+body.card-style-flat .form-textarea,
+body.card-style-flat .btn-primary {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-image: none !important;
+}
+
+body.card-style-flat .app-header,
+body.card-style-flat .bottom-nav,
+body.card-style-flat .search-bar {
+    background: var(--bg-dark) !important;
+    border-color: var(--border-color);
+    border-width: 1.5px;
+}
+
+body.card-style-flat .beer-card,
+body.card-style-flat .beer-grid.view-list .beer-card,
+body.card-style-flat .bac-widget-home,
+body.card-style-flat .brewbrother-active-banner,
+body.card-style-flat .settings-accordion,
+body.card-style-flat .stat-card,
+body.card-style-flat .stats-tool-btn,
+body.card-style-flat .modal-content,
+body.card-style-flat .modal-dialog,
+body.card-style-flat .compare-col,
+body.card-style-flat .passport-card,
+body.card-style-flat .food-pairing-card {
+    background: var(--bg-dark) !important;
+    border: 1.5px solid var(--border-color);
+}
+
+body.card-style-flat .beer-card:hover,
+body.card-style-flat .beer-grid.view-list .beer-card:hover {
+    transform: none !important;
+    border-color: var(--accent-gold) !important;
+    background: var(--bg-card) !important;
+}
+
+body.card-style-flat .beer-card.card-rarity-commun { border-color: var(--rarity-commun) !important; }
+body.card-style-flat .beer-card.card-rarity-rare { border-color: var(--rarity-rare) !important; }
+body.card-style-flat .beer-card.card-rarity-super_rare { border-color: var(--rarity-super_rare) !important; }
+body.card-style-flat .beer-card.card-rarity-epique { border-color: var(--rarity-epique) !important; }
+body.card-style-flat .beer-card.card-rarity-mythique { border-color: var(--rarity-mythique) !important; }
+body.card-style-flat .beer-card.card-rarity-legendaire { border-color: var(--rarity-legendaire) !important; }
+body.card-style-flat .beer-card.card-rarity-ultra_legendaire,
+body.card-style-flat .beer-card.card-anim-ultra_legendary { border-color: #c94bff !important; }
+body.card-style-flat .beer-card.card-rarity-fondateur { border-color: #FFD700 !important; }
+
+body.card-style-flat .beer-card::after {
+    display: none !important;
+}
+
+/* 3. Néon — Halo lumineux d'accent sur cartes & chrome d'interface */
+body.card-style-neon .app-header {
+    border-bottom: 1px solid color-mix(in srgb, var(--accent-gold) 45%, transparent);
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--accent-gold) 16%, transparent);
+}
+
+body.card-style-neon .bottom-nav {
+    border-color: color-mix(in srgb, var(--accent-gold) 50%, transparent);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--accent-gold) 24%, transparent), 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+body.card-style-neon .beer-card,
+body.card-style-neon .bac-widget-home,
+body.card-style-neon .brewbrother-active-banner,
+body.card-style-neon .stat-card,
+body.card-style-neon .stats-tool-btn,
+body.card-style-neon .modal-content {
+    border-color: color-mix(in srgb, var(--accent-gold) 45%, transparent) !important;
     box-shadow: 0 0 14px color-mix(in srgb, var(--accent-gold) 22%, transparent);
 }
 
-body.card-style-neon .beer-card.drunk {
-    box-shadow: 0 0 20px color-mix(in srgb, var(--accent-gold) 45%, transparent);
+body.card-style-neon .beer-card.drunk,
+body.card-style-neon .settings-accordion.is-open {
+    border-color: color-mix(in srgb, var(--accent-gold) 75%, transparent) !important;
+    box-shadow: 0 0 22px color-mix(in srgb, var(--accent-gold) 42%, transparent);
+}
+
+body.card-style-neon .btn-primary,
+body.card-style-neon .setting-btn.primary {
+    box-shadow: 0 0 18px color-mix(in srgb, var(--accent-gold) 55%, transparent);
+}
+
+/* 4. Material 3 Expressive (Google / Android 16) — Multi-tonal surfaces without borders, variable editorial type, shape morphing & spring physics */
+body.card-style-m3e {
+    --m3-surface: color-mix(in srgb, var(--bg-dark) 95%, var(--accent-gold) 5%);
+    --m3-surface-container-low: color-mix(in srgb, var(--bg-card) 92%, var(--accent-gold) 8%);
+    --m3-surface-container: color-mix(in srgb, var(--bg-card) 84%, var(--accent-gold) 16%);
+    --m3-surface-container-high: color-mix(in srgb, var(--bg-card-hover) 78%, var(--accent-gold) 22%);
+    --m3-surface-container-highest: color-mix(in srgb, var(--bg-card-hover) 68%, var(--accent-gold) 32%);
+    --m3-primary: var(--accent-gold);
+    --m3-on-primary: #240f47;
+    --m3-primary-container: color-mix(in srgb, var(--accent-gold) 34%, var(--bg-card));
+    --m3-on-primary-container: color-mix(in srgb, var(--accent-gold) 22%, #ffffff);
+    --m3-secondary-container: color-mix(in srgb, var(--accent-gold) 20%, var(--bg-card-hover));
+    --m3-tertiary-container: color-mix(in srgb, var(--accent-amber) 30%, var(--bg-card));
+    --m3-on-tertiary-container: color-mix(in srgb, var(--accent-amber) 24%, #ffffff);
+    --m3-outline: color-mix(in srgb, var(--text-secondary) 55%, var(--accent-gold) 45%);
+    --m3-spring-fast: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --m3-spring-spatial: cubic-bezier(0.22, 1.4, 0.36, 1);
+    font-family: "Roboto Flex", "Plus Jakarta Sans", var(--font-family-primary, "Outfit", sans-serif);
+    background-color: var(--m3-surface) !important;
+    background-image: radial-gradient(ellipse 95% 40% at 50% -10%, color-mix(in srgb, var(--accent-gold) 18%, transparent), transparent 70%);
+    background-attachment: fixed;
+}
+
+[data-color-scheme="light"] body.card-style-m3e {
+    --m3-surface: color-mix(in srgb, #fef7ff 92%, var(--bg-dark) 8%);
+    --m3-surface-container-low: #f7f2fa;
+    --m3-surface-container: color-mix(in srgb, #f3edf7 88%, var(--accent-gold) 12%);
+    --m3-surface-container-high: color-mix(in srgb, #ece6f0 80%, var(--accent-gold) 20%);
+    --m3-surface-container-highest: color-mix(in srgb, #e6e0e9 72%, var(--accent-gold) 28%);
+    --m3-primary: color-mix(in srgb, var(--accent-gold) 85%, #4f378b);
+    --m3-on-primary: #ffffff;
+    --m3-primary-container: color-mix(in srgb, var(--accent-gold) 26%, #ffffff);
+    --m3-on-primary-container: #21005d;
+    --m3-secondary-container: color-mix(in srgb, var(--accent-gold) 18%, #f3edf7);
+    --m3-tertiary-container: color-mix(in srgb, var(--accent-amber) 24%, #fff0f4);
+    --m3-on-tertiary-container: #31111d;
+    --m3-outline: #79747e;
+}
+
+body.card-style-m3e #app {
+    background: transparent;
+}
+
+body.card-style-m3e h1,
+body.card-style-m3e h2,
+body.card-style-m3e h3,
+body.card-style-m3e .beer-title,
+body.card-style-m3e .beer-grid.view-list .beer-title,
+body.card-style-m3e .modal-dialog h3,
+body.card-style-m3e .legal-header h2,
+body.card-style-m3e .gamer-hud-title,
+body.card-style-m3e .gamer-rank-name,
+body.card-style-m3e .streak-section h4,
+body.card-style-m3e .streak-number,
+body.card-style-m3e .history-section h4,
+body.card-style-m3e .cal-month-name,
+body.card-style-m3e .beerparty-title,
+body.card-style-m3e .settings-main-title,
+body.card-style-m3e .stat-value,
+body.card-style-m3e .modal-title,
+body.card-style-m3e .passport-title,
+body.card-style-m3e .compare-title {
+    font-family: "Roboto Flex", "Plus Jakarta Sans", sans-serif !important;
+    font-weight: 800;
+    font-variation-settings: "wght" 820, "wdth" 108;
+    letter-spacing: -0.025em;
+}
+
+body.card-style-m3e .app-header {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    min-height: 60px;
+    padding: 6px 14px 6px 18px;
+    border-radius: 999px;
+    background: var(--m3-surface-container-high);
+    border: none !important;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    z-index: 120;
+    overflow: visible;
+}
+
+body.card-style-m3e .app-header h1 {
+    font-variation-settings: "wght" 900, "wdth" 112;
+    font-size: 1.45rem;
+    color: var(--m3-on-primary-container);
+}
+
+body.card-style-m3e .app-header .icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: var(--m3-secondary-container);
+    color: var(--m3-on-primary-container);
+    border: none;
+    transition: transform 0.3s var(--m3-spring-fast), border-radius 0.25s var(--m3-spring-fast), background-color 0.2s ease;
+}
+
+body.card-style-m3e .app-header .icon-btn:hover {
+    background: var(--m3-primary-container);
+    border-radius: 14px;
+    transform: scale(1.06);
+}
+
+@media (max-width: 480px) {
+    body.card-style-m3e .app-header {
+        padding: 6px 10px 6px 12px;
+    }
+
+    body.card-style-m3e .app-header .logo {
+        gap: 6px;
+    }
+
+    body.card-style-m3e .app-header h1 {
+        font-size: 1.12rem;
+        font-variation-settings: "wght" 850, "wdth" 98;
+        flex-shrink: 0;
+    }
+
+    body.card-style-m3e .app-header .icon-btn {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+    }
+
+    body.card-style-m3e .app-header .header-toolbar {
+        gap: 4px !important;
+    }
+
+    body.card-style-m3e #rust-wasm-indicator {
+        margin-left: 2px !important;
+        width: 19px !important;
+        height: 19px !important;
+    }
+
+    body.card-style-nothing .app-header .header-toolbar {
+        gap: 5px !important;
+    }
+
+    body.card-style-nothing .app-header .icon-btn {
+        width: 34px;
+        height: 34px;
+    }
+
+    body.card-style-nothing #rust-wasm-indicator {
+        margin-left: 2px !important;
+    }
+}
+
+body.card-style-m3e #main-content {
+    padding-top: calc(var(--header-height) + env(safe-area-inset-top) + 26px);
+}
+
+body.card-style-m3e .search-bar {
+    top: calc(var(--header-height) + env(safe-area-inset-top) + 18px);
+    left: 12px;
+    right: 12px;
+    transform: none;
+    width: auto;
+    max-width: none;
+    border-radius: 28px;
+    background: var(--m3-surface-container-highest);
+    border: none;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
+    z-index: 115;
+}
+
+body.card-style-m3e .bac-widget-home {
+    background: var(--m3-tertiary-container) !important;
+    background-image: none !important;
+    border: none !important;
+    border-left: none !important;
+    border-radius: 32px;
+    padding: 18px 22px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+}
+
+body.card-style-m3e .bac-widget-home-eyebrow {
+    color: var(--m3-on-tertiary-container);
+    opacity: 0.85;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+body.card-style-m3e .bac-widget-home-title {
+    font-family: "Roboto Flex", "Plus Jakarta Sans", sans-serif;
+    font-size: 1.35rem;
+    font-weight: 900;
+    font-variation-settings: "wght" 900, "wdth" 114;
+}
+
+body.card-style-m3e .bac-widget-home-icon {
+    width: 52px;
+    height: 52px;
+    background: var(--m3-primary-container);
+    border: none;
+    border-radius: 38% 62% 56% 44% / 44% 38% 62% 56%;
+    transition: border-radius 0.4s var(--m3-spring-fast), transform 0.35s var(--m3-spring-fast);
+}
+
+body.card-style-m3e .bac-widget-home-icon:hover {
+    border-radius: 56% 44% 38% 62% / 62% 56% 44% 38%;
+    transform: rotate(8deg) scale(1.06);
+}
+
+body.card-style-m3e .bottom-nav {
+    position: fixed;
+    bottom: calc(12px + min(env(safe-area-inset-bottom), 34px));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: calc(100vw - 24px);
+    height: auto;
+    min-height: 66px;
+    padding: 6px;
+    gap: 4px;
+    border-radius: 999px;
+    background: var(--m3-surface-container-highest);
+    border: none !important;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    z-index: 120;
+}
+
+body.card-style-m3e .bottom-nav .nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 6px;
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    transition: transform 0.32s var(--m3-spring-fast), border-radius 0.28s var(--m3-spring-fast), background-color 0.22s ease, color 0.22s ease;
+}
+
+@media (min-width: 768px) {
+    body.card-style-m3e .app-header {
+        left: 32px;
+        right: 32px;
+        max-width: calc(100vw - 64px);
+        padding: 8px 18px 8px 22px;
+    }
+
+    body.card-style-m3e .search-bar {
+        left: 32px;
+        right: 32px;
+    }
+
+    body.card-style-m3e .bottom-nav {
+        bottom: 20px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: auto;
+        min-width: 420px;
+        max-width: calc(100vw - 32px);
+        padding: 6px 10px;
+        gap: 6px;
+    }
+
+    body.card-style-m3e .bottom-nav .nav-item {
+        flex: 0 0 auto;
+        min-width: 68px;
+        padding: 8px 18px;
+    }
+}
+
+body.card-style-m3e .nav-item.active {
+    background: var(--m3-primary) !important;
+    color: var(--m3-on-primary) !important;
+    font-weight: 800;
+    border-radius: 999px;
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--m3-primary) 40%, transparent);
+}
+
+body.card-style-m3e .nav-item.active::after {
+    display: none;
+}
+
+body.card-style-m3e .nav-item:active {
+    transform: scale(0.92);
+    border-radius: 16px;
+}
+
+body.card-style-m3e .beer-card {
+    background: var(--m3-surface-container) !important;
+    border: none !important;
+    border-radius: 28px;
+    padding: 12px 12px 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+    transition: transform 0.38s var(--m3-spring-spatial), border-radius 0.32s var(--m3-spring-fast), background-color 0.22s ease, box-shadow 0.25s ease;
+}
+
+body.card-style-m3e .beer-card .beer-image-container {
+    width: 100%;
+    background: var(--m3-surface-container-low);
+    border-radius: 22px;
+    padding: 12px 8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-radius 0.32s var(--m3-spring-fast), background-color 0.22s ease;
+}
+
+body.card-style-m3e .beer-card:hover {
+    transform: translateY(-5px) scale(1.018);
+    border-radius: 34px;
+    background: var(--m3-surface-container-high) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+body.card-style-m3e .beer-card:hover .beer-image-container {
+    border-radius: 28px;
+    background: var(--m3-surface-container);
+}
+
+body.card-style-m3e .beer-card:active {
+    transform: scale(0.96);
+    border-radius: 18px;
+}
+
+body.card-style-m3e .beer-card.drunk {
+    background: var(--m3-primary-container) !important;
+}
+
+body.card-style-m3e .beer-card.drunk .beer-image-container {
+    background: color-mix(in srgb, var(--m3-primary-container) 65%, var(--m3-surface));
+}
+
+body.card-style-m3e .beer-title {
+    font-size: 0.98rem;
+    line-height: 1.22;
+    color: var(--text-primary);
+}
+
+body.card-style-m3e .beer-brewery {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+body.card-style-m3e .beer-grid.view-list .beer-card {
+    background: var(--m3-surface-container) !important;
+    border: none !important;
+    border-radius: 24px;
+}
+
+body.card-style-m3e .beer-grid.view-list .beer-image-container {
+    width: 58px;
+    height: 68px;
+    border-radius: 16px;
+    margin-bottom: 0;
+    padding: 4px;
+}
+
+body.card-style-m3e .brewbrother-active-banner,
+body.card-style-m3e .active-filters-bar,
+body.card-style-m3e .unrated-banner-modern,
+body.card-style-m3e .settings-accordion,
+body.card-style-m3e .stat-card,
+body.card-style-m3e .stats-tool-btn,
+body.card-style-m3e .comp-item,
+body.card-style-m3e .food-pairing-card,
+body.card-style-m3e .beerparty-hero-card,
+body.card-style-m3e .bb-mini-pick,
+body.card-style-m3e .compare-col,
+body.card-style-m3e .passport-card,
+body.card-style-m3e .patchnote-section {
+    background: var(--m3-surface-container) !important;
+    border: none !important;
+    border-radius: 28px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+    transition: transform 0.35s var(--m3-spring-spatial), border-radius 0.3s var(--m3-spring-fast), background-color 0.22s ease;
+}
+
+body.card-style-m3e .settings-accordion.is-open {
+    background: var(--m3-surface-container-high) !important;
+    border-radius: 32px;
+}
+
+body.card-style-m3e .modal-content,
+body.card-style-m3e .modal-dialog {
+    background: var(--m3-surface-container-low) !important;
+    border: none !important;
+    border-radius: 36px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.50);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.card-style-m3e .btn-primary,
+body.card-style-m3e .setting-btn,
+body.card-style-m3e .bb-banner-btn,
+body.card-style-m3e .bb-mood-chip,
+body.card-style-m3e .bb-vote-btn,
+body.card-style-m3e .theme-preset-btn,
+body.card-style-m3e .icon-btn,
+body.card-style-m3e .vol-btn {
+    border-radius: 999px;
+    border: none;
+    transition: transform 0.3s var(--m3-spring-fast), border-radius 0.25s var(--m3-spring-fast), background-color 0.2s ease, color 0.2s ease;
+}
+
+body.card-style-m3e .setting-btn:not(.primary):not(.danger),
+body.card-style-m3e .bb-banner-btn,
+body.card-style-m3e .bb-mood-chip,
+body.card-style-m3e .bb-vote-btn,
+body.card-style-m3e .theme-preset-btn,
+body.card-style-m3e .vol-btn {
+    background: var(--m3-secondary-container);
+    color: var(--m3-on-primary-container);
+    font-weight: 700;
+}
+
+/* M3 Expressive Connected Button Groups */
+body.card-style-m3e .settings-btn-row .setting-btn {
+    border-radius: 10px;
+}
+
+body.card-style-m3e .settings-btn-row .setting-btn:first-child {
+    border-radius: 999px 10px 10px 999px;
+}
+
+body.card-style-m3e .settings-btn-row .setting-btn:last-child {
+    border-radius: 10px 999px 999px 10px;
+}
+
+body.card-style-m3e .btn-primary:active,
+body.card-style-m3e .setting-btn:active,
+body.card-style-m3e .bb-banner-btn:active,
+body.card-style-m3e .bb-mood-chip:active,
+body.card-style-m3e .bb-vote-btn:active,
+body.card-style-m3e .theme-preset-btn:active,
+body.card-style-m3e .icon-btn:active,
+body.card-style-m3e .vol-btn:active,
+body.card-style-m3e .bb-mood-chip.is-active,
+body.card-style-m3e .vol-btn.active,
+body.card-style-m3e .theme-preset-btn.is-active {
+    border-radius: 14px;
+    transform: scale(0.96);
+}
+
+body.card-style-m3e .btn-primary:not(#btn-drink):not(#btn-undrink),
+body.card-style-m3e .setting-btn.primary,
+body.card-style-m3e .bb-mood-chip.is-active,
+body.card-style-m3e .vol-btn.active,
+body.card-style-m3e .theme-preset-btn.is-active,
+body.card-style-m3e .modal-dialog .btn-confirm,
+body.card-style-m3e .modal-dialog .btn-ok {
+    background: var(--m3-primary) !important;
+    color: var(--m3-on-primary) !important;
+    font-weight: 800;
+    border: none !important;
+}
+
+/* Material 3 Expressive Switches */
+body.card-style-m3e input[type="checkbox"].toggle-switch {
+    width: 52px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--m3-surface-container-highest);
+    border: 2px solid var(--m3-outline);
+    transition: background-color 0.22s ease, border-color 0.22s ease;
+}
+
+body.card-style-m3e input[type="checkbox"].toggle-switch::after {
+    top: 50%;
+    left: 6px;
+    width: 16px;
+    height: 16px;
+    transform: translateY(-50%);
+    background: var(--m3-outline);
+    box-shadow: none;
+    transition: transform 0.32s var(--m3-spring-fast), width 0.25s var(--m3-spring-fast), height 0.25s var(--m3-spring-fast), background-color 0.2s ease;
+}
+
+body.card-style-m3e input[type="checkbox"].toggle-switch:checked {
+    background: var(--m3-primary);
+    border-color: var(--m3-primary);
+}
+
+body.card-style-m3e input[type="checkbox"].toggle-switch:checked::after {
+    width: 24px;
+    height: 24px;
+    transform: translate(18px, -50%);
+    background: var(--m3-on-primary);
+}
+
+body.card-style-m3e .form-input,
+body.card-style-m3e .form-select,
+body.card-style-m3e .form-textarea {
+    background: var(--m3-surface-container-highest);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 18px;
+}
+
+body.card-style-m3e select option,
+body.card-style-m3e select optgroup {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+}
+
+body.card-style-m3e .beer-meta-pill,
+body.card-style-m3e .tag-chip {
+    border-radius: 999px;
+    border: none;
+    padding: 3px 9px;
+    font-weight: 700;
+    background: var(--m3-secondary-container);
+    color: var(--m3-on-primary-container);
+}
+
+body.card-style-m3e .beer-card-stats-row .beer-meta-pill:nth-child(3n) {
+    background: var(--m3-tertiary-container);
+    color: var(--m3-on-tertiary-container);
+}
+
+body.card-style-m3e .bac-speculative-badge {
+    border-radius: 999px;
+    border: none !important;
+    background: var(--m3-surface-container-highest);
+    padding: 3px 10px;
+    font-weight: 700;
+}
+
+/* 5. Nothing OS — Radical Reduction, Dot-Matrix (Doto / NDot), Pure Black #000000 & Signal Red #FF3030 */
+@keyframes glyph-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+body.card-style-nothing {
+    --no-bg: #000000;
+    --no-surface-1: #0D0D0D;
+    --no-surface-2: #1A1A1A;
+    --no-surface-3: #242424;
+    --no-border: #2E2E2E;
+    --no-border-subtle: #1C1C1C;
+    --no-text-primary: #FFFFFF;
+    --no-text-secondary: #999999;
+    --no-text-muted: #555555;
+    --no-accent: #FF3030;
+    --no-accent-dim: #3A0A0A;
+    --no-ghost: rgba(255, 255, 255, 0.06);
+    --bg-dark: #000000;
+    --bg-card: #0D0D0D;
+    --bg-card-hover: #242424;
+    --border-color: #2E2E2E;
+    --text-primary: #FFFFFF;
+    --text-secondary: #999999;
+    --accent-gold: #FF3030;
+    --accent-amber: #FFFFFF;
+    --accent-foam: #FFFFFF;
+    --success: #FFFFFF;
+    --danger: #FF3030;
+    font-family: "NType 82", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--no-bg) !important;
+    background-image: none !important;
+    color: var(--no-text-primary);
+}
+
+[data-color-scheme="light"] body.card-style-nothing {
+    --no-bg: #FFFFFF;
+    --no-surface-1: #F5F5F5;
+    --no-surface-2: #EAEAEA;
+    --no-surface-3: #E0E0E0;
+    --no-border: #D4D4D4;
+    --no-border-subtle: #E8E8E8;
+    --no-text-primary: #000000;
+    --no-text-secondary: #555555;
+    --no-text-muted: #888888;
+    --no-accent: #FF3030;
+    --no-accent-dim: #FDE8E8;
+    --no-ghost: rgba(0, 0, 0, 0.05);
+    --bg-dark: #FFFFFF;
+    --bg-card: #F5F5F5;
+    --bg-card-hover: #E0E0E0;
+    --border-color: #D4D4D4;
+    --text-primary: #000000;
+    --text-secondary: #555555;
+    --accent-gold: #FF3030;
+    --accent-amber: #000000;
+    --accent-foam: #000000;
+    --success: #000000;
+    --danger: #FF3030;
+}
+
+body.card-style-nothing #app {
+    background: var(--no-bg) !important;
+    background-image: none !important;
+}
+
+body.card-style-nothing .app-header {
+    background-color: var(--no-bg) !important;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.18) 1px, transparent 1px) !important;
+    background-size: 8px 8px !important;
+    border-bottom: 1px solid var(--no-border) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+[data-color-scheme="light"] body.card-style-nothing .app-header {
+    background-image: radial-gradient(circle, rgba(0, 0, 0, 0.14) 1px, transparent 1px) !important;
+}
+
+/* Display Dot-Matrix (>= 24px, left-aligned) */
+body.card-style-nothing .app-header h1,
+body.card-style-nothing .modal-title,
+body.card-style-nothing .settings-main-title,
+body.card-style-nothing .beerparty-title,
+body.card-style-nothing .passport-title,
+body.card-style-nothing .compare-title,
+body.card-style-nothing .stat-value,
+body.card-style-nothing .streak-number,
+body.card-style-nothing .bac-widget-home-title,
+body.card-style-nothing .view-title,
+body.card-style-nothing h2 {
+    font-family: "NDot 55", "NDot 57", "Doto", monospace !important;
+    font-weight: 700;
+    font-size: max(1.5rem, 24px);
+    letter-spacing: 0.04em;
+    text-align: left !important;
+    text-transform: uppercase;
+    color: var(--no-text-primary) !important;
+}
+
+body.card-style-nothing .app-header h1 {
+    font-size: 1.7rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+body.card-style-nothing .app-header h1::after {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--no-accent);
+    display: inline-block;
+    animation: glyph-pulse 2s linear infinite;
+}
+
+body.card-style-nothing #rust-wasm-indicator {
+    filter: grayscale(1) contrast(1.25);
+    opacity: 0.75;
+}
+
+/* Card & Subheading Typography (Clean Industrial Sans — No Russo One) */
+body.card-style-nothing .beer-title,
+body.card-style-nothing .beer-grid.view-list .beer-title,
+body.card-style-nothing h3,
+body.card-style-nothing .modal-dialog h3,
+body.card-style-nothing .legal-header h2,
+body.card-style-nothing .gamer-hud-title,
+body.card-style-nothing .gamer-rank-name,
+body.card-style-nothing .streak-section h4,
+body.card-style-nothing .history-section h4,
+body.card-style-nothing .cal-month-name {
+    font-family: "NType 82", "Inter", sans-serif !important;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-align: left !important;
+    color: var(--no-text-primary) !important;
+}
+
+/* Monospace Specs, Labels & Navigation */
+body.card-style-nothing .nav-item,
+body.card-style-nothing .setting-title,
+body.card-style-nothing .beer-brewery,
+body.card-style-nothing .beer-meta-pill,
+body.card-style-nothing .bac-speculative-badge,
+body.card-style-nothing .bac-widget-home-eyebrow,
+body.card-style-nothing .accordion-title,
+body.card-style-nothing .stat-label,
+body.card-style-nothing .form-label,
+body.card-style-nothing .btn-primary,
+body.card-style-nothing .setting-btn {
+    font-family: "NType 82 Mono", "JetBrains Mono", monospace !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+}
+
+body.card-style-nothing .stat-value,
+body.card-style-nothing .bac-value {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Monochrome Hardware Telemetry BAC Module (Zero Neon Green/Pink) */
+body.card-style-nothing .bac-widget-home {
+    background: var(--no-surface-1) !important;
+    background-image: none !important;
+    border: 1px solid var(--no-border) !important;
+    border-left: 1px solid var(--no-border) !important;
+    border-radius: 0px !important;
+    box-shadow: none !important;
+    padding: 16px 18px;
+}
+
+body.card-style-nothing .bac-widget-home-val,
+body.card-style-nothing .bac-widget-home-breath {
+    color: var(--no-text-primary) !important;
+}
+
+body.card-style-nothing .bac-widget-home-icon {
+    background: var(--no-bg) !important;
+    border: 1px solid var(--no-border) !important;
+    border-radius: 50%;
+    filter: grayscale(1) contrast(1.5);
+}
+
+/* Surfaces, Modals & Cards (Sharp 0px, 1px solid border, zero shadows) */
+body.card-style-nothing .beer-grid.view-list .beer-card,
+body.card-style-nothing .skeleton-card,
+body.card-style-nothing .brewbrother-active-banner,
+body.card-style-nothing .active-filters-bar,
+body.card-style-nothing .unrated-banner-modern,
+body.card-style-nothing .settings-accordion,
+body.card-style-nothing .settings-search-box,
+body.card-style-nothing .stat-card,
+body.card-style-nothing .stats-tool-btn,
+body.card-style-nothing .comp-item,
+body.card-style-nothing .food-pairing-card,
+body.card-style-nothing .beerparty-hero-card,
+body.card-style-nothing .bb-mini-pick,
+body.card-style-nothing .compare-col,
+body.card-style-nothing .passport-card,
+body.card-style-nothing .patchnote-section,
+body.card-style-nothing .info-panel,
+body.card-style-nothing .beer-meta-pill,
+body.card-style-nothing .tag-chip {
+    background: var(--no-surface-1) !important;
+    background-image: none !important;
+    border: 1px solid var(--no-border) !important;
+    border-radius: 0px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Beer Card Anatomy: Pure Black Stage + Left-Aligned Technical Spec Block */
+body.card-style-nothing .beer-card {
+    background: var(--no-surface-1) !important;
+    background-image: none !important;
+    border: 1px solid var(--no-border) !important;
+    border-radius: 0px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    align-items: stretch !important;
+    overflow: hidden;
+    transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.card-style-nothing .beer-card .beer-image-container {
+    width: 100%;
+    background: var(--no-bg);
+    border-bottom: 1px solid var(--no-border-subtle);
+    padding: 16px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body.card-style-nothing .beer-card .beer-image {
+    filter: none !important;
+    transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.card-style-nothing .beer-card:hover .beer-image {
+    transform: none !important;
+}
+
+body.card-style-nothing .beer-card .beer-info {
+    padding: 12px;
+    text-align: left !important;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+body.card-style-nothing .beer-card .beer-card-stats-row {
+    justify-content: flex-start !important;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+body.card-style-nothing .beer-card .beer-card-bac-row {
+    justify-content: flex-start !important;
+    margin-top: 6px !important;
+}
+
+body.card-style-nothing .beer-meta-pill {
+    background: var(--no-bg) !important;
+    color: var(--no-text-secondary) !important;
+    font-size: 0.64rem;
+    padding: 2px 6px;
+}
+
+body.card-style-nothing .bac-speculative-badge {
+    color: var(--no-text-secondary) !important;
+    border: 1px solid var(--no-border) !important;
+    background: var(--no-bg) !important;
+    border-radius: 0px !important;
+    font-size: 0.64rem;
+    padding: 2px 7px;
+    gap: 6px;
+}
+
+body.card-style-nothing .bac-speculative-badge .bac-icon {
+    display: none !important;
+}
+
+body.card-style-nothing .bac-speculative-badge::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--no-text-primary);
+    display: inline-block;
+}
+
+body.card-style-nothing .card-trappist-badge .trappist-logo-icon {
+    background-color: var(--no-text-secondary) !important;
+}
+
+body.card-style-nothing .card-fav-star {
+    filter: grayscale(1) brightness(1.8);
+}
+
+body.card-style-nothing .beer-grid.view-list .beer-card {
+    padding: 10px 12px !important;
+    align-items: center !important;
+}
+
+body.card-style-nothing .beer-grid.view-list .beer-image-container {
+    width: 52px;
+    height: 62px;
+    padding: 4px;
+    border-bottom: none;
+    border: 1px solid var(--no-border-subtle);
+}
+
+body.card-style-nothing .modal-content,
+body.card-style-nothing .modal-dialog,
+body.card-style-nothing .search-bar,
+body.card-style-nothing .achievement-toast {
+    background: var(--no-surface-2) !important;
+    background-image: none !important;
+    border: 1px solid var(--no-border) !important;
+    border-radius: 0px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.card-style-nothing .beer-card:hover,
+body.card-style-nothing .beer-grid.view-list .beer-card:hover {
+    transform: none !important;
+    opacity: 0.92;
+    border-color: var(--no-text-primary) !important;
+    background: var(--no-surface-1) !important;
+}
+
+body.card-style-nothing .beer-card.drunk {
+    border-color: var(--no-text-primary) !important;
+}
+
+body.card-style-nothing .beer-card.drunk .check-icon {
+    color: var(--no-accent) !important;
+}
+
+body.card-style-nothing .beer-card.card-rarity-commun { border-color: var(--rarity-commun) !important; }
+body.card-style-nothing .beer-card.card-rarity-rare { border-color: var(--rarity-rare) !important; }
+body.card-style-nothing .beer-card.card-rarity-super_rare { border-color: var(--rarity-super_rare) !important; }
+body.card-style-nothing .beer-card.card-rarity-epique { border-color: var(--rarity-epique) !important; }
+body.card-style-nothing .beer-card.card-rarity-mythique { border-color: var(--rarity-mythique) !important; }
+body.card-style-nothing .beer-card.card-rarity-legendaire { border-color: var(--rarity-legendaire) !important; }
+body.card-style-nothing .beer-card.card-rarity-ultra_legendaire,
+body.card-style-nothing .beer-card.card-anim-ultra_legendary { border-color: #c94bff !important; }
+body.card-style-nothing .beer-card.card-rarity-fondateur { border-color: var(--no-accent) !important; }
+
+body.card-style-nothing .beer-card::after {
+    display: none !important;
+}
+
+body.card-style-nothing .beer-card img,
+body.card-style-nothing .modal-beer-img {
+    filter: none !important;
+}
+
+/* Nothing OS Pill Buttons */
+body.card-style-nothing .btn-primary,
+body.card-style-nothing .setting-btn.primary,
+body.card-style-nothing .modal-dialog .btn-confirm,
+body.card-style-nothing .modal-dialog .btn-ok {
+    border-radius: 999px !important;
+    background: var(--no-text-primary) !important;
+    background-image: none !important;
+    color: var(--no-bg) !important;
+    border: 1px solid var(--no-text-primary) !important;
+    box-shadow: none !important;
+    font-weight: 700;
+    transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.card-style-nothing .btn-primary:hover,
+body.card-style-nothing .setting-btn.primary:hover {
+    opacity: 0.82;
+    transform: none !important;
+}
+
+body.card-style-nothing #btn-drink,
+body.card-style-nothing .setting-btn.danger,
+body.card-style-nothing .btn-danger {
+    border-radius: 999px !important;
+    background: var(--no-accent) !important;
+    background-image: none !important;
+    color: #FFFFFF !important;
+    border: 1px solid var(--no-accent) !important;
+    box-shadow: none !important;
+}
+
+body.card-style-nothing .setting-btn:not(.primary):not(.danger),
+body.card-style-nothing .bb-banner-btn,
+body.card-style-nothing .bb-mood-chip,
+body.card-style-nothing .bb-vote-btn,
+body.card-style-nothing .theme-preset-btn,
+body.card-style-nothing .vol-btn,
+body.card-style-nothing .icon-btn {
+    border-radius: 999px !important;
+    background: transparent !important;
+    background-image: none !important;
+    color: var(--no-text-primary) !important;
+    border: 1px solid var(--no-border) !important;
+    box-shadow: none !important;
+    transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.card-style-nothing .setting-btn:not(.primary):not(.danger):hover,
+body.card-style-nothing .bb-banner-btn:hover,
+body.card-style-nothing .bb-mood-chip:hover,
+body.card-style-nothing .theme-preset-btn:hover,
+body.card-style-nothing .vol-btn:hover,
+body.card-style-nothing .icon-btn:hover {
+    opacity: 0.78;
+    border-color: var(--no-text-primary) !important;
+    transform: none !important;
+}
+
+body.card-style-nothing .bb-mood-chip.is-active,
+body.card-style-nothing .theme-preset-btn.is-active,
+body.card-style-nothing .vol-btn.active {
+    background: var(--no-text-primary) !important;
+    color: var(--no-bg) !important;
+    border-color: var(--no-text-primary) !important;
+}
+
+/* Nothing OS Hardware Switches */
+body.card-style-nothing input[type="checkbox"].toggle-switch {
+    background: var(--no-bg);
+    border: 1px solid var(--no-border);
+    border-radius: 999px;
+    box-shadow: none;
+}
+
+body.card-style-nothing input[type="checkbox"].toggle-switch::after {
+    background: var(--no-text-secondary);
+    box-shadow: none;
+}
+
+body.card-style-nothing input[type="checkbox"].toggle-switch:checked {
+    background: var(--no-accent);
+    border-color: var(--no-accent);
+}
+
+body.card-style-nothing input[type="checkbox"].toggle-switch:checked::after {
+    background: #FFFFFF;
+}
+
+body.card-style-nothing .bottom-nav {
+    background: var(--no-bg) !important;
+    background-image: none !important;
+    border: 1px solid var(--no-border) !important;
+    border-radius: 0px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+@media (max-width: 767px) {
+    body.card-style-nothing .bottom-nav {
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+    }
+}
+
+body.card-style-nothing .nav-item {
+    border-radius: 0px !important;
+    color: var(--no-text-secondary);
+    letter-spacing: 0.07em;
+    font-size: 0.62rem;
+    transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1), color 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.card-style-nothing .nav-item:hover {
+    opacity: 0.85;
+    transform: none !important;
+}
+
+body.card-style-nothing .nav-item.active {
+    color: var(--no-text-primary) !important;
+    background: transparent !important;
+}
+
+body.card-style-nothing .nav-item.active::after {
+    content: '';
+    display: block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--no-accent);
+    position: absolute;
+    top: 3px;
+    right: 50%;
+    transform: translateX(50%);
+    animation: glyph-pulse 2s linear infinite;
+}
+
+body.card-style-nothing .party-pulse-dot {
+    background: var(--no-accent);
+    animation: glyph-pulse 2s linear infinite;
+}
+
+body.card-style-nothing svg * {
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+body.card-style-nothing .form-input,
+body.card-style-nothing .form-select,
+body.card-style-nothing .form-textarea,
+body.card-style-nothing select option,
+body.card-style-nothing select optgroup {
+    background-color: var(--no-surface-1) !important;
+    color: var(--no-text-primary) !important;
+    border: 1px solid var(--no-border) !important;
+    border-radius: 0px !important;
+    box-shadow: none !important;
+}
+
+body.card-style-nothing .theme-preset-emoji {
+    display: none;
 }
 
 /* User Reduced Motion */
@@ -5969,8 +7614,13 @@ body.reduced-motion *::after {
         position: static;
         transform: none;
         left: auto;
+        right: auto;
         bottom: auto;
         width: 100%;
+        min-width: 0;
+        max-width: none;
+        height: var(--nav-height);
+        padding: 0 16px;
         border-radius: 0;
         border: none;
         border-top: var(--glass-border);
@@ -6203,5 +7853,101 @@ body.reduced-motion *::after {
     color: var(--accent-gold);
     flex-shrink: 0;
 }
+
+/* ==========================================================================
+   Ferris Rust Crab Easter Egg Animations
+   ========================================================================== */
+@keyframes rustCrabWiggle {
+    0% { transform: scale(1) rotate(0deg); }
+    20% { transform: scale(1.28) rotate(-14deg) translateY(-3px); }
+    45% { transform: scale(1.25) rotate(14deg) translateY(-2px); }
+    70% { transform: scale(1.18) rotate(-8deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+
+.rust-crab-wiggle {
+    animation: rustCrabWiggle 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ferrisSparkBurst {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.7);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(calc(-50% + var(--spark-dx, 0px)), calc(-50% + var(--spark-dy, -24px))) scale(1.35) rotate(18deg);
+    }
+}
+
+.ferris-spark {
+    position: fixed;
+    z-index: 10001;
+    font-size: 1rem;
+    pointer-events: none;
+    user-select: none;
+    animation: ferrisSparkBurst 0.8s ease-out forwards;
+}
+
+.ferris-parade-layer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 110px;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 9999;
+}
+
+@keyframes ferrisCrossLeft {
+    0% { transform: translateX(-80px) translateY(0) rotate(-6deg); }
+    15% { transform: translateX(15vw) translateY(-10px) rotate(8deg); }
+    30% { transform: translateX(32vw) translateY(0) rotate(-8deg); }
+    45% { transform: translateX(50vw) translateY(-12px) rotate(8deg); }
+    60% { transform: translateX(68vw) translateY(0) rotate(-8deg); }
+    75% { transform: translateX(85vw) translateY(-10px) rotate(8deg); }
+    100% { transform: translateX(calc(100vw + 80px)) translateY(0) rotate(0deg); }
+}
+
+@keyframes ferrisCrossRight {
+    0% { transform: translateX(calc(100vw + 80px)) scaleX(-1) translateY(0) rotate(-6deg); }
+    15% { transform: translateX(85vw) scaleX(-1) translateY(-10px) rotate(8deg); }
+    30% { transform: translateX(68vw) scaleX(-1) translateY(0) rotate(-8deg); }
+    45% { transform: translateX(50vw) scaleX(-1) translateY(-12px) rotate(8deg); }
+    60% { transform: translateX(32vw) scaleX(-1) translateY(0) rotate(-8deg); }
+    75% { transform: translateX(15vw) scaleX(-1) translateY(-10px) rotate(8deg); }
+    100% { transform: translateX(-80px) scaleX(-1) translateY(0) rotate(0deg); }
+}
+
+.ferris-runner {
+    position: fixed;
+    left: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    pointer-events: none;
+    will-change: transform;
+}
+
+.ferris-runner img {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}
+
+.ferris-runner span {
+    font-size: 1.1rem;
+}
+
+.ferris-runner.from-left {
+    animation: ferrisCrossLeft 4.8s linear both;
+}
+
+.ferris-runner.from-right {
+    animation: ferrisCrossRight 4.8s linear both;
+}
+
 
 
