@@ -7,15 +7,11 @@ import be.beerdex.rust.RustNative;
 
 public class MainActivity extends BridgeActivity {
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-    }
+    private boolean rustInterfaceAttached = false;
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        if (getBridge() != null && getBridge().getWebView() != null) {
+    private void attachRustInterfaceIfNeeded() {
+        if (!rustInterfaceAttached && getBridge() != null && getBridge().getWebView() != null) {
+            rustInterfaceAttached = true;
             getBridge().getWebView().addJavascriptInterface(new Object() {
                 @android.webkit.JavascriptInterface
                 public boolean isAvailable() {
@@ -58,6 +54,18 @@ public class MainActivity extends BridgeActivity {
                 }
             }, "BeerdexAndroidNative");
         }
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        attachRustInterfaceIfNeeded();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        attachRustInterfaceIfNeeded();
     }
 
     @Override

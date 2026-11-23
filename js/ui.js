@@ -16,7 +16,23 @@ import * as CrashLogger from './crashLogger.js';
 import * as Deduplicator from './deduplicator.js';
 import * as Theme from './theme.js';
 import * as Utils from './utils.js';
-import { loadQrScanner } from './vendor-loader.js';
+import { loadQrScanner, loadVanillaTilt } from './vendor-loader.js';
+import { updateWidgetData } from './widget-bridge.js';
+
+function _saveRatingFromDetail(beer, ratingData, onDone) {
+    const oldRating = Storage.getBeerRating(beer.id);
+    Storage.saveBeerRating(beer.id, ratingData);
+    if (window.allBeers) Achievements.checkAchievements(window.allBeers);
+
+    const oldCount = oldRating ? (parseInt(oldRating.count) || 0) : 0;
+    const newRating = Storage.getBeerRating(beer.id);
+    const newCount = newRating ? (parseInt(newRating.count) || 0) : 0;
+    Utils.syncBACFromCountDiff(beer, oldCount, newCount);
+
+    showToast(i18n.t('toast_rating_saved'));
+    updateWidgetData();
+    if (typeof onDone === 'function') onDone(ratingData);
+}
 
 let editModeBeer = null;
 
@@ -517,13 +533,11 @@ export async function checkAndShowConsent(onAccept) {
 const NativeMap = window.Map;
 const _bgRemovalCache = new NativeMap();
 const BG_CACHE_MAX_ENTRIES = 240;
-const BG_CACHE_MAX_CHARS = 16 * 1024 * 1024; // ~16 MB of data URLs
+const BG_CACHE_MAX_CHARS = 4 * 1024 * 1024; // ~4 MB of compressed data URLs
 let _bgCacheChars = 0;
-// Background removal is only ever displayed at card/detail size (<=180px tall),
-// so even 4x-DPR screens need <=720px. Processing a downscaled copy keeps the
-// result visually identical while bounding CPU/memory (some catalog shots are
-// up to 20 megapixels and would otherwise freeze the main thread).
-const BG_MAX_DIM = 600;
+// Background removal is only displayed at card/detail size (<=180px tall),
+// so 240px max dimension keeps edges crisp while running ~6x faster on low-end CPUs.
+const BG_MAX_DIM = 240;
 const _bgQueue = [];
 let _bgQueueRunning = false;
 
@@ -641,116 +655,97 @@ function _removeImageBackgroundSync(img) {
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         ctx.drawImage(img, 0, 0, width, height);
 
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
+        // Fast exit if top-left corner is already transparent (already cut-out PNG/WebP)
+        if (data[3] < 20) {
+            img.dataset.processed = "true";
+            return;
+        }
+
         // Settings for Magic Wand
-        const tolerance = 20; // Allow slight variations in background color
+        const tolerance = 20;
         const toleranceSq = tolerance * tolerance;
-        const featherRadius = 2; // Smooth edges
 
         // 1. Get Reference Color from Top-Left Corner
         const bgR = data[0];
         const bgG = data[1];
         const bgB = data[2];
 
-        // Helper: Calculate Euclidean color distance squared
-        const colorDistSq = (r1, g1, b1, r2, g2, b2) => {
-            return (r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2;
+        const totalPixels = width * height;
+        const toRemove = new Uint8Array(totalPixels);
+
+        const isBackground = (dataIdx) => {
+            const dr = data[dataIdx] - bgR;
+            const dg = data[dataIdx + 1] - bgG;
+            const db = data[dataIdx + 2] - bgB;
+            return (dr * dr + dg * dg + db * db) <= toleranceSq;
         };
 
-        // Mask: 0 = Keep, 1 = Remove
-        const toRemove = new Uint8Array(width * height);
-
-        // Helper to check if pixel matches background reference within tolerance
-        const isBackground = (idx) => {
-            const r = data[idx];
-            const g = data[idx + 1];
-            const b = data[idx + 2];
-            return colorDistSq(r, g, b, bgR, bgG, bgB) <= toleranceSq;
-        };
-
-        // 2. Flood Fill from corners
+        // 2. Iterative Flood Fill from corners using a flat typed stack (zero GC pressure)
+        const stack = new Int32Array(totalPixels);
         const floodFill = (startX, startY) => {
-            const stack = [[startX, startY]];
+            const startIdx = startY * width + startX;
+            if (toRemove[startIdx] || !isBackground(startIdx * 4)) return;
+            let sp = 0;
+            stack[sp++] = startIdx;
+            toRemove[startIdx] = 1;
 
-            while (stack.length > 0) {
-                const [x, y] = stack.pop();
+            while (sp > 0) {
+                const idx = stack[--sp];
+                const x = idx % width;
+                const y = (idx - x) / width;
 
-                if (x < 0 || x >= width || y < 0 || y >= height) continue;
-
-                const idx = y * width + x;
-                if (toRemove[idx]) continue; // Already marked
-
-                const dataIdx = idx * 4;
-
-                // If this pixel matches the background color (tolerance)
-                if (isBackground(dataIdx)) {
-                    toRemove[idx] = 1;
-
-                    stack.push([x + 1, y]);
-                    stack.push([x - 1, y]);
-                    stack.push([x, y + 1]);
-                    stack.push([x, y - 1]);
+                if (x + 1 < width) {
+                    const n = idx + 1;
+                    if (!toRemove[n] && isBackground(n * 4)) { toRemove[n] = 1; stack[sp++] = n; }
+                }
+                if (x > 0) {
+                    const n = idx - 1;
+                    if (!toRemove[n] && isBackground(n * 4)) { toRemove[n] = 1; stack[sp++] = n; }
+                }
+                if (y + 1 < height) {
+                    const n = idx + width;
+                    if (!toRemove[n] && isBackground(n * 4)) { toRemove[n] = 1; stack[sp++] = n; }
+                }
+                if (y > 0) {
+                    const n = idx - width;
+                    if (!toRemove[n] && isBackground(n * 4)) { toRemove[n] = 1; stack[sp++] = n; }
                 }
             }
         };
 
-        // Trigger fill from corners if they match the background reference
         floodFill(0, 0);
+        floodFill(width - 1, 0);
+        floodFill(0, height - 1);
+        floodFill(width - 1, height - 1);
 
-        // Check other corners
-        const checkAndFill = (x, y) => {
-            const idx = (y * width + x) * 4;
-            if (isBackground(idx)) floodFill(x, y);
-        };
-        checkAndFill(width - 1, 0);
-        checkAndFill(0, height - 1);
-        checkAndFill(width - 1, height - 1);
-
-        // 3. Apply Alpha with Distance-Based Feathering
+        // 3. Apply Alpha with O(1) 4-neighbor edge feathering
         let hasChanges = false;
-
         for (let y = 0; y < height; y++) {
+            const rowOffset = y * width;
             for (let x = 0; x < width; x++) {
-                const idx = y * width + x;
+                const idx = rowOffset + x;
                 const dataIdx = idx * 4;
 
                 if (toRemove[idx]) {
-                    data[dataIdx + 3] = 0; // Fully transparent
+                    data[dataIdx + 3] = 0;
                     hasChanges = true;
                     continue;
                 }
 
-                // Check unremoved pixels for proximity to removed pixels (Feathering)
-                let minDistance = featherRadius + 1;
-                let foundRemoved = false;
-
-                // Search neighborhood
-                for (let dy = -featherRadius; dy <= featherRadius; dy++) {
-                    for (let dx = -featherRadius; dx <= featherRadius; dx++) {
-                        const nx = x + dx;
-                        const ny = y + dy;
-                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                            if (toRemove[ny * width + nx]) {
-                                const dist = Math.sqrt(dx * dx + dy * dy);
-                                if (dist < minDistance) {
-                                    minDistance = dist;
-                                    foundRemoved = true;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (foundRemoved && minDistance <= featherRadius) {
-                    // Smooth transition: 0 distance = 0 alpha (removed), Radius distance = 255 alpha
-                    const alpha = Math.floor((minDistance / featherRadius) * 255);
-                    data[dataIdx + 3] = Math.min(data[dataIdx + 3], alpha);
+                if (
+                    (x > 0 && toRemove[idx - 1]) ||
+                    (x + 1 < width && toRemove[idx + 1]) ||
+                    (y > 0 && toRemove[idx - width]) ||
+                    (y + 1 < height && toRemove[idx + width])
+                ) {
+                    data[dataIdx + 3] = Math.min(data[dataIdx + 3], 128);
                     hasChanges = true;
                 }
             }
@@ -758,7 +753,10 @@ function _removeImageBackgroundSync(img) {
 
         if (hasChanges) {
             ctx.putImageData(imgData, 0, 0);
-            const dataUrl = canvas.toDataURL();
+            let dataUrl = canvas.toDataURL('image/webp', 0.85);
+            if (!dataUrl.startsWith('data:image/webp')) {
+                dataUrl = canvas.toDataURL('image/png');
+            }
             const src = img.currentSrc || img.src;
             if (src && src !== dataUrl) {
                 _bgCacheSet(src, dataUrl);
@@ -819,8 +817,11 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
                 btnManual.onclick = () => {
                     renderAddBeerForm((newBeer) => {
                         Storage.saveCustomBeer(newBeer);
+                        window.updateBeerInState?.(newBeer);
                         window.dispatchEvent(new CustomEvent('beerdex-action'));
-                        location.reload();
+                        closeModal();
+                        showToast(i18n.t('toast_beer_added'));
+                        window.renderCurrentView?.();
                     });
                 };
             }
@@ -936,9 +937,9 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
         }
 
         // Stats Badges
-        const abv = beer.alcohol ? `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">${beer.alcohol}</span>` : '';
-        const vol = beer.volume ? `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">${Utils.formatVolume(beer.volume)}</span>` : '';
-        const typeBadge = beer.type ? `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.7rem;">${beer.type}</span>` : '';
+        const abv = beer.alcohol ? `<span class="beer-meta-pill">${beer.alcohol}</span>` : '';
+        const vol = beer.volume ? `<span class="beer-meta-pill">${Utils.formatVolume(beer.volume)}</span>` : '';
+        const typeBadge = beer.type ? `<span class="beer-meta-pill beer-meta-pill--type">${beer.type}</span>` : '';
 
         // Determine correct fallback/default image based on volume
         const isKeg = (vol) => {
@@ -976,7 +977,7 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
                         totalMl = u.history.reduce((sum, h) => sum + (h.volume || 0), 0);
                     } else if (beer.volume) {
                         // Fallback: parse beer.volume * count
-                        const parsed = Storage.parseVolumeToMl ? Storage.parseVolumeToMl(beer.volume) : 330;
+                        const parsed = Utils.parseVolumeToMl(beer.volume) || 330;
                         totalMl = parsed * u.count;
                     }
                     if (totalMl > 0) {
@@ -1016,25 +1017,28 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
             </div>`;
         }
 
+        const isLowEndPerf = document.body.classList.contains('perf-low-end');
+        const bgAttr = (beer.removeBackground && !isLowEndPerf) ? 'onload="removeImageBackground(this)"' : '';
+
         card.innerHTML = `
             ${badgesContainerHtml}
-            <div class="card-badges-right" style="position:absolute; top:6px; right:6px; z-index:3; display:flex; align-items:center; gap:6px;">
-                ${isFavorite ? '<span class="card-fav-star" style="font-size:1.15rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5)); line-height:1;">⭐</span>' : ''}
+            <div class="card-badges-right">
+                ${isFavorite ? '<span class="card-fav-star">⭐</span>' : ''}
                 ${trappistBadgeHtml}
                 <svg class="check-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                     <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
             </div>
-            <div class="beer-image-container" style="width:100%; height:120px; display:flex; justify-content:center; align-items:center;">
-                <img src="${displayImage}" alt="${beer.title}" class="beer-image" loading="${index < 10 ? 'eager' : 'lazy'}" 
-                     onload="removeImageBackground(this)"
+            <div class="beer-image-container">
+                <img src="${displayImage}" alt="${beer.title}" class="beer-image" loading="${index < 10 ? 'eager' : 'lazy'}" decoding="async"
+                     ${bgAttr}
                      onerror="if(this.src.includes('${fallbackImage}')) return; this.src='${fallbackImage}';">
             </div>
             <div class="beer-info">
                 <h3 class="beer-title">${beer.title}</h3>
                 <p class="beer-brewery">${beer.brewery}</p>
-                <div class="beer-card-stats-row" style="display:flex; gap:5px; justify-content:center; margin-top:5px; color:#aaa; flex-wrap:wrap;">
-                    ${beer._brewBrotherMatch ? `<span style="background:var(--accent-gold); color:#000; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.7rem;">🤖 ${beer._brewBrotherMatch.percentage}%</span>` : ''}
+                <div class="beer-card-stats-row">
+                    ${beer._brewBrotherMatch ? `<span class="beer-meta-pill beer-meta-pill--match">🤖 ${beer._brewBrotherMatch.percentage}%</span>` : ''}
                     ${abv} ${vol} ${typeBadge}
                 </div>
                 ${bacBadgeHtml}
@@ -1044,24 +1048,26 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
         grid.appendChild(card);
     });
 
-    // Initialize premium 3D tilt effects — lazy, only on non-touch desktop
-    // On mobile, VanillaTilt adds expensive touch/gyro listeners to every card.
-    // Only init on devices where hover is supported and primary pointer is fine.
+    // Initialize premium 3D tilt effects — lazy-loaded only on non-touch desktop & non-low-end
     const isTouchPrimary = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-    if (!isTouchPrimary && typeof VanillaTilt !== 'undefined') {
-        setTimeout(() => {
+    const isLowEndPerf = document.body.classList.contains('perf-low-end');
+    if (!isTouchPrimary && !isLowEndPerf) {
+        loadVanillaTilt().then(() => {
+            if (typeof VanillaTilt === 'undefined' || !grid.isConnected) return;
             const cards = grid.querySelectorAll('.beer-card.drunk');
-            VanillaTilt.init(cards, {
-                max: 12,
-                speed: 400,
-                glare: true,
-                "max-glare": 0.3,
-                scale: 1.02,
-                perspective: 1000,
-                transition: true,
-                gyroscope: false
-            });
-        }, 100);
+            if (cards.length > 0) {
+                VanillaTilt.init(cards, {
+                    max: 12,
+                    speed: 400,
+                    glare: true,
+                    "max-glare": 0.3,
+                    scale: 1.02,
+                    perspective: 1000,
+                    transition: true,
+                    gyroscope: false
+                });
+            }
+        }).catch(() => {});
     }
 
     // Apply rarity animations directly (replaces MutationObserver)
@@ -2432,7 +2438,7 @@ export function renderBeerDetail(beer, onSave) {
                                     ${beer.id === 'NEVER_GONNA_GIVE_YOU_ALE_AMBREE_0.50' ? `
                                         <video src="images/Rickroll.mp4" autoplay loop muted playsinline style="max-height: 180px; object-fit: contain; border-radius: 8px;"></video>
                                     ` : `
-                                        <img src="${displayImage}" alt="${beer.title}" class="beer-image" style="max-height: 180px; object-fit: contain;" onload="removeImageBackground(this)">
+                                        <img src="${displayImage}" alt="${beer.title}" class="beer-image" style="max-height: 180px; object-fit: contain;" ${beer.removeBackground ? 'onload="removeImageBackground(this)"' : ''}>
                                     `}
                                 </div>
                                 <div class="beer-info" style="text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
@@ -2482,22 +2488,23 @@ export function renderBeerDetail(beer, onSave) {
 
                 import('./feedback.js').then(m => m.Feedback.impactHeavy()).catch(e => { });
 
-                // Initialize Tilt on Reveal
+                // Initialize Tilt on Reveal (desktop only)
                 setTimeout(() => {
                     const isTouchPrimary = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-                    if (!isTouchPrimary && typeof VanillaTilt !== 'undefined') {
-                        VanillaTilt.init(overlay.querySelector('.reveal-card-wrapper'), {
-                            max: 15,
-                            speed: 400,
-                            glare: true,
-                            "max-glare": 0.8,
-                            scale: 1.05,
-                            gyroscope: true,
-                            gyroscopeMinAngleX: -45,
-                            gyroscopeMaxAngleX: 45,
-                            gyroscopeMinAngleY: -45,
-                            gyroscopeMaxAngleY: 45
-                        });
+                    if (!isTouchPrimary && !document.body.classList.contains('perf-low-end')) {
+                        loadVanillaTilt().then(() => {
+                            const target = overlay.querySelector('.reveal-card-wrapper');
+                            if (typeof VanillaTilt !== 'undefined' && target) {
+                                VanillaTilt.init(target, {
+                                    max: 15,
+                                    speed: 400,
+                                    glare: true,
+                                    "max-glare": 0.8,
+                                    scale: 1.05,
+                                    gyroscope: false
+                                });
+                            }
+                        }).catch(() => {});
                     }
                 }, 500);
 
@@ -2578,9 +2585,10 @@ export function renderBeerDetail(beer, onSave) {
         existingDeleteBtn.onclick = async () => {
             if (await showConfirmModal(i18n.t('modal_confirm_delete_beer'))) {
                 Storage.deleteCustomBeer(beer.id);
+                window.removeBeerFromState?.(beer.id);
                 closeModal();
                 showToast(i18n.t('toast_beer_deleted'));
-                setTimeout(() => location.reload(), 500);
+                window.renderCurrentView?.();
             }
         };
     }
@@ -2669,8 +2677,10 @@ export function renderBeerDetail(beer, onSave) {
             closeModal();
             setTimeout(() => {
                 renderAddBeerForm((updatedBeer) => {
+                    window.updateBeerInState?.(updatedBeer);
+                    closeModal();
                     showToast(i18n.t('toast_beer_modified'));
-                    setTimeout(() => location.reload(), 500);
+                    window.renderCurrentView?.();
                 }, beer);
             }, 60);
         };
@@ -3706,7 +3716,7 @@ function _renderHistoryList(container, allBeers, userData) {
         el.onclick = () => {
             const beerId = el.dataset.beerId;
             const beer = allBeers.find(b => b.id == beerId || b.id == beerId.split('_')[0]);
-            if (beer) renderBeerDetail(beer, () => { location.reload(); });
+            if (beer) renderBeerDetail(beer, (ratingData) => _saveRatingFromDetail(beer, ratingData, () => window.renderCurrentView?.()));
         };
     });
 
@@ -3732,7 +3742,7 @@ function _renderHistoryList(container, allBeers, userData) {
                     </div>`;
                 el.onclick = () => {
                     const beer = allBeers.find(b => b.id == d.beerId || b.id == d.beerId.split('_')[0]);
-                    if (beer) renderBeerDetail(beer, () => { location.reload(); });
+                    if (beer) renderBeerDetail(beer, (ratingData) => _saveRatingFromDetail(beer, ratingData, () => window.renderCurrentView?.()));
                 };
                 listDiv.appendChild(el);
             });
@@ -3848,7 +3858,7 @@ function _renderCalendar(container, allBeers, userData) {
                     el.onclick = () => {
                         const beerId = el.dataset.beerId;
                         const beer = allBeers.find(b => b.id == beerId || b.id == beerId.split('_')[0]);
-                        if (beer) renderBeerDetail(beer, () => { location.reload(); });
+                        if (beer) renderBeerDetail(beer, (ratingData) => _saveRatingFromDetail(beer, ratingData, () => window.renderCurrentView?.()));
                     };
                 });
             }
@@ -4197,838 +4207,941 @@ export function renderBACStatsContent(container) {
     };
 }
 
+let _activeSettingsGroup = 'appearance';
+
+function _restoreSettingsConditionalVisibility(container) {
+    if (!container) return;
+    const bacEnabled = Storage.getPreference('bac_enabled', true);
+    const bacGroup = container.querySelector('#bac-settings-group');
+    if (bacGroup) bacGroup.style.display = bacEnabled ? 'block' : 'none';
+
+    const hideWg = Storage.getPreference('bac_hide_weight_gender', false);
+    const wgRow = container.querySelector('#bac-weight-gender-row');
+    if (wgRow) wgRow.style.display = hideWg ? 'none' : 'flex';
+
+    const partyEnabled = Storage.getPreference('feat_beermatch_enabled', true);
+    container.querySelectorAll('.party-sub-row').forEach(r => {
+        r.style.display = partyEnabled ? 'flex' : 'none';
+    });
+}
+
+function _applyOneAtATimeAccordion(container, targetGroup) {
+    if (!container) return;
+    container.querySelectorAll('.settings-accordion').forEach(section => {
+        const isOpen = targetGroup !== null && section.dataset.group === targetGroup;
+        section.classList.toggle('is-open', isOpen);
+        const header = section.querySelector('.settings-accordion-header');
+        if (header) header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+}
+
 export function renderSettings(allBeers, userData, container, isDiscovery = false, discoveryCallback = null) {
-    const rules = BAC.getCurrentRules();
-    
-    // CSS pour les settings intégrés directement
-    const settingsCSS = `
-        <style>
-            /* Card UI Pattern */
-            .setting-group { margin-bottom: 25px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            .setting-group h4 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent-gold); margin: 0; padding: 12px 16px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-            .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: transparent; border: none; border-bottom: 1px solid rgba(255, 255, 255, 0.05); margin: 0; transition: background 0.2s; }
-            .setting-row:last-child { border-bottom: none; }
-            .setting-row:hover { background: rgba(255, 255, 255, 0.02); }
-            
-            .setting-info { text-align: left; flex: 1; padding-right: 15px; }
-            .setting-title { color: #fff; display: block; margin-bottom: 4px; font-weight: 500; font-size: 1rem; }
-            .setting-desc { font-size: 0.8rem; color: #aaa; line-height: 1.4; display: block; }
-            
-            .setting-action { display: flex; align-items: center; justify-content: flex-end; min-width: 100px; }
-            .setting-action select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; margin: 0; }
-            .setting-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; text-align: center; width: 100%; }
-            .setting-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
-            .setting-btn.danger { color: #ff3b30; border-color: rgba(255, 59, 48, 0.3); background: rgba(255, 59, 48, 0.1); }
-            .setting-btn.danger:hover { background: rgba(255, 59, 48, 0.2); }
-            .setting-btn.primary { color: #000; background: var(--accent-gold); border: none; font-weight: 600; }
-            .setting-btn.primary:hover { background: #ffca28; }
-            
-            /* Toggle Switch Styles */
-            input[type="checkbox"].toggle-switch {
-                appearance: none;
-                -webkit-appearance: none;
-                width: 46px;
-                height: 26px;
-                background: rgba(255, 255, 255, 0.15);
-                border-radius: 13px;
-                position: relative;
-                outline: none;
-                cursor: pointer;
-                transition: background 0.3s;
-                margin: 0;
-                flex-shrink: 0;
-            }
-            input[type="checkbox"].toggle-switch::after {
-                content: '';
-                position: absolute;
-                top: 2px;
-                left: 2px;
-                width: 22px;
-                height: 22px;
-                background: #fff;
-                border-radius: 50%;
-                transition: transform 0.3s;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            }
-            input[type="checkbox"].toggle-switch:checked { background: var(--accent-gold); }
-            input[type="checkbox"].toggle-switch:checked::after { transform: translateX(20px); }
-        </style>
+    const perfMode = Storage.getPreference('perf_mode', 'auto');
+    const isLowEndActive = document.body.classList.contains('perf-low-end');
+    const detectedLow = typeof window.detectLowEndDevice === 'function' ? window.detectLowEndDevice() : false;
+    const rustEnabled = Storage.getPreference('feat_rust_enabled', true);
+    const rustAvail = Boolean(rustEnabled && window.BeerdexRust && window.BeerdexRust.isAvailable());
+    const partyEnabled = Storage.getPreference('feat_beermatch_enabled', true);
+    const bacEnabled = Storage.getPreference('bac_enabled', true);
+    const currentPreset = Theme.getActivePreset();
+    const currentColors = Theme.getActiveColors();
+
+    const makeAccordion = (groupId, icon, title, subtitle, innerHtml) => {
+        const isOpen = _activeSettingsGroup === groupId;
+        return `
+            <section class="settings-accordion ${isOpen ? 'is-open' : ''}" data-group="${groupId}">
+                <button type="button" class="settings-accordion-header" aria-expanded="${isOpen ? 'true' : 'false'}" aria-controls="settings-panel-${groupId}">
+                    <span class="settings-acc-icon" aria-hidden="true">${icon}</span>
+                    <span class="settings-acc-meta">
+                        <span class="settings-acc-title">${title}</span>
+                        <span class="settings-acc-subtitle">${subtitle}</span>
+                    </span>
+                    <svg class="settings-acc-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                <div class="settings-accordion-body" id="settings-panel-${groupId}">
+                    <div class="settings-accordion-inner">
+                        ${innerHtml}
+                    </div>
+                </div>
+            </section>
+        `;
+    };
+
+    const appearanceHtml = `
+        <div class="setting-row" data-keywords="langue language english français francais">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_language">Langue</span>
+                <span class="setting-desc" data-i18n="settings_language_desc">Choisir la langue d'affichage</span>
+            </div>
+            <div class="setting-action">
+                <select id="select-language" class="form-select">
+                    <option value="fr" ${Storage.getPreference('app_language', 'fr') === 'fr' ? 'selected' : ''}>Français</option>
+                    <option value="en" ${Storage.getPreference('app_language', 'fr') === 'en' ? 'selected' : ''}>English</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--stack" data-keywords="thème theme couleurs color preset custom palette dark gold cyberpunk forest ocean sunset">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_theme_preset') || 'Thème & Couleurs'}</span>
+                <span class="setting-desc" data-i18n="settings_theme_desc">Personnalisez l'apparence de l'application</span>
+            </div>
+            <div id="theme-presets-grid" class="theme-presets-grid">
+                ${Object.entries(Theme.THEME_PRESETS).map(([key, preset]) => {
+                    const isActive = currentPreset === key;
+                    return `<button type="button" class="theme-preset-btn ${isActive ? 'is-active' : ''}" data-preset="${key}">
+                        <span class="theme-preset-swatch" style="background:${preset.colors['--accent-gold']};"></span>
+                        <span class="theme-preset-emoji">${preset.emoji}</span>
+                        <span>${preset.name}</span>
+                    </button>`;
+                }).join('')}
+                <button type="button" class="theme-preset-btn ${currentPreset === 'custom' ? 'is-active' : ''}" data-preset="custom">
+                    <span class="theme-preset-swatch" style="background:conic-gradient(#ff00cc,#ffc000,#00bcd4,#ff00cc);"></span>
+                    <span class="theme-preset-emoji">✏️</span>
+                    <span>Custom</span>
+                </button>
+            </div>
+
+            <div id="theme-custom-colors" class="theme-custom-colors" style="display:${currentPreset === 'custom' ? 'block' : 'none'};">
+                <strong class="theme-custom-title">${i18n.t('settings_theme_colors') || 'Couleurs personnalisées'}</strong>
+                <div class="theme-custom-grid">
+                    ${Theme.THEME_VARS.map(v => `
+                        <label class="theme-color-chip">
+                            <input type="color" class="theme-color-input" data-var="${v.key}" value="${currentColors[v.key] || v.default}">
+                            <span>${i18n.t(v.label) || v.key.replace('--', '')}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div class="settings-btn-row">
+                <button type="button" id="btn-theme-export" class="setting-btn">📤 ${i18n.t('settings_theme_export') || 'Exporter'}</button>
+                <button type="button" id="btn-theme-import" class="setting-btn">📥 ${i18n.t('settings_theme_import') || 'Importer'}</button>
+                <button type="button" id="btn-theme-reset" class="setting-btn danger">↩️ ${i18n.t('theme_btn_reset') || 'Reset'}</button>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="police font écriture ecriture text outfit inter roboto">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_font_title') || "Police d'écriture"}</span>
+                <span class="setting-desc" data-i18n="settings_font_desc">Choisissez la police d'écriture de l'application</span>
+            </div>
+            <div class="setting-action">
+                <select id="select-font-family" class="form-select">
+                    ${Object.keys(Theme.FONTS).map(fontKey => `<option value="${fontKey}" ${Theme.getActiveFont() === fontKey ? 'selected' : ''}>${Theme.FONTS[fontKey].label}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="musée musee museum 3d expo rideau">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_museum_title">${i18n.t('settings_museum_title')}</span>
+                <span class="setting-desc" data-i18n="settings_museum_desc">${i18n.t('settings_museum_desc')}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-museum" ${Storage.getPreference('museumThemeEnabled', false) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
     `;
 
-    container.innerHTML = `
-        ${settingsCSS}
-        <div class="text-center p-20" id="settings-container">
-            <h2 class="mb-20" style="font-family:'Russo One'; color:var(--accent-gold);" data-i18n="settings_main_title">Paramètres & Données</h2>
-
-            <!-- 1. Interface & Apparence -->
-            <div class="setting-group" data-group="interface">
-                <h4 data-i18n="settings_group_theme_appearance">${i18n.t('settings_group_theme_appearance') || '🎨 Interface & Apparence'}</h4>
-                
-                <div class="setting-row" data-keywords="langue language english français">
-                    <div class="setting-info">
-                        <span class="setting-title" data-i18n="settings_language">Langue</span>
-                        <span class="setting-desc" data-i18n="settings_language_desc">Choisir la langue d'affichage</span>
-                    </div>
-                    <div class="setting-action">
-                        <select id="select-language" class="form-select" style="padding:8px; width:100%;">
-                            <option value="fr" ${Storage.getPreference('app_language', 'fr') === 'fr' ? 'selected' : ''}>Français</option>
-                            <option value="en" ${Storage.getPreference('app_language', 'fr') === 'en' ? 'selected' : ''}>English</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="thème couleurs theme color preset custom">
-                    <div class="setting-info" style="width:100%;">
-                        <span class="setting-title">${i18n.t('settings_theme_preset') || 'Thème & Couleurs'}</span>
-                        <span class="setting-desc" data-i18n="settings_theme_desc">Personnalisez l'apparence de l'application</span>
-                        <div id="theme-presets-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-top:8px;">
-                            ${Object.entries(Theme.THEME_PRESETS).map(([key, preset]) => {
-                                const isActive = Theme.getActivePreset() === key;
-                                return `<button class="theme-preset-btn form-input" data-preset="${key}" style="font-size:0.85rem; padding:10px 14px; display:flex; align-items:center; gap:8px; justify-content:flex-start; ${isActive ? 'border:1px solid var(--accent-gold); color:var(--accent-gold); box-shadow:0 0 8px color-mix(in srgb, var(--accent-gold) 40%, transparent);' : ''}">
-                                    <div style="font-size:1.2rem;">${preset.emoji}</div>
-                                    <span>${preset.name}</span>
-                                </button>`;
-                            }).join('')}
-                            <button class="theme-preset-btn form-input" data-preset="custom" style="font-size:0.85rem; padding:10px 14px; display:flex; align-items:center; gap:8px; justify-content:flex-start; ${Theme.getActivePreset() === 'custom' ? 'border:1px solid var(--accent-gold); color:var(--accent-gold); box-shadow:0 0 8px color-mix(in srgb, var(--accent-gold) 40%, transparent);' : ''}">
-                                <div style="font-size:1.2rem;">✏️</div>
-                                <span>Custom</span>
-                            </button>
-                        </div>
-
-                        <div id="theme-custom-colors" style="display:${Theme.getActivePreset() === 'custom' ? 'block' : 'none'}; border-top:1px dashed #333; padding-top:12px; margin-top:12px;">
-                            <strong style="color:var(--text-primary); display:block; margin-bottom:10px; font-size:0.85rem;">${i18n.t('settings_theme_colors') || 'Couleurs personnalisées'}</strong>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                ${Theme.THEME_VARS.map(v => {
-                                    const currentColors = Theme.getActiveColors();
-                                    return `<div style="display:flex; align-items:center; gap:8px;">
-                                        <input type="color" class="theme-color-input" data-var="${v.key}" value="${currentColors[v.key] || v.default}" style="width:32px; height:32px; border:none; background:none; cursor:pointer; padding:0; border-radius:6px;">
-                                        <span style="font-size:0.7rem; color:#888;">${i18n.t(v.label) || v.key.replace('--', '')}</span>
-                                    </div>`;
-                                }).join('')}
-                            </div>
-                        </div>
-
-                        <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
-                            <button id="btn-theme-export" class="setting-btn" style="display:flex; align-items:center; justify-content:center; gap:8px;">📤 ${i18n.t('settings_theme_export') || 'Exporter le thème'}</button>
-                            <button id="btn-theme-import" class="setting-btn" style="display:flex; align-items:center; justify-content:center; gap:8px;">📥 ${i18n.t('settings_theme_import') || 'Importer un thème'}</button>
-                            <button id="btn-theme-reset" class="setting-btn danger" style="display:flex; align-items:center; justify-content:center; gap:8px;">↩️ ${i18n.t('theme_btn_reset') || 'Réinitialiser le thème'}</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="police font écriture text">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_font_title') || "Police d'écriture"}</span>
-                        <span class="setting-desc" data-i18n="settings_font_desc">Choisissez la police d'écriture de l'application</span>
-                    </div>
-                    <div class="setting-action">
-                        <select id="select-font-family" class="form-select" style="padding:8px; width:100%;">
-                            ${Object.keys(Theme.FONTS).map(fontKey => {
-                                return `<option value="${fontKey}" ${Theme.getActiveFont() === fontKey ? 'selected' : ''}>${Theme.FONTS[fontKey].label}</option>`;
-                            }).join('')}
-                        </select>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="découverte discovery exploration">
-                    <div class="setting-info">
-                        <span class="setting-title" data-i18n="settings_discovery_title">${i18n.t('settings_discovery_title')}</span>
-                        <span class="setting-desc" data-i18n="settings_discovery_desc">${i18n.t('settings_discovery_desc')}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-discovery" ${isDiscovery ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="musée museum 3d expo">
-                    <div class="setting-info">
-                        <span class="setting-title" data-i18n="settings_museum_title">${i18n.t('settings_museum_title')}</span>
-                        <span class="setting-desc" data-i18n="settings_museum_desc">${i18n.t('settings_museum_desc')}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-museum" ${Storage.getPreference('museumThemeEnabled', false) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" style="flex-direction: column; align-items: stretch;" data-keywords="grille notation rating note template critère">
-                    <div class="setting-info" style="margin-bottom: 10px;">
-                        <span class="setting-title" data-i18n="settings_rating_grid_title">${i18n.t('settings_rating_grid_title') || 'Grille de notation'}</span>
-                        <span class="setting-desc" data-i18n="settings_rating_grid_desc">${i18n.t('settings_rating_grid_desc') || 'Personnalisez les critères de notation de vos bières.'}</span>
-                    </div>
-                    <button type="button" id="btn-template" class="setting-btn">
-                        ${i18n.t('settings_btn_configure_rating')}
-                    </button>
-                    <div style="display:flex; gap:8px; margin-top:8px;">
-                        <button id="btn-preset-default" class="setting-btn ${Storage.getPreference('activePreset') === 'default' ? 'primary' : ''}" style="flex:1;">${i18n.t('preset_default')}</button>
-                        <button id="btn-preset-tristan" class="setting-btn ${Storage.getPreference('activePreset') === 'tristan' ? 'primary' : ''}" style="flex:1;">${i18n.t('preset_tristan')}</button>
-                        <button id="btn-preset-noah" class="setting-btn ${Storage.getPreference('activePreset') === 'noah' ? 'primary' : ''}" style="flex:1;">${i18n.t('preset_noah')}</button>
-                    </div>
-                </div>
+    const perfHtml = `
+        <div class="setting-row" data-keywords="performance lag fps fluidité fluidite low-end batterie economiseur animation blur">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_perf_mode_title') || 'Mode Performance (Low-End)'}</span>
+                <span class="setting-desc" id="settings-perf-status">
+                    ${isLowEndActive
+                        ? '⚡ Mode fluide actif : effets de flou, animations infinies et surcharges GPU réduits.'
+                        : '✨ Effets visuels complets actifs.'}
+                    ${perfMode === 'auto' ? ` (Auto : ${detectedLow ? 'appareil modeste détecté' : 'appareil standard/rapide'})` : ''}
+                </span>
             </div>
-
-            <!-- 2. Fonctionnalités & Immersion -->
-            <div class="setting-group" data-group="features">
-                <h4 data-i18n="settings_group_features_immersion">${i18n.t('settings_group_features_immersion') || '⚙️ Fonctionnalités & Immersion'}</h4>
-
-                <div class="setting-row" data-keywords="carte map localisation soif">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_toggle_map') || 'Afficher la carte (Map)'}</span>
-                        <span class="setting-desc" data-i18n="settings_map_desc">Affiche une carte interactive de vos dégustations</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-feat-map" ${Storage.getPreference('feat_map_enabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="brewbrother recommendation recommandations ia ai">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_toggle_brewbrother') || 'Activer BrewBrother'}</span>
-                        <span class="setting-desc">${i18n.t('settings_brewbrother_desc') || 'Assistant IA de recommandations et profil de goût'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-feat-brewbrother" ${Storage.getPreference('feat_brewbrother_enabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="carte défaut pays default map country">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_map_default')}</span>
-                        <span class="setting-desc">${i18n.t('settings_map_default_desc')}</span>
-                    </div>
-                    <div class="setting-action">
-                        <select id="select-default-map" class="form-select" style="padding:8px; width:100%;">
-                            <option value="" ${!localStorage.getItem('defaultMapScope') ? 'selected' : ''}>${i18n.t('settings_map_auto')}</option>
-                            <option value="be" ${localStorage.getItem('defaultMapScope') === 'be' ? 'selected' : ''}>🇧🇪 ${i18n.t('country_be')}</option>
-                            <option value="fr" ${localStorage.getItem('defaultMapScope') === 'fr' ? 'selected' : ''}>🇫🇷 ${i18n.t('country_fr')}</option>
-                            <option value="de" ${localStorage.getItem('defaultMapScope') === 'de' ? 'selected' : ''}>🇩🇪 ${i18n.t('country_de')}</option>
-                            <option value="nl" ${localStorage.getItem('defaultMapScope') === 'nl' ? 'selected' : ''}>🇳🇱 ${i18n.t('country_nl')}</option>
-                            <option value="us" ${localStorage.getItem('defaultMapScope') === 'us' ? 'selected' : ''}>🇺🇸 ${i18n.t('country_us')}</option>
-                            <option value="co" ${localStorage.getItem('defaultMapScope') === 'co' ? 'selected' : ''}>🇨🇴 ${i18n.t('country_co')}</option>
-                            <option value="kr" ${localStorage.getItem('defaultMapScope') === 'kr' ? 'selected' : ''}>🇰🇷 ${i18n.t('country_kr')}</option>
-                            <option value="jp" ${localStorage.getItem('defaultMapScope') === 'jp' ? 'selected' : ''}>🇯🇵 ${i18n.t('country_jp')}</option>
-                            <option value="cn" ${localStorage.getItem('defaultMapScope') === 'cn' ? 'selected' : ''}>🇨🇳 ${i18n.t('country_cn')}</option>
-                            <option value="eu" ${localStorage.getItem('defaultMapScope') === 'eu' ? 'selected' : ''}>🇪🇺 ${i18n.t('map_scope_eu')}</option>
-                            <option value="wo" ${localStorage.getItem('defaultMapScope') === 'wo' ? 'selected' : ''}>🌍 ${i18n.t('map_scope_wo')}</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="rappels reminders notif">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_toggle_reminders') || 'Rappels (Notation & Duplications)'}</span>
-                        <span class="setting-desc" data-i18n="settings_reminders_desc">Notifications pour les bières non notées ou les doublons</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-feat-reminders" ${Storage.getPreference('feat_reminders_enabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="équivalences alcool">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_toggle_equivalences') || 'Équivalences alcool'}</span>
-                        <span class="setting-desc" data-i18n="settings_equivalences_desc">Affiche l'équivalent en verres standards (vin, shots)</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-feat-equivalences" ${Storage.getPreference('feat_equivalences_enabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="beer party dégustation salon direct">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_toggle_beermatch') || 'Beer Party'}</span>
-                        <span class="setting-desc" data-i18n="settings_beermatch_desc">${i18n.t('settings_beermatch_desc') || 'Salons de dégustation en direct, statistiques collectives et partage P2P'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-feat-beermatch" ${Storage.getPreference('feat_beermatch_enabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row party-sub-row" style="padding-left:15px; border-left:2px solid var(--accent-gold); display:${Storage.getPreference('feat_beermatch_enabled', true) ? 'flex' : 'none'};" id="party-pseudo-row">
-                    <div class="setting-info">
-                        <span class="setting-title">Pseudo Party</span>
-                        <span class="setting-desc">Votre nom affiché dans la salle.</span>
-                    </div>
-                    <div class="setting-action" style="display:flex; gap:6px; align-items:center;">
-                        <input type="text" id="input-party-pseudo" class="form-input" placeholder="Anonyme" value="${Storage.getPreference('beermatch_pseudo', '')}" style="width:120px; font-size:0.8rem; text-align:right;">
-                        <button type="button" id="btn-settings-dice-pseudo" class="beerparty-pseudo-edit-btn" title="Générer un animal aléatoire">🎲</button>
-                    </div>
-                </div>
-
-                <div class="setting-row party-sub-row" style="padding-left:15px; border-left:2px solid var(--accent-gold); display:${Storage.getPreference('feat_beermatch_enabled', true) ? 'flex' : 'none'};" id="party-privacy-total-row">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_party_share_total') || 'Partager volumes & total bu'}</span>
-                        <span class="setting-desc" data-i18n="settings_party_share_total_desc">${i18n.t('settings_party_share_total_desc') || 'Partager vos verres, litres et alcool pur pour le cumul du groupe.'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-party-share-total" ${Storage.getPreference('beermatch_share_total', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row party-sub-row" style="padding-left:15px; border-left:2px solid var(--accent-gold); display:${Storage.getPreference('feat_beermatch_enabled', true) ? 'flex' : 'none'};" id="party-privacy-catalog-row">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_party_share_catalog') || 'Partager bières en commun'}</span>
-                        <span class="setting-desc" data-i18n="settings_party_share_catalog_desc">${i18n.t('settings_party_share_catalog_desc') || 'Comparer vos bières goûtées pour découvrir vos affinités.'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-party-share-catalog" ${Storage.getPreference('beermatch_share_catalog', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row party-sub-row" style="padding-left:15px; border-left:2px solid var(--accent-gold); display:${Storage.getPreference('feat_beermatch_enabled', true) ? 'flex' : 'none'};" id="party-privacy-top-row">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_party_share_top') || 'Partager bières favorites'}</span>
-                        <span class="setting-desc" data-i18n="settings_party_share_top_desc">${i18n.t('settings_party_share_top_desc') || 'Afficher votre bière préférée et participer à la bière reine du groupe.'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-party-share-top" ${Storage.getPreference('beermatch_share_top', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row party-sub-row" style="padding-left:15px; border-left:2px solid var(--accent-gold); display:${Storage.getPreference('feat_beermatch_enabled', true) ? 'flex' : 'none'};" id="party-privacy-unique-row">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_party_share_unique') || 'Partager bières uniques'}</span>
-                        <span class="setting-desc" data-i18n="settings_party_share_unique_desc">${i18n.t('settings_party_share_unique_desc') || 'Diffuser votre total de bières différentes (podium Explorateur).'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-party-share-unique" ${Storage.getPreference('beermatch_share_unique', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row party-sub-row" style="padding-left:15px; border-left:2px solid var(--accent-gold); display:${Storage.getPreference('feat_beermatch_enabled', true) ? 'flex' : 'none'};" id="party-privacy-achievements-row">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_party_share_achievements') || 'Partager trophées & badges'}</span>
-                        <span class="setting-desc" data-i18n="settings_party_share_achievements_desc">${i18n.t('settings_party_share_achievements_desc') || 'Diffuser vos succès débloqués (podium Chasseur).'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-party-share-achievements" ${Storage.getPreference('beermatch_share_achievements', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="brewbrother tone ton ia recommandation">
-                    <div class="setting-info">
-                        <span class="setting-title" data-i18n="settings_bb_tone_title">${i18n.t('settings_bb_tone_title') || 'Ton BrewBrother'}</span>
-                        <span class="setting-desc" data-i18n="settings_bb_tone_desc">${i18n.t('settings_bb_tone_desc') || 'Choisissez le style des descriptions'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <select id="select-bb-tone" class="form-select" style="min-width: 120px;">
-                            <option value="brewbrother" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'brewbrother' ? 'selected' : ''}>${i18n.t('settings_bb_tone_default') || 'BrewBrother'}</option>
-                            <option value="friend" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'friend' ? 'selected' : ''}>${i18n.t('settings_bb_tone_friend') || 'Ami'}</option>
-                            <option value="neutral" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'neutral' ? 'selected' : ''}>${i18n.t('settings_bb_tone_neutral') || 'Neutre'}</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="wrapped bilan spotify">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_toggle_wrapped') || 'Beerdex Wrapped'}</span>
-                        <span class="setting-desc" data-i18n="settings_wrapped_desc">Générez un bilan visuel annuel de vos dégustations</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-feat-wrapped" ${Storage.getPreference('feat_wrapped_enabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="son audio sound">
-                    <div class="setting-info">
-                        <span class="setting-title" data-i18n="settings_sound_title">${i18n.t('settings_sound_title')}</span>
-                        <span class="setting-desc" data-i18n="settings_sound_desc">${i18n.t('settings_sound_desc')}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-sound" ${Storage.getPreference('soundEnabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="haptique vibrations retour haptics">
-                    <div class="setting-info">
-                        <span class="setting-title" data-i18n="settings_haptics_title">${i18n.t('settings_haptics_title')}</span>
-                        <span class="setting-desc" data-i18n="settings_haptics_desc">${i18n.t('settings_haptics_desc')}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-haptics" ${Storage.getPreference('hapticsEnabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
+            <div class="setting-action">
+                <select id="select-perf-mode" class="form-select">
+                    <option value="auto" ${perfMode === 'auto' ? 'selected' : ''}>Auto</option>
+                    <option value="low" ${perfMode === 'low' ? 'selected' : ''}>Activé (Fluide)</option>
+                    <option value="high" ${perfMode === 'high' ? 'selected' : ''}>Désactivé (FX Max)</option>
+                </select>
             </div>
+        </div>
 
-            <!-- 3. Suivi & Statistiques -->
-            <div class="setting-group" data-group="stats">
-                <h4 data-i18n="settings_group_stats_tracking">${i18n.t('settings_group_stats_tracking') || '📊 Suivi & Statistiques'}</h4>
-
-                <!-- BAC Toggle -->
-                <div class="setting-row" data-keywords="bac alcoolémie sang blood alcohol">
-                    <div class="setting-info">
-                        <span class="setting-title" data-i18n="settings_bac_enable_title">${i18n.t('settings_bac_enable_title')}</span>
-                        <span class="setting-desc" data-i18n="settings_bac_enable_desc">${i18n.t('settings_bac_enable_desc')}</span>
-                    </div>
-                    <div class="setting-action">
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-bac-enabled" ${Storage.getPreference('bac_enabled', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- BAC Config Sub-group -->
-                <div id="bac-settings-group" style="display: ${Storage.getPreference('bac_enabled', true) ? 'block' : 'none'}; border-left: 2px solid #333; padding-left: 10px; margin-bottom: 15px;">
-                    
-                    <div class="setting-row" id="bac-weight-gender-row" style="display:${Storage.getPreference('bac_hide_weight_gender', false) ? 'none' : 'flex'}; flex-wrap:wrap; gap:10px;" data-keywords="poids genre weight gender bac sexe">
-                        <div style="flex:1; min-width:120px;">
-                            <span class="setting-desc" style="margin-bottom:4px;" data-i18n="settings_weight_label">${i18n.t('settings_weight_label')}</span>
-                            <input type="number" id="input-bac-weight" class="form-input" value="${Storage.getPreference('bac_weight', '')}" placeholder="ex: 70" min="30" max="200" style="padding:8px; width:100%;">
-                        </div>
-                        <div style="flex:1; min-width:120px;">
-                            <span class="setting-desc" style="margin-bottom:4px;" data-i18n="settings_gender_label">${i18n.t('settings_gender_label')}</span>
-                            <select id="select-bac-gender" class="form-select" style="padding:8px; width:100%;">
-                                <option value="" ${!Storage.getPreference('bac_gender', null) ? 'selected' : ''}>${i18n.t('settings_gender_none')}</option>
-                                <option value="M" ${Storage.getPreference('bac_gender', null) === 'M' ? 'selected' : ''}>${i18n.t('gender_male')}</option>
-                                <option value="F" ${Storage.getPreference('bac_gender', null) === 'F' ? 'selected' : ''}>${i18n.t('gender_female')}</option>
-                                <option value="X" ${Storage.getPreference('bac_gender', null) === 'X' ? 'selected' : ''}>${i18n.t('gender_other')}</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="setting-row" data-keywords="cacher poids genre hide weight gender bac">
-                        <div class="setting-info">
-                            <span class="setting-title">${i18n.t('settings_bac_hide_wg_title')}</span>
-                        </div>
-                        <div class="setting-action">
-                            <label class="switch">
-                                <input type="checkbox" class="toggle-switch" id="toggle-bac-hide-wg" ${Storage.getPreference('bac_hide_weight_gender', false) ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="setting-row" data-keywords="pays rules bac law">
-                        <div class="setting-info">
-                            <span class="setting-title">${i18n.t('settings_bac_country')}</span>
-                            <span class="setting-desc">${i18n.t('settings_bac_country_desc')}</span>
-                        </div>
-                        <div class="setting-action">
-                            <select id="select-bac-country" class="form-select" style="padding:8px; width:100%;">
-                                <option value="BE" ${Storage.getPreference('bac_country', 'BE') === 'BE' ? 'selected' : ''}>🇧🇪 BE</option>
-                                <option value="FR" ${Storage.getPreference('bac_country', 'BE') === 'FR' ? 'selected' : ''}>🇫🇷 FR</option>
-                                <option value="DE" ${Storage.getPreference('bac_country', 'BE') === 'DE' ? 'selected' : ''}>🇩🇪 DE</option>
-                                <option value="NL" ${Storage.getPreference('bac_country', 'BE') === 'NL' ? 'selected' : ''}>🇳🇱 NL</option>
-                                <option value="IT" ${Storage.getPreference('bac_country', 'BE') === 'IT' ? 'selected' : ''}>🇮🇹 IT</option>
-                                <option value="CO" ${Storage.getPreference('bac_country', 'BE') === 'CO' ? 'selected' : ''}>🇨🇴 CO</option>
-                                <option value="US" ${Storage.getPreference('bac_country', 'BE') === 'US' ? 'selected' : ''}>🇺🇸 US</option>
-                                <option value="CN" ${Storage.getPreference('bac_country', 'BE') === 'CN' ? 'selected' : ''}>🇨🇳 CN</option>
-                                <option value="JP" ${Storage.getPreference('bac_country', 'BE') === 'JP' ? 'selected' : ''}>🇯🇵 JP</option>
-                                <option value="KR" ${Storage.getPreference('bac_country', 'BE') === 'KR' ? 'selected' : ''}>🇰🇷 KR</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="setting-row" data-keywords="manuel home accueil bac show manual">
-                        <div class="setting-info" style="display:flex; flex-direction:column; gap:8px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; flex-direction:column;">
-                                    <span class="setting-title">${i18n.t('settings_show_home_title')}</span>
-                                    <span class="setting-desc" data-i18n="settings_show_home_desc">Permet d'ajouter un widget sur votre écran d'accueil</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" class="toggle-switch" id="toggle-bac-home" ${Storage.getPreference('bac_show_home', true) ? 'checked' : ''}>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; flex-direction:column;">
-                                    <span class="setting-title">${i18n.t('settings_manual_only_title')}</span>
-                                    <span class="setting-desc" data-i18n="settings_manual_only_desc">Seules les bières ajoutées manuellement impactent l'alcoolémie</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" class="toggle-switch" id="toggle-bac-manual" ${Storage.getPreference('bac_manual_only', false) ? 'checked' : ''}>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="setting-row" style="flex-wrap:wrap; gap:10px;" data-keywords="durée véhicule duration vehicle bac">
-                        <div style="flex:1; min-width:120px;">
-                            <span class="setting-desc" style="margin-bottom:4px;">${i18n.t('settings_bac_duration')}</span>
-                            <select id="select-bac-duration" class="form-select" style="padding:8px; width:100%;">
-                                <option value="0" ${Storage.getPreference('bac_drink_duration', '0') === '0' ? 'selected' : ''}>${i18n.t('settings_bac_instant')}</option>
-                                <option value="15" ${Storage.getPreference('bac_drink_duration', '0') === '15' ? 'selected' : ''}>15 min</option>
-                                <option value="30" ${Storage.getPreference('bac_drink_duration', '0') === '30' ? 'selected' : ''}>30 min</option>
-                                <option value="45" ${Storage.getPreference('bac_drink_duration', '0') === '45' ? 'selected' : ''}>45 min</option>
-                                <option value="60" ${Storage.getPreference('bac_drink_duration', '0') === '60' ? 'selected' : ''}>1h</option>
-                            </select>
-                        </div>
-                        <div style="flex:1; min-width:120px;">
-                            <span class="setting-desc" style="margin-bottom:4px;">${i18n.t('settings_bac_vehicle')}</span>
-                            <select id="select-bac-vehicle" class="form-select" style="padding:8px; width:100%;">
-                                <option value="voiture" ${Storage.getPreference('bac_vehicle', 'voiture') === 'voiture' ? 'selected' : ''}>🚗</option>
-                                <option value="moto" ${Storage.getPreference('bac_vehicle', 'voiture') === 'moto' ? 'selected' : ''}>🏍️</option>
-                                <option value="velo" ${Storage.getPreference('bac_vehicle', 'voiture') === 'velo' ? 'selected' : ''}>🚲</option>
-                                <option value="pieton" ${Storage.getPreference('bac_vehicle', 'voiture') === 'pieton' ? 'selected' : ''}>🚶</option>
-                                <option value="gamer" ${Storage.getPreference('bac_vehicle', 'voiture') === 'gamer' ? 'selected' : ''}>🎮</option>
-                                <option value="ne_conduit_pas" ${Storage.getPreference('bac_vehicle', 'voiture') === 'ne_conduit_pas' ? 'selected' : ''}>🚫</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="setting-row" data-keywords="historique calendrier série history calendar streak bac show">
-                        <div class="setting-info" style="display:flex; flex-direction:column; gap:8px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; flex-direction:column;">
-                                    <span class="setting-title" style="font-size:0.85rem;">${i18n.t('settings_bac_show_history')}</span>
-                                    <span class="setting-desc" data-i18n="settings_bac_show_history_desc">Affiche vos récentes dégustations sur la page d'accueil</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" class="toggle-switch" id="toggle-show-history" ${Storage.getPreference('bac_show_history', true) ? 'checked' : ''}>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; flex-direction:column;">
-                                    <span class="setting-title" style="font-size:0.85rem;">${i18n.t('settings_bac_show_calendar')}</span>
-                                    <span class="setting-desc" data-i18n="settings_bac_show_calendar_desc">Affiche vos jours de consommation sous forme de calendrier</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" class="toggle-switch" id="toggle-show-calendar" ${Storage.getPreference('bac_show_calendar', true) ? 'checked' : ''}>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="display:flex; flex-direction:column;">
-                                    <span class="setting-title" style="font-size:0.85rem;">${i18n.t('settings_bac_show_streak')}</span>
-                                    <span class="setting-desc" data-i18n="settings_bac_show_streak_desc">Affiche le nombre de jours consécutifs sans alcool</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" class="toggle-switch" id="toggle-show-streak" ${Storage.getPreference('bac_show_streak', true) ? 'checked' : ''}>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="rareté spoil anim reveal rarity animation">
-                    <div class="setting-info" style="display:flex; flex-direction:column; gap:8px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; flex-direction:column;">
-                                <span class="setting-title">${i18n.t('settings_reveal_rarity_title')}</span>
-                                <span class="setting-desc" data-i18n="settings_reveal_rarity_desc">Cache la rareté des bières non goûtées</span>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" class="toggle-switch" id="check-reveal-rarity" ${Storage.getPreference('revealRarity', false) ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; flex-direction:column;">
-                                <span class="setting-title">${i18n.t('settings_anim_once_title')}</span>
-                                <span class="setting-desc" data-i18n="settings_anim_once_desc">L'animation de rareté ne joue que la première fois</span>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" class="toggle-switch" id="check-anim-once" ${Storage.getPreference('anim_only_once', false) ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="cartes stats overlay volume compteur count card">
-                    <div class="setting-info" style="display:flex; flex-direction:column; gap:8px;">
-                        <span class="setting-title" style="color:var(--accent-gold); margin-bottom:4px;">${i18n.t('settings_card_stats_title')}</span>
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; flex-direction:column;">
-                                <span class="setting-title" style="font-size:0.85rem;">${i18n.t('settings_card_stats_count_title')}</span>
-                                <span class="setting-desc">${i18n.t('settings_card_stats_count_desc')}</span>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" class="toggle-switch" id="toggle-card-stat-count" ${Storage.getPreference('card_stat_count', false) ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; flex-direction:column;">
-                                <span class="setting-title" style="font-size:0.85rem;">${i18n.t('settings_card_stats_volume_title')}</span>
-                                <span class="setting-desc">${i18n.t('settings_card_stats_volume_desc')}</span>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" class="toggle-switch" id="toggle-card-stat-volume" ${Storage.getPreference('card_stat_volume', false) ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; flex-direction:column;">
-                                <span class="setting-title" style="font-size:0.85rem;">${i18n.t('settings_card_bb_pct_title') || 'Match BrewBrother (%)'}</span>
-                                <span class="setting-desc">${i18n.t('settings_card_bb_pct_desc') || 'Afficher le pourcentage de match sur la carte'}</span>
-                            </div>
-                            <label class="switch">
-                                <input type="checkbox" class="toggle-switch" id="toggle-card-brewbrother" ${Storage.getPreference('card_brewbrother_pct', false) ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="setting-row" style="flex-direction: column; align-items: stretch;" data-keywords="ordre tri stats order sort position">
-                    <div class="setting-info" style="margin-bottom: 10px;">
-                        <span class="setting-title">${i18n.t('settings_group_stats_order') || '🔄 Ordre des Statistiques'}</span>
-                        <span class="setting-desc" data-i18n="settings_group_stats_order_desc">Personnalisez l'ordre d'affichage des blocs sur la page Stats</span>
-                    </div>
-                    <div id="stats-order-list" style="display:flex; flex-direction:column; gap:8px;">
-                        ${(() => {
-                            const defaultOrder = ['progression', 'equivalences', 'bac', 'streak', 'history', 'calendar', 'achievements', 'map', 'brewbrother'];
-                            let currentOrder = Storage.getPreference('stats_order', defaultOrder);
-                            
-                            if (currentOrder.includes('donut')) {
-                                currentOrder = defaultOrder;
-                            } else {
-                                defaultOrder.forEach(k => {
-                                    if (!currentOrder.includes(k)) {
-                                        currentOrder.push(k);
-                                    }
-                                });
-                                currentOrder = currentOrder.filter(k => defaultOrder.includes(k));
-                            }
-                            Storage.savePreference('stats_order', currentOrder);
-
-                            const labels = {
-                                'progression': i18n.t('stats_block_progression') || "Progression",
-                                'bac': i18n.t('stats_block_bac') || "Taux d'alcool (BAC)",
-                                'streak': i18n.t('stats_block_streak') || "Série (Streak)",
-                                'equivalences': i18n.t('stats_block_equivalences') || "Équivalences",
-                                'history': i18n.t('stats_block_history') || "Historique des consos",
-                                'calendar': i18n.t('stats_block_calendar') || "Calendrier de dégustation",
-                                'achievements': i18n.t('stats_block_achievements') || "Succès et Badges",
-                                'map': i18n.t('stats_block_map') || "Carte de Dégustation",
-                                'brewbrother': i18n.t('stats_block_brewbrother') || "Profil BrewBrother"
-                            };
-
-                            return currentOrder.map((key, index) => {
-                                return `
-                                    <div class="stats-order-item" data-key="${key}" style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:8px 10px; border-radius:6px; border:1px solid #333;">
-                                        <span style="color:#ddd; font-size:0.85rem;">${labels[key] || key}</span>
-                                        <div style="display:flex; gap:5px;">
-                                            <button class="btn-stat-move-up setting-btn" data-index="${index}" style="padding:4px 10px; width:auto; ${index === 0 ? 'opacity:0.3;' : ''}" ${index === 0 ? 'disabled' : ''}>↑</button>
-                                            <button class="btn-stat-move-down setting-btn" data-index="${index}" style="padding:4px 10px; width:auto; ${index === currentOrder.length - 1 ? 'opacity:0.3;' : ''}" ${index === currentOrder.length - 1 ? 'disabled' : ''}>↓</button>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('');
-                        })()}
-                    </div>
-                </div>
+        <div class="setting-row" data-keywords="animations une seule fois once rareté rarete perf">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_anim_once_title')}</span>
+                <span class="setting-desc" data-i18n="settings_anim_once_desc">L'animation de rareté ne joue que la première fois</span>
             </div>
-
-            <!-- 4. Données & Sauvegarde -->
-            <div class="setting-group" data-group="data">
-                <h4 data-i18n="settings_group_data_backup">${i18n.t('settings_group_data_backup') || '💾 Données & Sauvegarde'}</h4>
-
-                <div class="setting-row" data-keywords="exporter importer données json export import data save">
-                    <div class="setting-info" style="margin-bottom: 0;">
-                        <span class="setting-title">${i18n.t('settings_group_data') || 'Gestion des données'}</span>
-                        <span class="setting-desc" style="margin-bottom:10px;">${i18n.t('settings_data_desc')}</span>
-                        <div style="display:flex; gap:8px;">
-                            <button id="btn-manage-export" class="setting-btn primary" style="flex:1;">📤 ${i18n.t('export_btn_submit')}</button>
-                            <button id="btn-manage-import" class="setting-btn" style="flex:1;">📥 ${i18n.t('import_title')}</button>
-                        </div>
-                        <div style="display:flex; gap:8px; margin-top:8px;">
-                            <button id="btn-manage-bulk-share" class="setting-btn" style="flex:1; background:var(--accent-gold); color:#000; border:none; font-weight:bold;">📦 Partage Multiple (Bières perso)</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="réinitialiser supprimer reset clear effacer delete">
-                    <div class="setting-info" style="width:100%;">
-                        <span class="setting-title" style="color:#ff6b6b;">${i18n.t('settings_danger_zone')}</span>
-                        <span class="setting-desc" data-i18n="settings_danger_desc" style="margin-bottom:10px;">${i18n.t('settings_danger_desc') || 'Suppression définitive des données'}</span>
-                        
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px;">
-                            <button id="btn-reset-ratings" class="setting-btn" style="font-size:0.75rem;">${i18n.t('settings_reset_ratings')}</button>
-                            <button id="btn-reset-custom" class="setting-btn" style="font-size:0.75rem;">${i18n.t('settings_reset_custom')}</button>
-                            <button id="btn-reset-history" class="setting-btn" style="font-size:0.75rem;">${i18n.t('settings_reset_history')}</button>
-                            <button id="btn-reset-fav" class="setting-btn" style="font-size:0.75rem;">${i18n.t('settings_reset_favs')}</button>
-                        </div>
-                        <button id="btn-reset-app" class="setting-btn danger">🔥 ${i18n.t('settings_reset_app')}</button>
-                    </div>
-                </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="check-anim-once" ${Storage.getPreference('anim_only_once', false) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
             </div>
+        </div>
 
-            <!-- 5. Système & Support -->
-            <div class="setting-group" data-group="system">
-                <h4 data-i18n="settings_group_system_support">${i18n.t('settings_group_system_support') || '🛠️ Système & Support'}</h4>
-
-                <div class="setting-row" data-keywords="mise à jour update actualiser version">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_check_update') || 'Vérifier les mises à jour'}</span>
-                        <span class="setting-desc" data-i18n="settings_check_update_desc">Forcer la recherche de la dernière version de l'application</span>
-                    </div>
-                    <div class="setting-action">
-                        <button id="btn-check-update" class="setting-btn">🔄 ${i18n.t('btn_refresh') || 'Actualiser'}</button>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="tutoriel guide aide tutorial tuto">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_restart_tuto') || 'Refaire le tutoriel'}</span>
-                        <span class="setting-desc" data-i18n="settings_restart_tuto_desc">Relancer le guide de démarrage interactif</span>
-                    </div>
-                    <div class="setting-action">
-                        <button id="btn-restart-tuto" class="setting-btn">🎓 ${i18n.t('btn_launch') || 'Lancer'}</button>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="demander ajouter bière request beer">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('request_beer_btn') || 'Demander une Bière'}</span>
-                        <span class="setting-desc" data-i18n="settings_request_beer_desc">Soumettre une bière manquante pour ajout à la base</span>
-                    </div>
-                    <div class="setting-action">
-                        <button id="btn-request-beer" class="setting-btn primary">🍺 ${i18n.t('btn_request') || 'Demander'}</button>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="nettoyer doublons deduplicate clean">
-                    <div class="setting-info">
-                        <span class="setting-title">${i18n.t('settings_btn_dedup') || 'Nettoyer les doublons'}</span>
-                        <span class="setting-desc" data-i18n="settings_dedup_desc">Fusionner vos bières personnalisées avec les bières officielles</span>
-                    </div>
-                    <div class="setting-action">
-                        <button id="btn-deduplicate-db" class="setting-btn">🧹 ${i18n.t('btn_clean') || 'Nettoyer'}</button>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="diagnostic debug log admin développeur console">
-                    <div class="setting-info">
-                        <span class="setting-title" data-i18n="debug_dev_settings">${i18n.t('debug_dev_settings') || 'Diagnostic & Debug'}</span>
-                        <span class="setting-desc" data-i18n="settings_debug_desc">Outils avancés pour la réparation et le test</span>
-                    </div>
-                    <div class="setting-action">
-                        <button id="btn-open-debug" class="setting-btn">⚙️ ${i18n.t('btn_open') || 'Ouvrir'}</button>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="rust wasm webassembly performance moteur core acceleration">
-                    <div class="setting-info">
-                        <span class="setting-title"><img src="icons/rust.png" alt="Rust" style="width:18px; height:18px; vertical-align:middle; margin-right:6px;"> Moteur Haute Performance Rust</span>
-                        <span class="setting-desc" id="settings-rust-status">Moteur de calcul natif WebAssembly (v5.1.0) : ${Storage.getPreference('feat_rust_enabled', true) && window.BeerdexRust && window.BeerdexRust.isAvailable() ? '⚡ Actif (Accélération matérielle)' : 'Inactif (Mode JavaScript)'}</span>
-                    </div>
-                    <div class="setting-action">
-                        <input type="checkbox" id="toggle-feat-rust" class="toggle-switch" ${Storage.getPreference('feat_rust_enabled', true) ? 'checked' : ''}>
-                    </div>
-                </div>
-
-                <div class="setting-row" data-keywords="test qa lab suite qualité vérification">
-                    <div class="setting-info">
-                        <span class="setting-title">🧪 QA Lab — Suite de Tests</span>
-                        <span class="setting-desc">Lancer la batterie de tests automatisés pour vérifier l'intégrité de l'app</span>
-                    </div>
-                    <div class="setting-action">
-                        <button id="btn-open-qalab" class="setting-btn">🧪 Ouvrir</button>
-                    </div>
-                </div>
+        <div class="setting-row" data-keywords="rust wasm webassembly performance moteur core acceleration">
+            <div class="setting-info">
+                <span class="setting-title"><img src="icons/rust.png" alt="Rust" style="width:18px; height:18px; vertical-align:middle; margin-right:6px;"> Moteur Haute Performance Rust</span>
+                <span class="setting-desc" id="settings-rust-status">Moteur de calcul natif WebAssembly (v5.2.0) : ${rustAvail ? '⚡ Actif (Accélération matérielle)' : (rustEnabled ? 'Prêt / Fallback JS' : 'Inactif (Mode JavaScript)')}</span>
             </div>
-           
-            <div class="mt-40 text-center">
-                <h3 style="color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase; letter-spacing:2px; margin-bottom:25px;" data-i18n="settings_whats_new">${i18n.t('settings_whats_new')}</h3>
-                ${renderPatchnotesSection()}
+            <div class="setting-action">
+                <input type="checkbox" id="toggle-feat-rust" class="toggle-switch" ${rustEnabled ? 'checked' : ''}>
             </div>
+        </div>
+    `;
 
-            <div class="mt-40 text-center" style="margin-bottom: 60px;">
-                <h3 style="color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase; letter-spacing:2px; margin-bottom:25px;" data-i18n="settings_credits">${i18n.t('settings_credits')}</h3>
-                
-                <div style="display:flex; flex-direction:column; gap:20px;">
+    const experienceHtml = `
+        <div class="setting-row" data-keywords="découverte decouverte discovery exploration pokedex">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_discovery_title">${i18n.t('settings_discovery_title')}</span>
+                <span class="setting-desc" data-i18n="settings_discovery_desc">${i18n.t('settings_discovery_desc')}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-discovery" ${isDiscovery ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="rareté rarete spoil reveal rarity">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_reveal_rarity_title')}</span>
+                <span class="setting-desc" data-i18n="settings_reveal_rarity_desc">Cache la rareté des bières non goûtées</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="check-reveal-rarity" ${Storage.getPreference('revealRarity', false) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--stack" data-keywords="cartes stats overlay volume compteur count card brewbrother">
+            <div class="setting-info">
+                <span class="setting-title" style="color:var(--accent-gold);">${i18n.t('settings_card_stats_title')}</span>
+            </div>
+            <div class="setting-sublist">
+                <div class="setting-subitem">
                     <div>
-                        <p style="color:var(--accent-gold); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;" data-i18n="settings_founders">${i18n.t('settings_founders')}</p>
-                        <p style="font-size:0.9rem; color:#eee;">Dorian Storms, Noah Bruijninckx, Tristan Storms & Maxance Veulemans</p>
+                        <span class="setting-title">${i18n.t('settings_card_stats_count_title')}</span>
+                        <span class="setting-desc">${i18n.t('settings_card_stats_count_desc')}</span>
                     </div>
-                    
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-stat-count" ${Storage.getPreference('card_stat_count', false) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
                     <div>
-                        <p style="color:var(--accent-gold); font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;" data-i18n="settings_design_code">${i18n.t('settings_design_code')}</p>
-                        <p style="font-size:0.9rem; color:#eee;">Noah Bruijninckx</p>
+                        <span class="setting-title">${i18n.t('settings_card_stats_volume_title')}</span>
+                        <span class="setting-desc">${i18n.t('settings_card_stats_volume_desc')}</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-stat-volume" ${Storage.getPreference('card_stat_volume', false) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">${i18n.t('settings_card_bb_pct_title') || 'Match BrewBrother (%)'}</span>
+                        <span class="setting-desc">${i18n.t('settings_card_bb_pct_desc') || 'Afficher le pourcentage de match sur la carte'}</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-brewbrother" ${Storage.getPreference('card_brewbrother_pct', false) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--stack" data-keywords="grille notation rating note template critère critere preset tristan noah">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_rating_grid_title">${i18n.t('settings_rating_grid_title') || 'Grille de notation'}</span>
+                <span class="setting-desc" data-i18n="settings_rating_grid_desc">${i18n.t('settings_rating_grid_desc') || 'Personnalisez les critères de notation de vos bières.'}</span>
+            </div>
+            <button type="button" id="btn-template" class="setting-btn">
+                ${i18n.t('settings_btn_configure_rating')}
+            </button>
+            <div class="settings-btn-row">
+                <button type="button" id="btn-preset-default" class="setting-btn ${Storage.getPreference('activePreset') === 'default' ? 'primary' : ''}">${i18n.t('preset_default')}</button>
+                <button type="button" id="btn-preset-tristan" class="setting-btn ${Storage.getPreference('activePreset') === 'tristan' ? 'primary' : ''}">${i18n.t('preset_tristan')}</button>
+                <button type="button" id="btn-preset-noah" class="setting-btn ${Storage.getPreference('activePreset') === 'noah' ? 'primary' : ''}">${i18n.t('preset_noah')}</button>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="son audio sound effets">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_sound_title">${i18n.t('settings_sound_title')}</span>
+                <span class="setting-desc" data-i18n="settings_sound_desc">${i18n.t('settings_sound_desc')}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-sound" ${Storage.getPreference('soundEnabled', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="haptique vibrations retour haptics">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_haptics_title">${i18n.t('settings_haptics_title')}</span>
+                <span class="setting-desc" data-i18n="settings_haptics_desc">${i18n.t('settings_haptics_desc')}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-haptics" ${Storage.getPreference('hapticsEnabled', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+    `;
+
+    const bacHtml = `
+        <div class="setting-row" data-keywords="bac alcoolémie alcoolemie sang blood alcohol calcul">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_bac_enable_title">${i18n.t('settings_bac_enable_title')}</span>
+                <span class="setting-desc" data-i18n="settings_bac_enable_desc">${i18n.t('settings_bac_enable_desc')}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-bac-enabled" ${bacEnabled ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div id="bac-settings-group" class="settings-subgroup" style="display:${bacEnabled ? 'block' : 'none'};">
+            <div class="setting-row setting-row--split" id="bac-weight-gender-row" style="display:${Storage.getPreference('bac_hide_weight_gender', false) ? 'none' : 'flex'};" data-keywords="poids genre weight gender bac sexe">
+                <div class="setting-split-col">
+                    <span class="setting-desc" data-i18n="settings_weight_label">${i18n.t('settings_weight_label')}</span>
+                    <input type="number" id="input-bac-weight" class="form-input" value="${Storage.getPreference('bac_weight', '')}" placeholder="ex: 70" min="30" max="200">
+                </div>
+                <div class="setting-split-col">
+                    <span class="setting-desc" data-i18n="settings_gender_label">${i18n.t('settings_gender_label')}</span>
+                    <select id="select-bac-gender" class="form-select">
+                        <option value="" ${!Storage.getPreference('bac_gender', null) ? 'selected' : ''}>${i18n.t('settings_gender_none')}</option>
+                        <option value="M" ${Storage.getPreference('bac_gender', null) === 'M' ? 'selected' : ''}>${i18n.t('gender_male')}</option>
+                        <option value="F" ${Storage.getPreference('bac_gender', null) === 'F' ? 'selected' : ''}>${i18n.t('gender_female')}</option>
+                        <option value="X" ${Storage.getPreference('bac_gender', null) === 'X' ? 'selected' : ''}>${i18n.t('gender_other')}</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-row" data-keywords="cacher poids genre hide weight gender bac confidentialite">
+                <div class="setting-info">
+                    <span class="setting-title">${i18n.t('settings_bac_hide_wg_title')}</span>
+                </div>
+                <div class="setting-action">
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-bac-hide-wg" ${Storage.getPreference('bac_hide_weight_gender', false) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-row" data-keywords="pays rules bac law limite conduite">
+                <div class="setting-info">
+                    <span class="setting-title">${i18n.t('settings_bac_country')}</span>
+                    <span class="setting-desc">${i18n.t('settings_bac_country_desc')}</span>
+                </div>
+                <div class="setting-action">
+                    <select id="select-bac-country" class="form-select">
+                        <option value="BE" ${Storage.getPreference('bac_country', 'BE') === 'BE' ? 'selected' : ''}>🇧🇪 BE</option>
+                        <option value="FR" ${Storage.getPreference('bac_country', 'BE') === 'FR' ? 'selected' : ''}>🇫🇷 FR</option>
+                        <option value="DE" ${Storage.getPreference('bac_country', 'BE') === 'DE' ? 'selected' : ''}>🇩🇪 DE</option>
+                        <option value="NL" ${Storage.getPreference('bac_country', 'BE') === 'NL' ? 'selected' : ''}>🇳🇱 NL</option>
+                        <option value="IT" ${Storage.getPreference('bac_country', 'BE') === 'IT' ? 'selected' : ''}>🇮🇹 IT</option>
+                        <option value="CO" ${Storage.getPreference('bac_country', 'BE') === 'CO' ? 'selected' : ''}>🇨🇴 CO</option>
+                        <option value="US" ${Storage.getPreference('bac_country', 'BE') === 'US' ? 'selected' : ''}>🇺🇸 US</option>
+                        <option value="CN" ${Storage.getPreference('bac_country', 'BE') === 'CN' ? 'selected' : ''}>🇨🇳 CN</option>
+                        <option value="JP" ${Storage.getPreference('bac_country', 'BE') === 'JP' ? 'selected' : ''}>🇯🇵 JP</option>
+                        <option value="KR" ${Storage.getPreference('bac_country', 'BE') === 'KR' ? 'selected' : ''}>🇰🇷 KR</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-row setting-row--split" data-keywords="durée duree véhicule vehicule duration vehicle bac conduite velo moto voiture">
+                <div class="setting-split-col">
+                    <span class="setting-desc">${i18n.t('settings_bac_duration')}</span>
+                    <select id="select-bac-duration" class="form-select">
+                        <option value="0" ${Storage.getPreference('bac_drink_duration', '0') === '0' ? 'selected' : ''}>${i18n.t('settings_bac_instant')}</option>
+                        <option value="15" ${Storage.getPreference('bac_drink_duration', '0') === '15' ? 'selected' : ''}>15 min</option>
+                        <option value="30" ${Storage.getPreference('bac_drink_duration', '0') === '30' ? 'selected' : ''}>30 min</option>
+                        <option value="45" ${Storage.getPreference('bac_drink_duration', '0') === '45' ? 'selected' : ''}>45 min</option>
+                        <option value="60" ${Storage.getPreference('bac_drink_duration', '0') === '60' ? 'selected' : ''}>1h</option>
+                    </select>
+                </div>
+                <div class="setting-split-col">
+                    <span class="setting-desc">${i18n.t('settings_bac_vehicle')}</span>
+                    <select id="select-bac-vehicle" class="form-select">
+                        <option value="voiture" ${Storage.getPreference('bac_vehicle', 'voiture') === 'voiture' ? 'selected' : ''}>🚗</option>
+                        <option value="moto" ${Storage.getPreference('bac_vehicle', 'voiture') === 'moto' ? 'selected' : ''}>🏍️</option>
+                        <option value="velo" ${Storage.getPreference('bac_vehicle', 'voiture') === 'velo' ? 'selected' : ''}>🚲</option>
+                        <option value="pieton" ${Storage.getPreference('bac_vehicle', 'voiture') === 'pieton' ? 'selected' : ''}>🚶</option>
+                        <option value="gamer" ${Storage.getPreference('bac_vehicle', 'voiture') === 'gamer' ? 'selected' : ''}>🎮</option>
+                        <option value="ne_conduit_pas" ${Storage.getPreference('bac_vehicle', 'voiture') === 'ne_conduit_pas' ? 'selected' : ''}>🚫</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-row setting-row--stack" data-keywords="manuel home accueil widget bac show manual">
+                <div class="setting-sublist">
+                    <div class="setting-subitem">
+                        <div>
+                            <span class="setting-title">${i18n.t('settings_show_home_title')}</span>
+                            <span class="setting-desc" data-i18n="settings_show_home_desc">Permet d'ajouter un widget sur votre écran d'accueil</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" class="toggle-switch" id="toggle-bac-home" ${Storage.getPreference('bac_show_home', true) ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div class="setting-subitem">
+                        <div>
+                            <span class="setting-title">${i18n.t('settings_manual_only_title')}</span>
+                            <span class="setting-desc" data-i18n="settings_manual_only_desc">Seules les bières ajoutées manuellement impactent l'alcoolémie</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" class="toggle-switch" id="toggle-bac-manual" ${Storage.getPreference('bac_manual_only', false) ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>
                     </div>
                 </div>
-                
-                <div style="margin-top:30px; font-size:0.7rem; color:#444; border-top:1px solid #222; padding-top:15px; width:50%; margin-left:auto; margin-right:auto;">
-                    Beerdex v5.0 &copy; 2026
-                    <!-- Légal -->
-                    <div style="border-top:1px dashed #333; padding-top:20px; margin-top:20px;">
-                        <h4 style="color:#888; margin-bottom:12px; font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;" data-i18n="settings_legal_section">${i18n.t('settings_legal_section')}</h4>
-                        <div style="display:flex; flex-direction:column; gap:10px;">
-                            <button id="btn-legal-tos" class="form-input" style="background:none; border:1px solid #333; color:#aaa; text-align:left; font-size:0.85rem; padding:10px;">📄 ${i18n.t('legal_tos_title')}</button>
-                            <button id="btn-legal-privacy" class="form-input" style="background:none; border:1px solid #333; color:#aaa; text-align:left; font-size:0.85rem; padding:10px;">🛡️ ${i18n.t('legal_privacy_title')}</button>
-                            <button id="btn-legal-copyright" class="form-input" style="background:none; border:1px solid #333; color:#aaa; text-align:left; font-size:0.85rem; padding:10px;">⚖️ ${i18n.t('legal_copyright_title')}</button>
+            </div>
+
+            <div class="setting-row setting-row--stack" data-keywords="historique calendrier série serie history calendar streak bac show">
+                <div class="setting-sublist">
+                    <div class="setting-subitem">
+                        <div>
+                            <span class="setting-title">${i18n.t('settings_bac_show_history')}</span>
+                            <span class="setting-desc" data-i18n="settings_bac_show_history_desc">Affiche vos récentes dégustations</span>
                         </div>
+                        <label class="switch">
+                            <input type="checkbox" class="toggle-switch" id="toggle-show-history" ${Storage.getPreference('bac_show_history', true) ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div class="setting-subitem">
+                        <div>
+                            <span class="setting-title">${i18n.t('settings_bac_show_calendar')}</span>
+                            <span class="setting-desc" data-i18n="settings_bac_show_calendar_desc">Affiche vos jours de consommation en calendrier</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" class="toggle-switch" id="toggle-show-calendar" ${Storage.getPreference('bac_show_calendar', true) ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div class="setting-subitem">
+                        <div>
+                            <span class="setting-title">${i18n.t('settings_bac_show_streak')}</span>
+                            <span class="setting-desc" data-i18n="settings_bac_show_streak_desc">Affiche le suivi de série quotidienne</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" class="toggle-switch" id="toggle-show-streak" ${Storage.getPreference('bac_show_streak', true) ? 'checked' : ''}>
+                            <span class="slider round"></span>
+                        </label>
                     </div>
                 </div>
             </div>
         </div>
     `;
 
-    // --- Handlers ---
-    
-    // --- Theme Handlers ---
+    const modulesHtml = `
+        <div class="setting-row" data-keywords="carte map localisation region">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_toggle_map') || 'Afficher la carte (Map)'}</span>
+                <span class="setting-desc" data-i18n="settings_map_desc">Affiche une carte interactive de vos dégustations</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-feat-map" ${Storage.getPreference('feat_map_enabled', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="carte défaut defaut pays default map country">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_map_default')}</span>
+                <span class="setting-desc">${i18n.t('settings_map_default_desc')}</span>
+            </div>
+            <div class="setting-action">
+                <select id="select-default-map" class="form-select">
+                    <option value="" ${!localStorage.getItem('defaultMapScope') ? 'selected' : ''}>${i18n.t('settings_map_auto')}</option>
+                    <option value="be" ${localStorage.getItem('defaultMapScope') === 'be' ? 'selected' : ''}>🇧🇪 ${i18n.t('country_be')}</option>
+                    <option value="fr" ${localStorage.getItem('defaultMapScope') === 'fr' ? 'selected' : ''}>🇫🇷 ${i18n.t('country_fr')}</option>
+                    <option value="de" ${localStorage.getItem('defaultMapScope') === 'de' ? 'selected' : ''}>🇩🇪 ${i18n.t('country_de')}</option>
+                    <option value="nl" ${localStorage.getItem('defaultMapScope') === 'nl' ? 'selected' : ''}>🇳🇱 ${i18n.t('country_nl')}</option>
+                    <option value="us" ${localStorage.getItem('defaultMapScope') === 'us' ? 'selected' : ''}>🇺🇸 ${i18n.t('country_us')}</option>
+                    <option value="co" ${localStorage.getItem('defaultMapScope') === 'co' ? 'selected' : ''}>🇨🇴 ${i18n.t('country_co')}</option>
+                    <option value="kr" ${localStorage.getItem('defaultMapScope') === 'kr' ? 'selected' : ''}>🇰🇷 ${i18n.t('country_kr')}</option>
+                    <option value="jp" ${localStorage.getItem('defaultMapScope') === 'jp' ? 'selected' : ''}>🇯🇵 ${i18n.t('country_jp')}</option>
+                    <option value="cn" ${localStorage.getItem('defaultMapScope') === 'cn' ? 'selected' : ''}>🇨🇳 ${i18n.t('country_cn')}</option>
+                    <option value="eu" ${localStorage.getItem('defaultMapScope') === 'eu' ? 'selected' : ''}>🇪🇺 ${i18n.t('map_scope_eu')}</option>
+                    <option value="wo" ${localStorage.getItem('defaultMapScope') === 'wo' ? 'selected' : ''}>🌍 ${i18n.t('map_scope_wo')}</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="brewbrother recommendation recommandations ia ai gout">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_toggle_brewbrother') || 'Activer BrewBrother'}</span>
+                <span class="setting-desc">${i18n.t('settings_brewbrother_desc') || 'Assistant IA de recommandations et profil de goût'}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-feat-brewbrother" ${Storage.getPreference('feat_brewbrother_enabled', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="brewbrother tone ton ia recommandation style">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_bb_tone_title">${i18n.t('settings_bb_tone_title') || 'Ton BrewBrother'}</span>
+                <span class="setting-desc" data-i18n="settings_bb_tone_desc">${i18n.t('settings_bb_tone_desc') || 'Choisissez le style des descriptions'}</span>
+            </div>
+            <div class="setting-action">
+                <select id="select-bb-tone" class="form-select">
+                    <option value="brewbrother" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'brewbrother' ? 'selected' : ''}>${i18n.t('settings_bb_tone_default') || 'BrewBrother'}</option>
+                    <option value="friend" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'friend' ? 'selected' : ''}>${i18n.t('settings_bb_tone_friend') || 'Ami'}</option>
+                    <option value="neutral" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'neutral' ? 'selected' : ''}>${i18n.t('settings_bb_tone_neutral') || 'Neutre'}</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="beer party dégustation salon direct p2p beermatch">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_toggle_beermatch') || 'Beer Party'}</span>
+                <span class="setting-desc" data-i18n="settings_beermatch_desc">${i18n.t('settings_beermatch_desc') || 'Salons de dégustation en direct, statistiques collectives et partage P2P'}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-feat-beermatch" ${partyEnabled ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-pseudo-row" data-keywords="party pseudo nom animal">
+            <div class="setting-info">
+                <span class="setting-title">Pseudo Party</span>
+                <span class="setting-desc">Votre nom affiché dans la salle.</span>
+            </div>
+            <div class="setting-action" style="gap:6px;">
+                <input type="text" id="input-party-pseudo" class="form-input" placeholder="Anonyme" value="${Storage.getPreference('beermatch_pseudo', '')}" style="width:120px; font-size:0.8rem; text-align:right; padding:8px;">
+                <button type="button" id="btn-settings-dice-pseudo" class="beerparty-pseudo-edit-btn" title="Générer un animal aléatoire">🎲</button>
+            </div>
+        </div>
+
+        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-total-row" data-keywords="party partager volumes total">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_party_share_total') || 'Partager volumes & total bu'}</span>
+                <span class="setting-desc" data-i18n="settings_party_share_total_desc">${i18n.t('settings_party_share_total_desc') || 'Partager vos verres, litres et alcool pur pour le cumul du groupe.'}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-total" ${Storage.getPreference('beermatch_share_total', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-catalog-row" data-keywords="party partager bières commun">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_party_share_catalog') || 'Partager bières en commun'}</span>
+                <span class="setting-desc" data-i18n="settings_party_share_catalog_desc">${i18n.t('settings_party_share_catalog_desc') || 'Comparer vos bières goûtées pour découvrir vos affinités.'}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-catalog" ${Storage.getPreference('beermatch_share_catalog', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-top-row" data-keywords="party partager favorites">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_party_share_top') || 'Partager bières favorites'}</span>
+                <span class="setting-desc" data-i18n="settings_party_share_top_desc">${i18n.t('settings_party_share_top_desc') || 'Afficher votre bière préférée et participer à la bière reine du groupe.'}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-top" ${Storage.getPreference('beermatch_share_top', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-unique-row" data-keywords="party partager uniques explorateur">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_party_share_unique') || 'Partager bières uniques'}</span>
+                <span class="setting-desc" data-i18n="settings_party_share_unique_desc">${i18n.t('settings_party_share_unique_desc') || 'Diffuser votre total de bières différentes (podium Explorateur).'}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-unique" ${Storage.getPreference('beermatch_share_unique', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-achievements-row" data-keywords="party partager trophées trophees badges">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_party_share_achievements') || 'Partager trophées & badges'}</span>
+                <span class="setting-desc" data-i18n="settings_party_share_achievements_desc">${i18n.t('settings_party_share_achievements_desc') || 'Diffuser vos succès débloqués (podium Chasseur).'}</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-achievements" ${Storage.getPreference('beermatch_share_achievements', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="wrapped bilan spotify annee">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_toggle_wrapped') || 'Beerdex Wrapped'}</span>
+                <span class="setting-desc" data-i18n="settings_wrapped_desc">Générez un bilan visuel annuel de vos dégustations</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-feat-wrapped" ${Storage.getPreference('feat_wrapped_enabled', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="équivalences equivalences alcool verres">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_toggle_equivalences') || 'Équivalences alcool'}</span>
+                <span class="setting-desc" data-i18n="settings_equivalences_desc">Affiche l'équivalent en verres standards (vin, shots)</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-feat-equivalences" ${Storage.getPreference('feat_equivalences_enabled', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="rappels reminders notif doublons non notees">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_toggle_reminders') || 'Rappels (Notation & Duplications)'}</span>
+                <span class="setting-desc" data-i18n="settings_reminders_desc">Notifications pour les bières non notées ou les doublons</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-feat-reminders" ${Storage.getPreference('feat_reminders_enabled', true) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+    `;
+
+    const defaultStatsOrder = ['progression', 'equivalences', 'bac', 'streak', 'history', 'calendar', 'achievements', 'map', 'brewbrother'];
+    let currentStatsOrder = Storage.getPreference('stats_order', defaultStatsOrder);
+    if (currentStatsOrder.includes('donut')) {
+        currentStatsOrder = [...defaultStatsOrder];
+    } else {
+        currentStatsOrder = [...currentStatsOrder];
+        defaultStatsOrder.forEach(k => { if (!currentStatsOrder.includes(k)) currentStatsOrder.push(k); });
+        currentStatsOrder = currentStatsOrder.filter(k => defaultStatsOrder.includes(k));
+    }
+    Storage.savePreference('stats_order', currentStatsOrder);
+
+    const buildStatsOrderItemsHtml = (order) => {
+        const labels = {
+            'progression': i18n.t('stats_block_progression') || "Progression",
+            'bac': i18n.t('stats_block_bac') || "Taux d'alcool (BAC)",
+            'streak': i18n.t('stats_block_streak') || "Série (Streak)",
+            'equivalences': i18n.t('stats_block_equivalences') || "Équivalences",
+            'history': i18n.t('stats_block_history') || "Historique des consos",
+            'calendar': i18n.t('stats_block_calendar') || "Calendrier de dégustation",
+            'achievements': i18n.t('stats_block_achievements') || "Succès et Badges",
+            'map': i18n.t('stats_block_map') || "Carte de Dégustation",
+            'brewbrother': i18n.t('stats_block_brewbrother') || "Profil BrewBrother"
+        };
+        return order.map((key, index) => `
+            <div class="stats-order-item" data-key="${key}">
+                <span>${labels[key] || key}</span>
+                <div class="stats-order-actions">
+                    <button type="button" class="btn-stat-move-up setting-btn" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
+                    <button type="button" class="btn-stat-move-down setting-btn" data-index="${index}" ${index === order.length - 1 ? 'disabled' : ''}>↓</button>
+                </div>
+            </div>
+        `).join('');
+    };
+
+    const statsOrderHtml = `
+        <div class="setting-row setting-row--stack" data-keywords="ordre tri stats order sort position">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_group_stats_order') || 'Ordre des Statistiques'}</span>
+                <span class="setting-desc" data-i18n="settings_group_stats_order_desc">Personnalisez l'ordre d'affichage des blocs sur la page Stats</span>
+            </div>
+            <div id="stats-order-list" class="stats-order-list">
+                ${buildStatsOrderItemsHtml(currentStatsOrder)}
+            </div>
+        </div>
+    `;
+
+    const dataHtml = `
+        <div class="setting-row setting-row--stack" data-keywords="exporter importer données donnees json export import data save sauvegarde partage ota">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_group_data') || 'Gestion des données'}</span>
+                <span class="setting-desc">${i18n.t('settings_data_desc')}</span>
+            </div>
+            <div class="settings-btn-row">
+                <button type="button" id="btn-manage-export" class="setting-btn primary">📤 ${i18n.t('export_btn_submit')}</button>
+                <button type="button" id="btn-manage-import" class="setting-btn">📥 ${i18n.t('import_title')}</button>
+            </div>
+            <button type="button" id="btn-manage-bulk-share" class="setting-btn accent-soft">📦 Partage Multiple (Bières perso)</button>
+        </div>
+
+        <div class="setting-row" data-keywords="nettoyer doublons deduplicate clean thanos">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_btn_dedup') || 'Nettoyer les doublons'}</span>
+                <span class="setting-desc" data-i18n="settings_dedup_desc">Fusionner vos bières personnalisées avec les bières officielles</span>
+            </div>
+            <div class="setting-action">
+                <button type="button" id="btn-deduplicate-db" class="setting-btn">🧹 ${i18n.t('btn_clean') || 'Nettoyer'}</button>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="demander ajouter bière biere request beer">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('request_beer_btn') || 'Demander une Bière'}</span>
+                <span class="setting-desc" data-i18n="settings_request_beer_desc">Soumettre une bière manquante pour ajout à la base</span>
+            </div>
+            <div class="setting-action">
+                <button type="button" id="btn-request-beer" class="setting-btn primary">🍺 ${i18n.t('btn_request') || 'Demander'}</button>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="mise à jour mise a jour update actualiser version cache">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_check_update') || 'Vérifier les mises à jour'}</span>
+                <span class="setting-desc" data-i18n="settings_check_update_desc">Forcer la recherche de la dernière version de l'application</span>
+            </div>
+            <div class="setting-action">
+                <button type="button" id="btn-check-update" class="setting-btn">🔄 ${i18n.t('btn_refresh') || 'Actualiser'}</button>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="tutoriel guide aide tutorial tuto">
+            <div class="setting-info">
+                <span class="setting-title">${i18n.t('settings_restart_tuto') || 'Refaire le tutoriel'}</span>
+                <span class="setting-desc" data-i18n="settings_restart_tuto_desc">Relancer le guide de démarrage interactif</span>
+            </div>
+            <div class="setting-action">
+                <button type="button" id="btn-restart-tuto" class="setting-btn">🎓 ${i18n.t('btn_launch') || 'Lancer'}</button>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="diagnostic debug log admin développeur developpeur console">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="debug_dev_settings">${i18n.t('debug_dev_settings') || 'Diagnostic & Debug'}</span>
+                <span class="setting-desc" data-i18n="settings_debug_desc">Outils avancés pour la réparation et le test</span>
+            </div>
+            <div class="setting-action">
+                <button type="button" id="btn-open-debug" class="setting-btn">⚙️ ${i18n.t('btn_open') || 'Ouvrir'}</button>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="test qa lab suite qualité qualite vérification verification">
+            <div class="setting-info">
+                <span class="setting-title">🧪 QA Lab — Suite de Tests</span>
+                <span class="setting-desc">Lancer la batterie de tests automatisés pour vérifier l'intégrité de l'app</span>
+            </div>
+            <div class="setting-action">
+                <button type="button" id="btn-open-qalab" class="setting-btn">🧪 Ouvrir</button>
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--stack setting-row--danger" data-keywords="réinitialiser reinitialiser supprimer reset clear effacer delete danger">
+            <div class="setting-info">
+                <span class="setting-title" style="color:#ff6b6b;">${i18n.t('settings_danger_zone')}</span>
+                <span class="setting-desc" data-i18n="settings_danger_desc">${i18n.t('settings_danger_desc') || 'Suppression définitive des données'}</span>
+            </div>
+            <div class="settings-danger-grid">
+                <button type="button" id="btn-reset-ratings" class="setting-btn">${i18n.t('settings_reset_ratings')}</button>
+                <button type="button" id="btn-reset-custom" class="setting-btn">${i18n.t('settings_reset_custom')}</button>
+                <button type="button" id="btn-reset-history" class="setting-btn">${i18n.t('settings_reset_history')}</button>
+                <button type="button" id="btn-reset-fav" class="setting-btn">${i18n.t('settings_reset_favs')}</button>
+            </div>
+            <button type="button" id="btn-reset-app" class="setting-btn danger">🔥 ${i18n.t('settings_reset_app')}</button>
+        </div>
+    `;
+
+    const aboutHtml = `
+        <div class="setting-row setting-row--stack" data-keywords="nouveautés nouveautes patchnotes patch notes changelog version">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_whats_new">${i18n.t('settings_whats_new')}</span>
+            </div>
+            <div class="settings-patchnotes-wrap">
+                ${renderPatchnotesSection()}
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--stack" data-keywords="crédits credits fondateurs equipe equipe author noah dorian tristan maxance">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_credits">${i18n.t('settings_credits')}</span>
+            </div>
+            <div class="settings-credits-card">
+                <div>
+                    <div class="settings-credit-label" data-i18n="settings_founders">${i18n.t('settings_founders')}</div>
+                    <div class="settings-credit-names">Dorian Storms, Noah Bruijninckx, Tristan Storms & Maxance Veulemans</div>
+                </div>
+                <div>
+                    <div class="settings-credit-label" data-i18n="settings_design_code">${i18n.t('settings_design_code')}</div>
+                    <div class="settings-credit-names">Noah Bruijninckx</div>
+                </div>
+                <div class="settings-version-pill">Beerdex v5.2.0 &copy; 2026</div>
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--stack" data-keywords="légal legal cgu tos confidentialité confidentialite privacy copyright">
+            <div class="setting-info">
+                <span class="setting-title" data-i18n="settings_legal_section">${i18n.t('settings_legal_section')}</span>
+            </div>
+            <div class="settings-legal-list">
+                <button type="button" id="btn-legal-tos" class="setting-btn settings-legal-btn">📄 ${i18n.t('legal_tos_title')}</button>
+                <button type="button" id="btn-legal-privacy" class="setting-btn settings-legal-btn">🛡️ ${i18n.t('legal_privacy_title')}</button>
+                <button type="button" id="btn-legal-copyright" class="setting-btn settings-legal-btn">⚖️ ${i18n.t('legal_copyright_title')}</button>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = `
+        <div id="settings-container" class="settings-container">
+            <div class="settings-header">
+                <h2 class="settings-main-title" data-i18n="settings_main_title">Paramètres & Données</h2>
+                <p class="settings-main-subtitle">Une seule catégorie ouverte à la fois, ou recherchez un réglage instantanément.</p>
+            </div>
+
+            <div class="settings-search-box">
+                <svg class="settings-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="search" id="settings-search-input" placeholder="Rechercher un paramètre (ex: alcool, thème, lag, backup...)" autocomplete="off" aria-label="Rechercher un paramètre">
+                <button type="button" id="settings-search-clear" class="settings-search-clear hidden" aria-label="Effacer la recherche">&times;</button>
+            </div>
+            <div id="settings-search-count" class="settings-search-count hidden"></div>
+
+            <div class="settings-accordions-list">
+                ${makeAccordion('appearance', '🎨', i18n.t('settings_group_theme_appearance') || 'Apparence & Thème', 'Langue, palettes, police, mode musée', appearanceHtml)}
+                ${makeAccordion('performance', '⚡', 'Performance & Fluidité', 'Mode low-end, animations, moteur Rust', perfHtml)}
+                ${makeAccordion('experience', '🍺', 'Expérience & Cartes', 'Découverte, rareté, grille de notation, sons', experienceHtml)}
+                ${makeAccordion('bac', '🩸', 'Alcoolémie (BAC) & Sécurité', 'Profil, pays, véhicule, calendrier & séries', bacHtml)}
+                ${makeAccordion('modules', '🧩', i18n.t('settings_group_features_immersion') || 'Modules & Social', 'Carte, BrewBrother, Beer Party, Wrapped', modulesHtml)}
+                ${makeAccordion('stats_order', '📊', i18n.t('settings_group_stats_order') || 'Ordre des Statistiques', 'Réorganiser les blocs de la page Stats', statsOrderHtml)}
+                ${makeAccordion('data', '💾', i18n.t('settings_group_data_backup') || 'Données, Outils & Danger', 'Import/Export, doublons, debug, réinitialisation', dataHtml)}
+                ${makeAccordion('about', 'ℹ️', 'Nouveautés, Crédits & Légal', 'Patchnotes v5.2, équipe, mentions légales', aboutHtml)}
+            </div>
+
+            <div id="settings-search-empty" class="settings-search-empty hidden">
+                <div style="font-size:2rem; margin-bottom:8px;">🔍</div>
+                <div>Aucun paramètre trouvé pour cette recherche.</div>
+            </div>
+        </div>
+    `;
+
+    // --- One-at-a-Time Accordion Handlers ---
+    container.querySelectorAll('.settings-accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const section = header.closest('.settings-accordion');
+            if (!section) return;
+            const groupId = section.dataset.group;
+            const willOpen = !section.classList.contains('is-open');
+            _activeSettingsGroup = willOpen ? groupId : null;
+            _applyOneAtATimeAccordion(container, _activeSettingsGroup);
+
+            if (willOpen) {
+                requestAnimationFrame(() => {
+                    header.scrollIntoView({
+                        behavior: document.body.classList.contains('perf-low-end') ? 'auto' : 'smooth',
+                        block: 'nearest'
+                    });
+                });
+            }
+        });
+    });
+
+    // --- Integrated Settings Search ---
+    const settingsSearchInput = container.querySelector('#settings-search-input');
+    const settingsSearchClear = container.querySelector('#settings-search-clear');
+    if (settingsSearchInput) {
+        settingsSearchInput.addEventListener('input', (e) => {
+            filterSettings(e.target.value);
+        });
+    }
+    if (settingsSearchClear) {
+        settingsSearchClear.addEventListener('click', () => {
+            if (settingsSearchInput) {
+                settingsSearchInput.value = '';
+                settingsSearchInput.focus();
+            }
+            filterSettings('');
+        });
+    }
+
+    // --- Performance Mode Handler ---
+    const selectPerfMode = container.querySelector('#select-perf-mode');
+    if (selectPerfMode) {
+        selectPerfMode.addEventListener('change', (e) => {
+            const mode = e.target.value;
+            Storage.savePreference('perf_mode', mode);
+            const isLow = typeof window.applyPerformanceMode === 'function' ? window.applyPerformanceMode() : false;
+            const statusEl = container.querySelector('#settings-perf-status');
+            if (statusEl) {
+                statusEl.textContent = isLow
+                    ? '⚡ Mode fluide actif : effets de flou, animations infinies et surcharges GPU réduits.'
+                    : '✨ Effets visuels complets actifs.';
+            }
+            showToast(isLow ? 'Mode Performance activé (60 FPS)' : 'Effets visuels complets activés');
+        });
+    }
+
+    // --- Theme Handlers (in-place update, preserves accordion & scroll) ---
+    const syncThemeButtonsUI = () => {
+        const activePreset = Theme.getActivePreset();
+        const activeColors = Theme.getActiveColors();
+        container.querySelectorAll('.theme-preset-btn').forEach(b => {
+            b.classList.toggle('is-active', b.dataset.preset === activePreset);
+        });
+        const customDiv = container.querySelector('#theme-custom-colors');
+        if (customDiv) customDiv.style.display = activePreset === 'custom' ? 'block' : 'none';
+        container.querySelectorAll('.theme-color-input').forEach(inp => {
+            const k = inp.dataset.var;
+            if (activeColors[k]) inp.value = activeColors[k];
+        });
+    };
+
     container.querySelectorAll('.theme-preset-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const preset = btn.dataset.preset;
             if (preset === 'custom') {
-                const customDiv = container.querySelector('#theme-custom-colors');
-                if (customDiv) customDiv.style.display = 'block';
                 Storage.savePreference('theme_preset', 'custom');
                 Theme.applyColors(Theme.getActiveColors());
             } else {
                 Theme.applyPreset(preset);
-                const customDiv = container.querySelector('#theme-custom-colors');
-                if (customDiv) customDiv.style.display = 'none';
             }
+            syncThemeButtonsUI();
             showToast(i18n.t('toast_theme_applied') || 'Thème appliqué !', 'success');
-            renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
         });
     });
 
     container.querySelectorAll('.theme-color-input').forEach(input => {
         input.addEventListener('input', (e) => {
             Theme.setCustomColor(e.target.dataset.var, e.target.value);
+            container.querySelectorAll('.theme-preset-btn').forEach(b => {
+                b.classList.toggle('is-active', b.dataset.preset === 'custom');
+            });
         });
     });
 
@@ -5042,20 +5155,20 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                 window.dispatchEvent(new Event('beerdex-action'));
                 showToast(i18n.t('toast_theme_exported') || 'Code thème copié dans le presse-papiers !', 'success');
             } catch {
-                prompt(i18n.t('toast_theme_export_manual') || 'Copiez ce code :', code);
+                await showPromptModal(i18n.t('toast_theme_export_manual') || 'Copiez ce code :', code);
             }
         });
     }
 
     const btnThemeImport = container.querySelector('#btn-theme-import');
     if (btnThemeImport) {
-        btnThemeImport.addEventListener('click', () => {
-            const code = prompt(i18n.t('settings_theme_import_prompt') || 'Collez le code du thème (THEME_...) :');
+        btnThemeImport.addEventListener('click', async () => {
+            const code = await showPromptModal(i18n.t('settings_theme_import_prompt') || 'Collez le code du thème (THEME_...) :', '', { placeholder: 'THEME_...' });
             if (code) {
                 const result = Theme.importTheme(code.trim());
                 if (result.success) {
+                    syncThemeButtonsUI();
                     showToast(result.message, 'success');
-                    renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
                 } else {
                     showToast(result.message, 'error');
                 }
@@ -5067,8 +5180,10 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
     if (btnThemeReset) {
         btnThemeReset.addEventListener('click', () => {
             Theme.resetTheme();
+            syncThemeButtonsUI();
+            const fontSel = container.querySelector('#select-font-family');
+            if (fontSel) fontSel.value = Theme.getActiveFont();
             showToast(i18n.t('toast_theme_reset') || 'Thème réinitialisé', 'info');
-            renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
         });
     }
 
@@ -5135,7 +5250,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                     const isChecked = e.target.checked;
                     const statusEl = container.querySelector('#settings-rust-status');
                     if (statusEl) {
-                        statusEl.textContent = isChecked ? 'Moteur de calcul natif WebAssembly (v5.1.0) : ⚡ Actif (Accélération matérielle)' : 'Moteur de calcul natif WebAssembly (v5.1.0) : Inactif (Mode JavaScript)';
+                        statusEl.textContent = isChecked ? 'Moteur de calcul natif WebAssembly (v5.2.0) : ⚡ Actif (Accélération matérielle)' : 'Moteur de calcul natif WebAssembly (v5.2.0) : Inactif (Mode JavaScript)';
                     }
                     const indicator = document.getElementById('rust-wasm-indicator');
                     if (indicator) {
@@ -5183,28 +5298,34 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
 
     container.querySelector('#btn-template').onclick = () => renderTemplateEditor();
 
+    const syncPresetButtons = (active) => {
+        container.querySelector('#btn-preset-default')?.classList.toggle('primary', active === 'default');
+        container.querySelector('#btn-preset-tristan')?.classList.toggle('primary', active === 'tristan');
+        container.querySelector('#btn-preset-noah')?.classList.toggle('primary', active === 'noah');
+    };
+
     container.querySelector('#btn-preset-default').onclick = async () => {
         if (await showConfirmModal(i18n.t('modal_confirm_std_preset'), { danger: false })) {
             Storage.resetRatingTemplate();
             Storage.savePreference('activePreset', 'default');
+            syncPresetButtons('default');
             showToast(i18n.t('toast_preset_std_applied'));
-            renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
         }
     };
 
     container.querySelector('#btn-preset-tristan').onclick = async () => {
         if (await showConfirmModal(i18n.t('modal_confirm_tristan_preset'), { danger: false })) {
             applyTristanPreset();
+            syncPresetButtons('tristan');
             showToast(i18n.t('toast_preset_tristan_applied'));
-            renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
         }
     };
 
     container.querySelector('#btn-preset-noah').onclick = async () => {
         if (await showConfirmModal(i18n.t('modal_confirm_noah_preset'), { danger: false })) {
             applyNoahPreset();
+            syncPresetButtons('noah');
             showToast(i18n.t('toast_preset_noah_applied'));
-            renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
         }
     };
 
@@ -5214,33 +5335,36 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
         };
     }
 
-    container.querySelectorAll('.btn-stat-move-up').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const idx = parseInt(e.currentTarget.dataset.index);
-            if (idx > 0) {
-                const currentOrder = Storage.getPreference('stats_order', ['progression', 'equivalences', 'bac', 'streak', 'history', 'calendar', 'achievements', 'map']);
-                const temp = currentOrder[idx];
-                currentOrder[idx] = currentOrder[idx - 1];
-                currentOrder[idx - 1] = temp;
-                Storage.savePreference('stats_order', currentOrder);
-                renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
-            }
+    // Stats order in-place binding (no full settings re-render)
+    const bindStatsOrderHandlers = () => {
+        const listEl = container.querySelector('#stats-order-list');
+        if (!listEl) return;
+        listEl.querySelectorAll('.btn-stat-move-up').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.dataset.index, 10);
+                const order = [...Storage.getPreference('stats_order', defaultStatsOrder)];
+                if (idx > 0) {
+                    [order[idx], order[idx - 1]] = [order[idx - 1], order[idx]];
+                    Storage.savePreference('stats_order', order);
+                    listEl.innerHTML = buildStatsOrderItemsHtml(order);
+                    bindStatsOrderHandlers();
+                }
+            });
         });
-    });
-
-    container.querySelectorAll('.btn-stat-move-down').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const idx = parseInt(e.currentTarget.dataset.index);
-            const currentOrder = Storage.getPreference('stats_order', ['progression', 'equivalences', 'bac', 'streak', 'history', 'calendar', 'achievements', 'map']);
-            if (idx < currentOrder.length - 1) {
-                const temp = currentOrder[idx];
-                currentOrder[idx] = currentOrder[idx + 1];
-                currentOrder[idx + 1] = temp;
-                Storage.savePreference('stats_order', currentOrder);
-                renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
-            }
+        listEl.querySelectorAll('.btn-stat-move-down').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.dataset.index, 10);
+                const order = [...Storage.getPreference('stats_order', defaultStatsOrder)];
+                if (idx < order.length - 1) {
+                    [order[idx], order[idx + 1]] = [order[idx + 1], order[idx]];
+                    Storage.savePreference('stats_order', order);
+                    listEl.innerHTML = buildStatsOrderItemsHtml(order);
+                    bindStatsOrderHandlers();
+                }
+            });
         });
-    });
+    };
+    bindStatsOrderHandlers();
 
     const toggleMuseum = container.querySelector('#toggle-museum');
     if (toggleMuseum) {
@@ -5248,17 +5372,13 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             const enabled = e.target.checked;
             Storage.savePreference('museumThemeEnabled', enabled);
             window.dispatchEvent(new Event('beerdex-action'));
-            const museumLink = document.getElementById('css-museum');
-            if (museumLink) museumLink.disabled = !enabled;
-            if (enabled) {
-                document.body.classList.add('theme-museum');
-                const curtainOverlay = document.getElementById('curtain-overlay');
-                if (curtainOverlay) {
-                    curtainOverlay.style.display = 'flex';
-                    setTimeout(() => { curtainOverlay.style.display = 'none'; }, 3500);
-                }
+            if (window.applyTheme) {
+                window.__curtainPlayed = false;
+                window.applyTheme();
             } else {
-                document.body.classList.remove('theme-museum');
+                const museumLink = document.getElementById('css-museum');
+                if (museumLink) museumLink.disabled = !enabled;
+                document.body.classList.toggle('theme-museum', enabled);
             }
             showToast(enabled ? i18n.t('toast_museum_on') : i18n.t('toast_museum_off'));
         };
@@ -5289,17 +5409,24 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
     if (toggleCardStatVolume) toggleCardStatVolume.onchange = (e) => { Storage.savePreference('card_stat_volume', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
 
     const toggleCardBrewBrother = container.querySelector('#toggle-card-brewbrother');
-    if (toggleCardBrewBrother) toggleCardBrewBrother.onchange = (e) => { 
-        Storage.savePreference('card_brewbrother_pct', e.target.checked); 
+    if (toggleCardBrewBrother) toggleCardBrewBrother.onchange = async (e) => { 
+        Storage.savePreference('card_brewbrother_pct', e.target.checked);
+        if (e.target.checked && Storage.getPreference('feat_brewbrother_enabled', true) && window.Recommendation) {
+            try { await window.Recommendation.getUserTasteProfile(allBeers); } catch (_) {}
+        }
         showToast(i18n.t('toast_preference_saved')); 
-        setTimeout(() => window.location.reload(), 300);
     };
 
     const toggleFeatBrewBrother = container.querySelector('#toggle-feat-brewbrother');
-    if (toggleFeatBrewBrother) toggleFeatBrewBrother.onchange = (e) => { 
-        Storage.savePreference('feat_brewbrother_enabled', e.target.checked); 
+    if (toggleFeatBrewBrother) toggleFeatBrewBrother.onchange = async (e) => { 
+        Storage.savePreference('feat_brewbrother_enabled', e.target.checked);
+        if (e.target.checked && window.Recommendation) {
+            window.Recommendation.init(allBeers);
+            if (Storage.getPreference('card_brewbrother_pct', false)) {
+                try { await window.Recommendation.getUserTasteProfile(allBeers); } catch (_) {}
+            }
+        }
         showToast(i18n.t('toast_preference_saved')); 
-        setTimeout(() => window.location.reload(), 300);
     };
 
     const toggleBac = container.querySelector('#toggle-bac-enabled');
@@ -5307,6 +5434,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
         toggleBac.onchange = (e) => {
             const enabled = e.target.checked;
             Storage.savePreference('bac_enabled', enabled);
+            BAC.invalidateBACCache();
             const group = container.querySelector('#bac-settings-group');
             if (group) group.style.display = enabled ? 'block' : 'none';
             showToast(enabled ? i18n.t('toast_bac_on') : i18n.t('toast_bac_off'));
@@ -5314,10 +5442,10 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
     }
 
     const inputWeight = container.querySelector('#input-bac-weight');
-    if (inputWeight) inputWeight.onchange = (e) => { let val = parseInt(e.target.value); if (isNaN(val) || val < 30) val = 30; Storage.savePreference('bac_weight', val); };
+    if (inputWeight) inputWeight.onchange = (e) => { let val = parseInt(e.target.value); if (isNaN(val) || val < 30) val = 30; Storage.savePreference('bac_weight', val); BAC.invalidateBACCache(); };
 
     const selectGender = container.querySelector('#select-bac-gender');
-    if (selectGender) selectGender.onchange = (e) => { Storage.savePreference('bac_gender', e.target.value); };
+    if (selectGender) selectGender.onchange = (e) => { Storage.savePreference('bac_gender', e.target.value); BAC.invalidateBACCache(); };
 
     const toggleBacHome = container.querySelector('#toggle-bac-home');
     if (toggleBacHome) toggleBacHome.onchange = (e) => { Storage.savePreference('bac_show_home', e.target.checked); };
@@ -5336,7 +5464,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
     if (toggleBacManual) toggleBacManual.onchange = (e) => { Storage.savePreference('bac_manual_only', e.target.checked); };
 
     const selectBacDuration = container.querySelector('#select-bac-duration');
-    if (selectBacDuration) selectBacDuration.onchange = (e) => { Storage.savePreference('bac_drink_duration', e.target.value); showToast(i18n.t('toast_bac_duration_updated')); };
+    if (selectBacDuration) selectBacDuration.onchange = (e) => { Storage.savePreference('bac_drink_duration', e.target.value); BAC.invalidateBACCache(); showToast(i18n.t('toast_bac_duration_updated')); };
 
     const selectBacVehicle = container.querySelector('#select-bac-vehicle');
     if (selectBacVehicle) selectBacVehicle.onchange = (e) => { Storage.savePreference('bac_vehicle', e.target.value); showToast(i18n.t('toast_bac_vehicle_updated')); };
@@ -5358,7 +5486,6 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
     const selectLanguage = container.querySelector('#select-language');
     if (selectLanguage) {
         selectLanguage.onchange = async (e) => {
-            const { i18n } = await import('./i18n.js');
             await i18n.setLanguage(e.target.value);
             showToast(i18n.t('toast_lang_updated'));
             renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
@@ -7520,7 +7647,7 @@ export function applyRarityAnimations(container) {
 // Patchnotes System                        //
 // ======================================= //
 
-const CURRENT_VERSION = '5.0.0';
+const CURRENT_VERSION = '5.2.0';
 
 
 export function checkPatchnotes() {
@@ -7710,7 +7837,7 @@ export function renderUnratedBanner(allBeers, container, migrationPrompts = []) 
                 const beerId = chip.dataset.beerId;
                 const beer = allBeers.find(b => String(b.id) === String(beerId));
                 if (beer) {
-                    renderBeerDetail(beer, allBeers);
+                    renderBeerDetail(beer, (ratingData) => _saveRatingFromDetail(beer, ratingData, () => window.renderCurrentView?.()));
                 }
             });
         });
@@ -8074,31 +8201,72 @@ export function filterSettings(query) {
     const container = document.getElementById('settings-container');
     if (!container) return;
 
-    query = query ? query.toLowerCase().trim() : '';
+    const rawQuery = query || '';
+    const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const q = norm(rawQuery);
 
-    const groups = container.querySelectorAll('.setting-group');
-    
-    groups.forEach(group => {
-        let hasVisibleRow = false;
-        const rows = group.querySelectorAll('.setting-row');
-        
+    const inputEl = container.querySelector('#settings-search-input');
+    if (inputEl && inputEl.value !== rawQuery) inputEl.value = rawQuery;
+    const clearBtn = container.querySelector('#settings-search-clear');
+    if (clearBtn) clearBtn.classList.toggle('hidden', q.length === 0);
+    const countEl = container.querySelector('#settings-search-count');
+    const emptyEl = container.querySelector('#settings-search-empty');
+
+    const accordions = container.querySelectorAll('.settings-accordion');
+
+    if (!q) {
+        accordions.forEach(acc => {
+            acc.style.display = '';
+            acc.querySelectorAll('.setting-row').forEach(row => { row.style.display = ''; });
+            const header = acc.querySelector('.settings-accordion-header');
+            const isOpen = _activeSettingsGroup !== null && acc.dataset.group === _activeSettingsGroup;
+            acc.classList.toggle('is-open', isOpen);
+            if (header) header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+        _restoreSettingsConditionalVisibility(container);
+        if (countEl) countEl.classList.add('hidden');
+        if (emptyEl) emptyEl.classList.add('hidden');
+        return;
+    }
+
+    let totalMatches = 0;
+    accordions.forEach(acc => {
+        let groupMatches = 0;
+        const headerText = norm(acc.querySelector('.settings-accordion-header')?.textContent);
+        const rows = acc.querySelectorAll('.setting-row');
+        const bacSub = acc.querySelector('#bac-settings-group');
+        let bacSubMatches = 0;
+
         rows.forEach(row => {
-            const keywords = (row.dataset.keywords || '').toLowerCase();
-            const text = row.innerText.toLowerCase();
-            
-            if (!query || keywords.includes(query) || text.includes(query)) {
-                // If it's a special row like bac-settings-group, we might need a different display.
-                // But most are .setting-row which is flex.
-                row.style.display = row.style.flexDirection === 'column' ? 'flex' : 'flex'; // Actually, just empty to restore CSS or 'flex'
-                row.style.display = 'flex';
-                hasVisibleRow = true;
-            } else {
-                row.style.display = 'none';
+            const keywords = norm(row.dataset.keywords);
+            const text = norm(row.textContent);
+            const matched = keywords.includes(q) || text.includes(q) || headerText.includes(q);
+            row.style.display = matched ? '' : 'none';
+            if (matched) {
+                groupMatches++;
+                totalMatches++;
+                if (bacSub && bacSub.contains(row)) bacSubMatches++;
             }
         });
 
-        group.style.display = hasVisibleRow ? 'block' : 'none';
+        if (bacSub) {
+            bacSub.style.display = bacSubMatches > 0 ? 'block' : 'none';
+        }
+
+        const hasMatch = groupMatches > 0;
+        acc.style.display = hasMatch ? '' : 'none';
+        acc.classList.toggle('is-open', hasMatch);
+        const header = acc.querySelector('.settings-accordion-header');
+        if (header) header.setAttribute('aria-expanded', hasMatch ? 'true' : 'false');
     });
+
+    if (countEl) {
+        countEl.textContent = totalMatches > 0
+            ? `${totalMatches} réglage${totalMatches > 1 ? 's' : ''} trouvé${totalMatches > 1 ? 's' : ''}`
+            : '';
+        countEl.classList.toggle('hidden', totalMatches === 0);
+    }
+    if (emptyEl) emptyEl.classList.toggle('hidden', totalMatches > 0);
 }
 
 export function renderBreweryView(breweryName, breweryBeers, container, activeFilters, onBack) {

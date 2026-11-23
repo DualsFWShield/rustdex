@@ -7,15 +7,11 @@ import be.beerdex.rust.RustNative;
 
 public class MainActivity extends BridgeActivity {
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-    }
+    private boolean rustInterfaceAttached = false;
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        if (getBridge() != null && getBridge().getWebView() != null) {
+    private void attachRustInterfaceIfNeeded() {
+        if (!rustInterfaceAttached && getBridge() != null && getBridge().getWebView() != null) {
+            rustInterfaceAttached = true;
             getBridge().getWebView().addJavascriptInterface(new Object() {
                 @android.webkit.JavascriptInterface
                 public boolean isAvailable() {
@@ -29,35 +25,47 @@ public class MainActivity extends BridgeActivity {
 
                 @android.webkit.JavascriptInterface
                 public double calculateBac(double weight, boolean isFemale, int age, String historyJson, double nowMs) {
-                    return RustNative.calculateBac(weight, isFemale, age, historyJson, nowMs);
+                    return RustNative.isNativeLoaded() ? RustNative.calculateBac(weight, isFemale, age, historyJson, nowMs) : 0.0;
                 }
 
                 @android.webkit.JavascriptInterface
                 public String calculateRarity(String country, String style, double abv, String distribution, boolean barrelAged, String ingredients) {
-                    return RustNative.calculateRarity(country, style, abv, distribution, barrelAged, ingredients);
+                    return RustNative.isNativeLoaded() ? RustNative.calculateRarity(country, style, abv, distribution, barrelAged, ingredients) : "commun";
                 }
 
                 @android.webkit.JavascriptInterface
                 public boolean validateEan13(String barcode) {
-                    return RustNative.validateEan13(barcode);
+                    return RustNative.isNativeLoaded() && RustNative.validateEan13(barcode);
                 }
 
                 @android.webkit.JavascriptInterface
                 public String compressLz(String text) {
-                    return RustNative.compressLz(text);
+                    return RustNative.isNativeLoaded() ? RustNative.compressLz(text) : text;
                 }
 
                 @android.webkit.JavascriptInterface
                 public String decompressLz(String text) {
-                    return RustNative.decompressLz(text);
+                    return RustNative.isNativeLoaded() ? RustNative.decompressLz(text) : text;
                 }
 
                 @android.webkit.JavascriptInterface
                 public String generateQrSvg(String text, int sizePx) {
-                    return RustNative.generateQrSvg(text, sizePx);
+                    return RustNative.isNativeLoaded() ? RustNative.generateQrSvg(text, sizePx) : "";
                 }
             }, "BeerdexAndroidNative");
         }
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        attachRustInterfaceIfNeeded();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        attachRustInterfaceIfNeeded();
     }
 
     @Override

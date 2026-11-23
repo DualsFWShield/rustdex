@@ -1,36 +1,45 @@
 /* js/fx.js - Premium Visual Effects using Canvas Confetti & Animate.css */
 
 import { i18n } from './i18n.js';
+import { loadConfetti, loadVanillaTilt } from './vendor-loader.js';
+
+function _isLowEndPerf() {
+    return typeof document !== 'undefined' && document.body && document.body.classList.contains('perf-low-end');
+}
 
 export class FX {
     static burst(x, y, color = '#FFC000') {
+        if (_isLowEndPerf()) return;
         const xNorm = x / window.innerWidth;
         const yNorm = y / window.innerHeight;
 
         const isMobile = window.innerWidth < 768;
         const pCount = isMobile ? 20 : 50;
 
-        if (window.confetti) {
-            confetti({
-                particleCount: pCount,
-                spread: 70,
-                origin: { x: xNorm, y: yNorm },
-                colors: [color, '#ffffff'],
-                disableForReducedMotion: true,
-                zIndex: 10000
-            });
-        }
+        loadConfetti().then(() => {
+            if (window.confetti) {
+                confetti({
+                    particleCount: pCount,
+                    spread: 70,
+                    origin: { x: xNorm, y: yNorm },
+                    colors: [color, '#ffffff'],
+                    disableForReducedMotion: true,
+                    zIndex: 10000
+                });
+            }
+        }).catch(() => {});
     }
 
     static confetti() {
-        if (window.confetti) {
+        if (_isLowEndPerf()) return;
+        loadConfetti().then(() => {
+            if (!window.confetti) return;
             const isMobile = window.innerWidth < 768;
             var duration = isMobile ? 1000 : 3000;
             var end = Date.now() + duration;
             var pCount = isMobile ? 2 : 5;
 
             (function frame() {
-                // launch a few confetti from the left edge
                 confetti({
                     particleCount: pCount,
                     angle: 60,
@@ -38,7 +47,6 @@ export class FX {
                     origin: { x: 0 },
                     colors: ['#FFC000', '#FF0000', '#0000FF']
                 });
-                // and launch a few from the right edge
                 confetti({
                     particleCount: pCount,
                     angle: 120,
@@ -51,7 +59,7 @@ export class FX {
                     requestAnimationFrame(frame);
                 }
             }());
-        }
+        }).catch(() => {});
     }
 
     static achievementUnlock(title, icon = '🏆', rarity = 'commun') {
@@ -87,20 +95,24 @@ export class FX {
         document.body.appendChild(wrapper);
 
         // Add 3D Tilt & Gyroscope support for premium foils
-        // Only on non-touch devices
+        // Only on non-touch desktop devices and non-low-end mode
         const isTouchPrimary = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-        if (!isTouchPrimary && typeof VanillaTilt !== 'undefined') {
-            VanillaTilt.init(div, {
-                max: 15,
-                speed: 400,
-                glare: true,
-                "max-glare": 0.2,
-                gyroscope: true,
-                gyroscopeMinAngleX: -45,
-                gyroscopeMaxAngleX: 45,
-                gyroscopeMinAngleY: -45,
-                gyroscopeMaxAngleY: 45
-            });
+        if (!isTouchPrimary && !_isLowEndPerf()) {
+            loadVanillaTilt().then(() => {
+                if (typeof VanillaTilt !== 'undefined' && div.isConnected) {
+                    VanillaTilt.init(div, {
+                        max: 15,
+                        speed: 400,
+                        glare: true,
+                        "max-glare": 0.2,
+                        gyroscope: true,
+                        gyroscopeMinAngleX: -45,
+                        gyroscopeMaxAngleX: 45,
+                        gyroscopeMinAngleY: -45,
+                        gyroscopeMaxAngleY: 45
+                    });
+                }
+            }).catch(() => {});
         }
 
         // Sound based on rarity

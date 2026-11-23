@@ -53,6 +53,7 @@ function runWhenIdle(fn, timeout = 2000) {
 // App State
 const state = {
     beers: [],
+    beerMap: new Map(), // O(1) lookup by ID
     filteredBeers: [], // Cache for filtered results
     filter: '',
     activeFilters: {},
@@ -68,6 +69,44 @@ const state = {
     migrationPrompts: [], // Deduplicator results
     activeBrewery: null // Store brewery name for brewery view
 };
+
+function rebuildBeerMap() {
+    state.beerMap.clear();
+    for (let i = 0; i < state.beers.length; i++) {
+        const b = state.beers[i];
+        if (b && b.id !== undefined) state.beerMap.set(String(b.id), b);
+    }
+    window.allBeers = state.beers;
+    window.beerMap = state.beerMap;
+}
+
+export function resetMainScroll() {
+    const mc = document.getElementById('main-content');
+    if (mc) mc.scrollTop = 0;
+    window.scrollTo(0, 0);
+}
+
+export function detectLowEndDevice() {
+    try {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+        const mem = navigator.deviceMemory;
+        if (typeof mem === 'number' && mem > 0 && mem <= 4) return true;
+        const cores = navigator.hardwareConcurrency;
+        if (typeof cores === 'number' && cores > 0 && cores <= 4) return true;
+        const isTouch = window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+        if (isTouch && window.innerWidth <= 480 && (typeof cores !== 'number' || cores <= 6)) return true;
+    } catch (_) {}
+    return false;
+}
+
+export function applyPerformanceMode() {
+    const pref = Storage.getPreference('perf_mode', 'auto');
+    const isLowEnd = pref === 'low' || (pref === 'auto' && detectLowEndDevice());
+    document.body.classList.toggle('perf-low-end', isLowEnd);
+    return isLowEnd;
+}
+window.applyPerformanceMode = applyPerformanceMode;
+window.detectLowEndDevice = detectLowEndDevice;
 
 // The optional Rust/WASM engine used to replace #app with its own pre-rendered
 // shell, which left the freshly-rendered DOM without any listeners (dead
@@ -95,6 +134,8 @@ Wrapped.init(() => state.beers);
 // Initialize Application
 async function init() {
     try {
+        applyPerformanceMode();
+
         // --- NETWORK & EDITION SETUP ---
         setupNetworkListeners();
         const edition = await Env.getEdition();
@@ -124,7 +165,7 @@ async function init() {
         const staticBeers = await Data.fetchAllBeers(coreFiles);
         const customBeers = Storage.getCustomBeers().map(b => Data.enrichBeerMetadata(b));
         state.beers = [...customBeers, ...staticBeers];
-        window.allBeers = state.beers;
+        rebuildBeerMap();
 
         if (window.Recommendation) {
             window.Recommendation.init(state.beers);
@@ -150,16 +191,12 @@ async function init() {
                 'data/cnbeer.json'
             ];
             const moreBeers = await Data.fetchAllBeers(restFiles);
-            // Deduplicate Custom/Static overlaps just in case? Data.js handles internal dedupe, but let's just append
-            const currentIds = new Set(state.beers.map(b => b.id));
-            const newBeersToAdd = moreBeers.filter(b => !currentIds.has(b.id));
+            const newBeersToAdd = moreBeers.filter(b => !state.beerMap.has(String(b.id)));
             
             if (newBeersToAdd.length > 0) {
                 state.beers = [...state.beers, ...newBeersToAdd];
-                window.allBeers = state.beers;
+                rebuildBeerMap();
                 if (window.Recommendation) window.Recommendation.init(state.beers);
-                // We don't forcefully re-render to avoid jumping, but next paginate will include them.
-                // If user is searching right now, they'll show up on next input.
             }
 
             // Thanos: Apply historical ID alias migrations (retroactive data safety)
@@ -250,7 +287,7 @@ async function init() {
                 const homeBtn = document.querySelector('.nav-item[data-view="home"]');
                 if (homeBtn) homeBtn.classList.add('active');
                 renderCurrentView();
-                window.scrollTo(0, 0);
+                resetMainScroll();
                 return true;
             }
 
@@ -374,6 +411,13 @@ export function applyTheme() {
     // Toggle Body Classes
     if (museumThemeEnabled) {
         document.body.classList.add('theme-museum');
+        if (!document.getElementById('font-playfair-museum')) {
+            const link = document.createElement('link');
+            link.id = 'font-playfair-museum';
+            link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&display=swap';
+            document.head.appendChild(link);
+        }
     } else {
         document.body.classList.remove('theme-museum');
     }
@@ -415,14 +459,16 @@ function loadMoreBeers(container, isAppend = false, isDiscoveryMode = false, sho
     if (isAppend && batch.length === 0) return;
 
     // Call UI Render
-    // If it's discovery mode and empty, we might need special handling passed to UI
-    UI.renderBeerList(batch, container, state.activeFilters, showCreatePrompt, () => {
+    const uiFilterCtx = state.filter ? { ...state.activeFilters, query: state.filter } : state.activeFilters;
+    UI.renderBeerList(batch, container, uiFilterCtx, showCreatePrompt, () => {
         // Handle "Create" click from empty state
         UI.renderAddBeerForm((newBeer) => {
             Storage.saveCustomBeer(newBeer);
-            state.beers.unshift(newBeer);
+            const enriched = Data.enrichBeerMetadata(newBeer);
+            state.beers.unshift(enriched);
+            rebuildBeerMap();
             Achievements.checkAchievements(state.beers);
-            state.filter = ''; // Reset filter after add? or keep it?
+            state.filter = ''; // Reset filter after add
             renderCurrentView();
             UI.closeModal();
             UI.showToast(i18n.t('toast_beer_added'));
@@ -554,8 +600,8 @@ function setupEventListeners() {
             }
 
             state.view = targetView;
-            window.scrollTo(0, 0); // Reset scroll to top
-            window.dispatchEvent(new CustomEvent('beerdex-close-search')); // Hide search bar automatically
+            resetMainScroll(); // Reset scroll to top
+            window.dispatchEvent(new CustomEvent('beerdex-close-search', { detail: { silent: true } })); // Hide search bar without double-render
             renderCurrentView();
         });
     });
@@ -603,13 +649,16 @@ function setupEventListeners() {
     });
 
     // Handle back button closing search bar
-    if (bindGlobals) window.addEventListener('beerdex-close-search', () => {
+    if (bindGlobals) window.addEventListener('beerdex-close-search', (e) => {
         const bar = document.getElementById('search-bar');
         const input = document.getElementById('search-input');
+        const hadFilter = Boolean(state.filter);
         if (bar) bar.classList.add('hidden');
         if (input) input.value = '';
         state.filter = '';
-        renderCurrentView();
+        if (!e?.detail?.silent && hadFilter) {
+            renderCurrentView();
+        }
     });
 
     let searchDebounceTimer = null;
@@ -665,17 +714,14 @@ function setupEventListeners() {
     document.getElementById('btn-add-header')?.addEventListener('click', () => {
         UI.renderAddBeerForm((newBeer) => {
             Storage.saveCustomBeer(newBeer);
-            state.beers.unshift(newBeer); // Add to top
+            const enriched = Data.enrichBeerMetadata(newBeer);
+            state.beers.unshift(enriched); // Add to top
+            rebuildBeerMap();
             Achievements.checkAchievements(state.beers);
             renderCurrentView();
             UI.closeModal();
             Feedback.playSuccess();
             Feedback.impactMedium();
-
-            // Note: If adding a beer manually, we only track BAC if they specifically rate it later
-            // The prompt says "with the beers marked as drunk in the app". Adding to the DB isn't necessarily drinking it.
-            // But if they rate it right away? renderAddBeerForm doesn't take rating.
-            // It just adds the beer. Wait, user specifically rates/drinks from details modal.
 
             UI.showToast(i18n.t('toast_beer_added'));
         });
@@ -686,7 +732,7 @@ function setupEventListeners() {
         const card = e.target.closest('.beer-card');
         if (card) {
             const beerId = card.dataset.id;
-            const beer = state.beers.find(b => b.id === beerId);
+            const beer = state.beerMap.get(String(beerId)) || state.beers.find(b => b.id === beerId);
             if (beer) {
                 const oldRating = Storage.getBeerRating(beer.id);
                 UI.renderBeerDetail(beer, (ratingData) => {
@@ -697,14 +743,6 @@ function setupEventListeners() {
                     const newRating = Storage.getBeerRating(beer.id);
                     const newCount = newRating ? (parseInt(newRating.count) || 0) : 0;
                     Utils.syncBACFromCountDiff(beer, oldCount, newCount);
-
-                    // Optimistic update of the specific card instead of full re-render
-                    // Or just re-render view, preserving scroll position?
-                    // Pagination makes full re-render tricky (resets to page 1).
-                    // We should probably just allow the modal close and assumes user sees it.
-                    // But card checkmark update is nice.
-                    // Let's just find the card and update it manually?
-                    // Simple hack: card.classList.add('drunk');
 
                     if (ratingData) card.classList.add('drunk');
 
@@ -913,13 +951,16 @@ if (document.readyState === 'loading') {
 
 // Global event listener for actions triggering achievements
 window.addEventListener('beerdex-action', () => {
-    // Re-sync custom beers into state.beers if one was just added
+    // Re-sync custom beers into state.beers if one was just added or updated
     const customBeers = Storage.getCustomBeers();
+    let changed = false;
     customBeers.forEach(cb => {
-        if (!state.beers.find(b => b.id === cb.id)) {
-            state.beers.unshift(cb);
+        if (!state.beerMap.has(String(cb.id))) {
+            state.beers.unshift(Data.enrichBeerMetadata(cb));
+            changed = true;
         }
     });
+    if (changed) rebuildBeerMap();
 
     Achievements.checkAchievements(state.beers);
 });
@@ -938,14 +979,17 @@ window.addEventListener('beerdex-open-brewery', (e) => {
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
         
         state.view = 'brewery';
-        window.scrollTo(0, 0);
-        window.dispatchEvent(new CustomEvent('beerdex-close-search'));
+        resetMainScroll();
+        window.dispatchEvent(new CustomEvent('beerdex-close-search', { detail: { silent: true } }));
         renderCurrentView();
     }
 });
 
 // Register Service Worker for PWA (Only in Web Mode)
 if ('serviceWorker' in navigator && !window.Capacitor) {
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let swRefreshing = false;
+
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(registration => {
@@ -970,7 +1014,10 @@ if ('serviceWorker' in navigator && !window.Capacitor) {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
+        if (hadController && !swRefreshing) {
+            swRefreshing = true;
+            window.location.reload();
+        }
     });
 }
 
@@ -1058,18 +1105,17 @@ function renderActiveFiltersBar(container, filters, onRemove, onClearAll) {
 
     const bar = document.createElement('div');
     bar.className = 'active-filters-bar';
-    bar.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 15px 0; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; font-size:0.8rem;';
     
-    let html = `<span style="color:#888; font-weight:bold; margin-right:4px;">${i18n.t('filter_active_title') || 'Filtres'}:</span>`;
+    let html = `<span class="active-filters-label">${i18n.t('filter_active_title') || 'Filtres'}:</span>`;
     chips.forEach((c, idx) => {
-        html += `<span class="filter-chip" data-idx="${idx}" style="display:inline-flex; align-items:center; gap:4px; background:rgba(255,192,0,0.15); border:1px solid rgba(255,192,0,0.4); color:var(--accent-gold); padding:2px 8px; border-radius:12px; cursor:pointer;">
-            ${c.label} <span style="font-weight:bold; margin-left:2px;">✕</span>
+        html += `<span class="filter-chip active" data-idx="${idx}">
+            ${c.label} <span class="filter-chip-close">✕</span>
         </span>`;
     });
-    html += `<button id="btn-clear-all-chips" style="background:none; border:none; color:#888; margin-left:auto; cursor:pointer; font-size:0.75rem; text-decoration:underline;">${i18n.t('filter_clear_all') || 'Tout effacer'}</button>`;
+    html += `<button type="button" id="btn-clear-all-chips" class="active-filters-clear">${i18n.t('filter_clear_all') || 'Tout effacer'}</button>`;
     
     bar.innerHTML = html;
-    container.appendChild(bar);
+    container.prepend(bar);
 
     bar.querySelectorAll('.filter-chip').forEach(el => {
         el.onclick = () => {
@@ -1085,16 +1131,59 @@ function renderActiveFiltersBar(container, filters, onRemove, onClearAll) {
     }
 }
 
-// Redefine renderCurrentView correctly to include applyFilters
-// This overwrites the previous definition in this file content block
+function buildHomeBacWidgetHtml() {
+    const bacStatus = BAC.getBACStatus();
+    const bacValue = BAC.getCurrentBAC().toFixed(2);
+    const breathValue = (BAC.getCurrentBAC() * 0.44).toFixed(2);
+
+    return `
+        <div class="bac-widget-home" style="--bac-color: ${bacStatus.color};">
+            <div class="bac-widget-home-info">
+                <div class="bac-widget-home-eyebrow">${i18n.t('bac_speculative_title')}</div>
+                <div class="bac-widget-home-title">
+                    ${bacStatus.title} <span class="bac-widget-home-val">(${bacValue} g/l)</span>
+                </div>
+                <div class="bac-widget-home-sub">
+                    ${i18n.t('bac_air_expired')}: <span class="bac-widget-home-breath">${breathValue}</span> mg/l
+                </div>
+            </div>
+            <div class="bac-widget-home-icon">
+                <span>🩸</span>
+            </div>
+        </div>
+    `;
+}
+
+function attachActiveFiltersBar(mainContent) {
+    renderActiveFiltersBar(mainContent, state.activeFilters, (key, value) => {
+        if (key === 'type') {
+            state.activeFilters.type = (state.activeFilters.type || []).filter(t => t !== value);
+            if (state.activeFilters.type.length === 0) delete state.activeFilters.type;
+        } else if (key === 'rarity') {
+            state.activeFilters.rarity = (state.activeFilters.rarity || []).filter(r => r !== value);
+            if (state.activeFilters.rarity.length === 0) delete state.activeFilters.rarity;
+        } else {
+            delete state.activeFilters[key];
+        }
+        const btn = document.getElementById('filter-toggle');
+        if (btn) btn.style.color = Object.keys(state.activeFilters).length > 0 ? 'var(--accent-gold)' : 'inherit';
+        renderCurrentView();
+    }, () => {
+        state.activeFilters = {};
+        const btn = document.getElementById('filter-toggle');
+        if (btn) btn.style.color = 'inherit';
+        renderCurrentView();
+    });
+}
+
 function renderCurrentView() {
     const mainContent = document.getElementById('main-content');
     const appHeader = document.querySelector('.app-header');
 
     Analytics.track('view_change', { view: state.view });
 
-    // Ensure window scroll is reset to prevent off-screen shifting issues on mobile
-    window.scrollTo(0, 0);
+    // Ensure scroll is reset on the real scroll container (#main-content) and window
+    resetMainScroll();
 
     // Reset padding for non-beerpedia views
     mainContent.style.padding = '';
@@ -1208,27 +1297,7 @@ function renderCurrentView() {
                 
                 // BAC Widget on Home page
                 if (Storage.getPreference('bac_enabled', true) && Storage.getPreference('bac_show_home', true)) {
-                    const bacStatus = BAC.getBACStatus();
-                    const bacValue = BAC.getCurrentBAC().toFixed(2);
-                    const breathValue = (BAC.getCurrentBAC() * 0.44).toFixed(2);
-
-                    const widgetHtml = `
-                        <div class="bac-widget-home" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover)); border-left: 5px solid ${bacStatus.color}; padding: 15px; border-radius: 12px; margin: 0 0 20px 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 16px rgba(0,0,0,0.5); border: 1px solid var(--border-color); border-left: 5px solid ${bacStatus.color};">
-                            <div>
-                                <div style="font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; font-weight: bold;">${i18n.t('bac_speculative_title')}</div>
-                                <div style="font-size: 1.1rem; font-weight: 700; color: ${bacStatus.color}; text-shadow: 0 0 10px ${bacStatus.color}44;">
-                                    ${bacStatus.title} <span style="font-size: 0.9rem; color: #fff; font-weight: normal; margin-left: 5px;">(${bacValue} g/l)</span>
-                                </div>
-                                <div style="font-size: 0.75rem; color: #888; margin-top: 5px;">
-                                    ${i18n.t('bac_air_expired')}: <span style="color: ${bacStatus.color}; font-weight: bold;">${breathValue}</span> mg/l
-                                </div>
-                            </div>
-                            <div style="background: ${bacStatus.color}22; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid ${bacStatus.color}44;">
-                                 <span style="font-size: 1.2rem;">🩸</span>
-                            </div>
-                        </div>
-                    `;
-                    mainContent.insertAdjacentHTML('afterbegin', widgetHtml);
+                    mainContent.insertAdjacentHTML('afterbegin', buildHomeBacWidgetHtml());
                 }
                 
                 if (typeof updateWidgetData === 'function') updateWidgetData();
@@ -1260,52 +1329,17 @@ function renderCurrentView() {
         const busTab = document.querySelector('.nav-item[data-view="drunk"]');
         if (busTab) busTab.style.display = isDiscovery ? 'none' : 'flex';
 
-        // Render Active Filter Chips Summary (if any filters active)
-        renderActiveFiltersBar(mainContent, state.activeFilters, (key, value) => {
-            if (key === 'type') {
-                state.activeFilters.type = (state.activeFilters.type || []).filter(t => t !== value);
-                if (state.activeFilters.type.length === 0) delete state.activeFilters.type;
-            } else if (key === 'rarity') {
-                state.activeFilters.rarity = (state.activeFilters.rarity || []).filter(r => r !== value);
-                if (state.activeFilters.rarity.length === 0) delete state.activeFilters.rarity;
-            } else {
-                delete state.activeFilters[key];
-            }
-            renderCurrentView();
-        }, () => {
-            state.activeFilters = {};
-            renderCurrentView();
-        });
-
-        // Render first batch - PASS NULL for filters to UI because we already filtered!
+        // Render first batch first (renderBeerList clears container on non-append)
         loadMoreBeers(mainContent, false, isDiscovery, isDiscovery && state.filter);
 
-        // BAC Widget on Home page (Must be after loadMoreBeers so it doesn't get cleared)
+        // Insert Active Filter Chips Summary AFTER loadMoreBeers so it isn't wiped
+        attachActiveFiltersBar(mainContent);
+
+        // BAC Widget on Home page (Must be after loadMoreBeers & chips so it sits at top)
         if (Storage.getPreference('bac_enabled', true)) {
 
             if (Storage.getPreference('bac_show_home', true)) {
-
-                const bacStatus = BAC.getBACStatus();
-                const bacValue = BAC.getCurrentBAC().toFixed(2);
-                const breathValue = (BAC.getCurrentBAC() * 0.44).toFixed(2);
-
-                const widgetHtml = `
-                    <div class="bac-widget-home" style="background: linear-gradient(135deg, var(--bg-card), var(--bg-card-hover)); border-left: 5px solid ${bacStatus.color}; padding: 15px; border-radius: 12px; margin: 0 0 20px 0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 16px rgba(0,0,0,0.5); border: 1px solid var(--border-color); border-left: 5px solid ${bacStatus.color};">
-                        <div>
-                            <div style="font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px; font-weight: bold;">${i18n.t('bac_speculative_title')}</div>
-                            <div style="font-size: 1.1rem; font-weight: 700; color: ${bacStatus.color}; text-shadow: 0 0 10px ${bacStatus.color}44;">
-                                ${bacStatus.title} <span style="font-size: 0.9rem; color: #fff; font-weight: normal; margin-left: 5px;">(${bacValue} g/l)</span>
-                            </div>
-                            <div style="font-size: 0.75rem; color: #888; margin-top: 5px;">
-                                ${i18n.t('bac_air_expired')}: <span style="color: ${bacStatus.color}; font-weight: bold;">${breathValue}</span> mg/l
-                            </div>
-                        </div>
-                        <div style="background: ${bacStatus.color}22; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid ${bacStatus.color}44;">
-                             <span style="font-size: 1.2rem;">🩸</span>
-                        </div>
-                    </div>
-                `;
-                mainContent.insertAdjacentHTML('afterbegin', widgetHtml);
+                mainContent.insertAdjacentHTML('afterbegin', buildHomeBacWidgetHtml());
             }
 
             // Sync data to native home screen widget
@@ -1322,7 +1356,12 @@ function renderCurrentView() {
         const consumedIds = Storage.getAllConsumedBeerIdSet();
         let drunkBeers = state.beers.filter(b => consumedIds.has(b.id));
 
-        // Apply filters to drunk view too? Why not.
+        // Apply search query in Bus view as well
+        if (state.filter) {
+            drunkBeers = searchBeers(drunkBeers, state.filter);
+        }
+
+        // Apply filters to drunk view
         drunkBeers = applyFilters(drunkBeers, state.activeFilters);
 
         state.filteredBeers = drunkBeers;
@@ -1330,6 +1369,7 @@ function renderCurrentView() {
         state.pagination.hasMore = true;
 
         loadMoreBeers(mainContent, false, false, false);
+        attachActiveFiltersBar(mainContent);
 
         // Unrated banner on drunk view
         if (Storage.getPreference('feat_reminders_enabled', true)) {
@@ -1475,11 +1515,35 @@ window.addImportedCustomBeers = (newBeers) => {
         }
     });
 
-    window.allBeers = state.beers;
+    rebuildBeerMap();
     Achievements.checkAchievements(state.beers);
     if (window.Recommendation) {
         window.Recommendation.init(state.beers);
     }
     renderCurrentView();
+};
+
+window.removeBeerFromState = (beerId) => {
+    const idStr = String(beerId);
+    const idx = state.beers.findIndex(b => String(b.id) === idStr);
+    if (idx !== -1) {
+        state.beers.splice(idx, 1);
+        rebuildBeerMap();
+        if (window.Recommendation) window.Recommendation.init(state.beers);
+    }
+};
+
+window.updateBeerInState = (updatedBeer) => {
+    if (!updatedBeer) return;
+    const enriched = Data.enrichBeerMetadata(updatedBeer);
+    const idStr = String(enriched.id);
+    const idx = state.beers.findIndex(b => String(b.id) === idStr);
+    if (idx !== -1) {
+        state.beers[idx] = enriched;
+    } else {
+        state.beers.unshift(enriched);
+    }
+    rebuildBeerMap();
+    if (window.Recommendation) window.Recommendation.init(state.beers);
 };
 

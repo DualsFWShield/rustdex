@@ -101,6 +101,12 @@ fn main() {
 }
 
 fn collect_files(dir: &Path, base: &Path, entries: &mut Vec<(String, PathBuf)>) {
+    const EXCLUDED_ASSETS: &[&str] = &[
+        "icons/transparent.png",
+        "icons/transparent-b.png",
+        "icons/beerdex-qr.svg",
+        "icons/logo.png",
+    ];
     if let Ok(read_dir) = fs::read_dir(dir) {
         for entry in read_dir.flatten() {
             let path = entry.path();
@@ -113,6 +119,9 @@ fn collect_files(dir: &Path, base: &Path, entries: &mut Vec<(String, PathBuf)>) 
                     .to_str()
                     .unwrap()
                     .replace('\\', "/");
+                if EXCLUDED_ASSETS.contains(&rel.as_str()) {
+                    continue;
+                }
                 entries.push((rel, path));
             }
         }

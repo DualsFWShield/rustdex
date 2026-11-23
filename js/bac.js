@@ -15,21 +15,44 @@ const AVERAGE_R = 0.615; // Average for "prefer not to say"
 const ELIMINATION_RATE = 0.15; // g/l per hour
 
 // Belgian 2026 legal thresholds & International limits
-export let BAC_RULES = {};
-try {
-    const rulesUrl = new URL('../data/bac_rules.json', import.meta.url).href;
-    const res = await fetch(rulesUrl);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    BAC_RULES = await res.json();
-} catch (e) {
-    console.error("Failed to load BAC rules", e);
-    // Safe Fallback
-    BAC_RULES = {
-        "BE": {
-            "nameKey": "country_be", "sanctionThreshold": 0.5, "withdrawThreshold": 0.8,
-            "airRatio": 0.44, "sanctionKey": "bac_be_sanction", "withdrawKey": "bac_be_withdraw"
-        }
-    };
+// Initialized synchronously with full defaults so module evaluation never blocks boot;
+// refreshed in the background from data/bac_rules.json.
+export let BAC_RULES = {
+    "FR": { "nameKey": "country_fr", "sanctionThreshold": 0.5, "withdrawThreshold": 0.8, "airRatio": 0.50, "sanctionKey": "bac_fr_sanction", "withdrawKey": "bac_fr_withdraw" },
+    "BE": { "nameKey": "country_be", "sanctionThreshold": 0.5, "withdrawThreshold": 0.8, "airRatio": 0.44, "sanctionKey": "bac_be_sanction", "withdrawKey": "bac_be_withdraw" },
+    "DE": { "nameKey": "country_de", "sanctionThreshold": 0.5, "withdrawThreshold": 1.1, "airRatio": 0.50, "sanctionKey": "bac_de_sanction", "withdrawKey": "bac_de_withdraw" },
+    "NL": { "nameKey": "country_nl", "sanctionThreshold": 0.5, "withdrawThreshold": 1.3, "airRatio": 0.44, "sanctionKey": "bac_nl_sanction", "withdrawKey": "bac_nl_withdraw" },
+    "CO": { "nameKey": "country_co", "sanctionThreshold": 0.2, "withdrawThreshold": 0.2, "airRatio": 0.48, "sanctionKey": "bac_co_sanction", "withdrawKey": "bac_co_withdraw" },
+    "US": { "nameKey": "country_us", "sanctionThreshold": 0.8, "withdrawThreshold": 0.8, "airRatio": 0.48, "sanctionKey": "bac_us_sanction", "withdrawKey": "bac_us_withdraw" },
+    "CN": { "nameKey": "country_cn", "sanctionThreshold": 0.2, "withdrawThreshold": 0.8, "airRatio": 0.50, "sanctionKey": "bac_cn_sanction", "withdrawKey": "bac_cn_withdraw" },
+    "IT": { "nameKey": "country_it", "sanctionThreshold": 0.5, "withdrawThreshold": 0.8, "airRatio": 0.44, "sanctionKey": "bac_it_sanction", "withdrawKey": "bac_it_withdraw" },
+    "JP": { "nameKey": "country_jp", "sanctionThreshold": 0.3, "withdrawThreshold": 0.5, "airRatio": 0.50, "sanctionKey": "bac_jp_sanction", "withdrawKey": "bac_jp_withdraw" },
+    "KR": { "nameKey": "country_kr", "sanctionThreshold": 0.3, "withdrawThreshold": 0.8, "airRatio": 0.48, "sanctionKey": "bac_kr_sanction", "withdrawKey": "bac_kr_withdraw" }
+};
+
+if (typeof fetch === 'function') {
+    try {
+        const rulesUrl = new URL('../data/bac_rules.json', import.meta.url).href;
+        fetch(rulesUrl)
+            .then(res => (res.ok ? res.json() : null))
+            .then(json => {
+                if (json && typeof json === 'object') {
+                    Object.assign(BAC_RULES, json);
+                }
+            })
+            .catch(() => {});
+    } catch (_) {}
+}
+
+let _simCacheKey = null;
+let _simCacheTime = 0;
+let _simCacheResult = null;
+const SIM_CACHE_TTL_MS = 15000;
+
+export function invalidateBACCache() {
+    _simCacheKey = null;
+    _simCacheTime = 0;
+    _simCacheResult = null;
 }
 
 export function getCurrentRules() {
@@ -91,6 +114,7 @@ export function addDrinkToBAC(volumeMl, abv, customDate = null) {
     });
 
     Storage.savePreference('bac_history', filteredHistory);
+    invalidateBACCache();
     return filteredHistory;
 }
 
@@ -120,6 +144,7 @@ export function removeDrinkFromBAC(volumeMl, abv) {
     if (foundIndex !== -1) {
         history.splice(foundIndex, 1);
         Storage.savePreference('bac_history', history);
+        invalidateBACCache();
     }
     return history;
 }
@@ -132,33 +157,51 @@ export function simulateBAC(extraDrinks = []) {
     if (!enabled) return { currentBAC: 0, curve: [] };
 
     const historyUnsorted = Storage.getPreference('bac_history', []);
+    const now = Date.now();
+    const rawWeight = Storage.getPreference('bac_weight', 70);
+    const gender = Storage.getPreference('bac_gender', 'M');
+    const drinkDurationMin = parseInt(Storage.getPreference('bac_drink_duration', 0)) || 0;
+
+    const hasExtras = extraDrinks && extraDrinks.length > 0;
+    let cacheKey = null;
+    if (!hasExtras) {
+        const lastItem = historyUnsorted.length > 0 ? historyUnsorted[historyUnsorted.length - 1] : null;
+        cacheKey = `${historyUnsorted.length}|${lastItem ? lastItem.time + ':' + lastItem.grams : ''}|${rawWeight}|${gender}|${drinkDurationMin}`;
+        if (_simCacheResult && _simCacheKey === cacheKey && (now - _simCacheTime) < SIM_CACHE_TTL_MS) {
+            return _simCacheResult;
+        }
+    }
     
-    const now = new Date().getTime();
     // Filter history to last 24h just in case and strictly require numeric grams to avoid NaN poisoning
     const recentHistory = historyUnsorted.filter(d => d && !isNaN(d.grams) && (now - d.time) < 24 * 60 * 60 * 1000);
     
     // Add extra hypothetical drinks if provided (for speculative BAC)
     const allHistory = [...recentHistory];
-    if (extraDrinks && extraDrinks.length > 0) {
+    if (hasExtras) {
         extraDrinks.forEach(d => allHistory.push(d));
     }
 
-    if (allHistory.length === 0) return { currentBAC: 0, curve: [] };
+    if (allHistory.length === 0) {
+        const emptyRes = { currentBAC: 0, curve: [] };
+        if (!hasExtras) {
+            _simCacheKey = cacheKey;
+            _simCacheTime = now;
+            _simCacheResult = emptyRes;
+        }
+        return emptyRes;
+    }
 
     const history = [...allHistory].sort((a, b) => a.time - b.time);
 
     // Robust parsing for weight to prevent NaN from old saved literal string bugs
-    let rawWeight = Storage.getPreference('bac_weight', 70);
     let weightKg = parseFloat(rawWeight);
     if (isNaN(weightKg) || weightKg < 20) weightKg = 70;
 
-    const gender = Storage.getPreference('bac_gender', 'M');
     const r = gender === 'M' ? MEN_R : (gender === 'F' ? WOMEN_R : AVERAGE_R);
     const BAC_PER_GRAM = 1 / (weightKg * r);
     const ELIMINATION_PER_MIN = ELIMINATION_RATE / 60;
 
     // Drink duration (time to drink a beer) — spreads absorption over this period
-    const drinkDurationMin = parseInt(Storage.getPreference('bac_drink_duration', 0)) || 0;
     const ABSORPTION_MINS = 45 + drinkDurationMin; // Base 45 min absorption + drinking time
 
     let simTime = history[0].time;
@@ -224,7 +267,13 @@ export function simulateBAC(extraDrinks = []) {
 
     if (now < history[0].time) currentActualBAC = 0;
 
-    return { currentBAC: currentActualBAC, curve };
+    const result = { currentBAC: currentActualBAC, curve };
+    if (!hasExtras) {
+        _simCacheKey = cacheKey;
+        _simCacheTime = now;
+        _simCacheResult = result;
+    }
+    return result;
 }
 
 /**
@@ -545,6 +594,7 @@ export function logManualBAC(bacValue) {
 
     // Reset history to this single reference point for manual override
     Storage.savePreference('bac_history', [drink]);
+    invalidateBACCache();
 }
 
 /**

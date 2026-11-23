@@ -64,3 +64,31 @@ export function loadP2P() {
     }
     return _p2pPromise;
 }
+
+let _tiltPromise = null;
+
+/** Loads VanillaTilt only when requested (desktop non-touch). */
+export function loadVanillaTilt() {
+    if (window.VanillaTilt) return Promise.resolve();
+    if (!_tiltPromise) {
+        _tiltPromise = loadScript('js/vendor/vanilla-tilt.min.js').catch(err => {
+            _tiltPromise = null;
+            throw err;
+        });
+    }
+    return _tiltPromise;
+}
+
+let _confettiPromise = null;
+
+/** Loads canvas-confetti on demand for celebrations. */
+export function loadConfetti() {
+    if (window.confetti) return Promise.resolve();
+    if (!_confettiPromise) {
+        _confettiPromise = loadScript('js/vendor/confetti.browser.min.js').catch(err => {
+            _confettiPromise = null;
+            throw err;
+        });
+    }
+    return _confettiPromise;
+}

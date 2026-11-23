@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Beerdex-v5.1.1'; // v5.1.1: shell-rebind fix + leaner precache, complete module list
+const CACHE_NAME = 'Beerdex-v5.2.0'; // v5.2.0: low-end perf mode, bugfixes, accordion settings & UI polish
 // App shell only. Multi-megabyte media (foam.png ~85 MB, logo-bnr.png ~16 MB,
 // easter-egg mp3/mp4) is intentionally NOT precached: downloading it on install
 // delayed first-run/offline availability dramatically. It is cached lazily by
@@ -9,7 +9,6 @@ const ASSETS = [
     './style.css',
     './style-museum.css',
     './css/wrapped.css',
-    './css/vendor/animate.min.css',
     './js/achievements.js',
     './js/analytics.js',
     './js/api.js',

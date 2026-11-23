@@ -240,7 +240,7 @@ const Match = {
             p.tastedBeerIds = allConsumed;
         }
         if (Storage.getPreference('beermatch_share_achievements', true)) {
-            const ach = JSON.parse(localStorage.getItem('unlockedAchievements') || '[]');
+            const ach = JSON.parse(localStorage.getItem('beerdex_achievements') || localStorage.getItem('unlockedAchievements') || '[]');
             p.achievementsCount = ach.length;
         }
         if (Storage.getPreference('beermatch_share_archetype', true)) {

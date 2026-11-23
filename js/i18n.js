@@ -39,7 +39,7 @@ class I18nManager {
 
         if (!this.cache[lang]) {
             try {
-                const fetchUrl = window.Capacitor ? `data/locales/${lang}.json` : `data/locales/${lang}.json?v=${Date.now()}`;
+                const fetchUrl = window.Capacitor ? `data/locales/${lang}.json` : `data/locales/${lang}.json?v=5.2.0`;
                 const response = await fetch(fetchUrl);
                 if (response.ok) {
                     this.cache[lang] = await response.json();

@@ -35,10 +35,26 @@ foreach ($variant in $VARIANTS) {
         }
     }
 
+    # Prune oversized master artwork/unreferenced icons from mobile bundles (~70 MB saved)
+    foreach ($bloat in @(
+        (Join-Path $wwwDir "icons/transparent.png"),
+        (Join-Path $wwwDir "icons/transparent-b.png"),
+        (Join-Path $wwwDir "icons/beerdex-qr.svg"),
+        (Join-Path $wwwDir "icons/logo.png")
+    )) {
+        if (Test-Path $bloat) { Remove-Item -Force $bloat }
+    }
+
     # Copy images
     if ($variant.IsOffline) {
         Copy-Item -Path "images" -Destination $wwwDir -Recurse -Force
-        Write-Host "  Copied ALL images (offline mode)"
+        foreach ($unusedDir in @(
+            (Join-Path $wwwDir "images/beer/toreview"),
+            (Join-Path $wwwDir "images/beer/notadded")
+        )) {
+            if (Test-Path $unusedDir) { Remove-Item -Recurse -Force $unusedDir }
+        }
+        Write-Host "  Copied ALL images (offline mode, pruned review/staging folders)"
     } else {
         $imagesDest = Join-Path $wwwDir "images"
         New-Item -ItemType Directory -Path $imagesDest | Out-Null
