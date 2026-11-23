@@ -24,6 +24,67 @@ const EMPTY_BREWERY_DATA = {};
 // on the beer itself, the shared brewery table and the active locale (which
 // triggers a full reload when changed), so memoising it is safe.
 const _enrichCache = new WeakMap();
+const _breweryLowerCache = new WeakMap();
+
+const PROVINCE_ALIASES = {
+    'bevbr': 'VBR',
+    'be-van': 'ANT',
+    'be-vli': 'LIM',
+    'be-vwv': 'WVL',
+    'be-vov': 'OVL',
+    'be-vbr': 'VBR',
+    'be-bru': 'BRU',
+    'be-wbr': 'WBR',
+    'be-wht': 'HAI',
+    'be-wna': 'NAM',
+    'be-wlg': 'LIE',
+    'be-wlx': 'LUX',
+    '59': 'FRHDF',
+    '62': 'FRHDF',
+    'fr-59': 'FRHDF',
+    'hauts-de-france': 'FRHDF',
+    'grand est': 'FRGES',
+    'paca': 'FRPAC',
+    "provence-alpes-cote d'azur": 'FRPAC',
+    'auvergne-rhone-alpes': 'FRARA',
+    'auvergne-rhne-alpes': 'FRARA',
+    'bourgogne-franche-comte': 'FRBFC',
+    'occitanie': 'FROCC',
+    'pays de la loire': 'FRPDL',
+    'bretagne': 'FRBRE',
+    'normandie': 'FRNOR',
+    'corse': 'FR20R',
+    'nouvelle-aquitaine': 'FRNAQ',
+    'centre-val de loire': 'FRCVL',
+    'ile-de-france': 'FRIDF'
+};
+
+function _normalizeProvinceCode(raw) {
+    if (!raw) return '';
+    const trimmed = String(raw).trim();
+    const asciiKey = trimmed
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\uFFFD/g, '');
+    if (PROVINCE_ALIASES[asciiKey]) return PROVINCE_ALIASES[asciiKey];
+    return trimmed;
+}
+
+function _lookupBrewery(breweryData, name) {
+    if (!breweryData || !name) return null;
+    if (breweryData[name]) return breweryData[name];
+    let lowerMap = _breweryLowerCache.get(breweryData);
+    if (!lowerMap) {
+        lowerMap = new Map();
+        for (const [k, v] of Object.entries(breweryData)) {
+            lowerMap.set(k.toLowerCase().trim(), v);
+        }
+        _breweryLowerCache.set(breweryData, lowerMap);
+    }
+    return lowerMap.get(String(name).toLowerCase().trim()) || null;
+}
+
 let _missingImagesSet = new Set();
 let _missingImagesPromise = null;
 
@@ -53,13 +114,13 @@ export function enrichBeerMetadata(beer, breweryData = EMPTY_BREWERY_DATA) {
     let searchRegion = beer.searchRegion || '';
     let searchCountry = beer.searchCountry || '';
 
-    const brewInfo = breweryData[beer.brewery];
+    const brewInfo = _lookupBrewery(breweryData, beer.brewery);
     let countryCode = brewInfo?.country;
-    let provinceCode = brewInfo?.province || beer.province;
+    let provinceCode = _normalizeProvinceCode(brewInfo?.province || beer.province);
 
-    if (!countryCode && beer.province) {
-        for (const [scope, mapObj] of Object.entries(MAPS)) {
-            if (mapObj.names && mapObj.names[beer.province]) {
+    if (!countryCode && provinceCode) {
+        for (const [, mapObj] of Object.entries(MAPS)) {
+            if (mapObj.names && mapObj.names[provinceCode]) {
                 countryCode = mapObj.countryCode;
                 break;
             }
@@ -80,6 +141,7 @@ export function enrichBeerMetadata(beer, breweryData = EMPTY_BREWERY_DATA) {
     const result = {
         ...beer,
         countryCode: countryCode || '',
+        province: provinceCode || '',
         searchRegion,
         searchCountry
     };

@@ -5710,4 +5710,33 @@ body.perf-low-end .settings-accordion-body {
     text-align: center;
 }
 
+.modal-content .btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-subtle, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.16));
+    color: var(--text-primary);
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.modal-content .btn-cancel:hover {
+    background: var(--accent-soft, rgba(255, 192, 0, 0.12));
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+}
+
+.passport-header .setting-btn,
+.compare-header .setting-btn {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border-radius: 10px;
+}
+
 

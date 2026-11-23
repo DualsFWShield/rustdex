@@ -55,7 +55,7 @@ function _bgCacheKey(src) {
     }
 }
 
-function _bgCachedSrc(src) {
+export function _bgCachedSrc(src) {
     if (!src || src.startsWith('data:')) return null;
     const key = _bgCacheKey(src);
     const cached = _bgRemovalCache.get(key);

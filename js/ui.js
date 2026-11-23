@@ -36,6 +36,7 @@ import {
 } from './ui-modals.js';
 
 import {
+    _bgCachedSrc,
     removeImageBackground,
     renderBeerList,
     generateStarRatingHTML,

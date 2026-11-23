@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Beerdex-v5.3.0'; // v5.3.0: IDB storage, local Chart.js, modular UI, grid virtualization, pairings, compare, passport, TCG & OCR
+const CACHE_NAME = 'Beerdex-v5.3.1'; // v5.3.1: fix _bgCachedSrc import, passport regions mapping & modal cancel button CSS
 // App shell only. Multi-megabyte media (foam.png ~85 MB, logo-bnr.png ~16 MB,
 // easter-egg mp3/mp4) is intentionally NOT precached: downloading it on install
 // delayed first-run/offline availability dramatically. It is cached lazily by

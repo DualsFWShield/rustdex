@@ -39,8 +39,22 @@ export function buildPassportData(allBeers = [], userData = Storage.getAllUserDa
         const regionsTasted = new Map();
         const regionsTotal = new Map();
 
+        // Build reverse lookup from region display name -> region code (handles beers without beer.province)
+        const nameToCode = new Map();
+        for (const [code, label] of Object.entries(regionNames)) {
+            nameToCode.set(Utils.normalize(label), code);
+        }
+        if (cfg.names) {
+            for (const [code, label] of Object.entries(cfg.names)) {
+                nameToCode.set(Utils.normalize(label), code);
+            }
+        }
+
         for (const beer of scopeBeers) {
-            const reg = beer.province || '';
+            let reg = beer.province || '';
+            if ((!reg || !regionNames[reg]) && beer.searchRegion) {
+                reg = nameToCode.get(Utils.normalize(beer.searchRegion)) || reg;
+            }
             if (reg) regionsTotal.set(reg, (regionsTotal.get(reg) || 0) + 1);
             const u = userData[beer.id];
             if (u && u.count > 0) {
