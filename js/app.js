@@ -134,6 +134,7 @@ Wrapped.init(() => state.beers);
 // Initialize Application
 async function init() {
     try {
+        await Storage.initStorage();
         applyPerformanceMode();
 
         // --- NETWORK & EDITION SETUP ---

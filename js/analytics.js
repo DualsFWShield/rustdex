@@ -50,16 +50,11 @@ class AnalyticsTracker {
     }
 
     _getQueue() {
-        try {
-            const q = localStorage.getItem(this.queueKey);
-            return q ? JSON.parse(q) : [];
-        } catch {
-            return [];
-        }
+        return Storage.getJsonItem(this.queueKey, []) || [];
     }
 
     _saveQueue(q) {
-        localStorage.setItem(this.queueKey, JSON.stringify(q));
+        Storage.setJsonItem(this.queueKey, q);
     }
 
     /**
@@ -130,7 +125,7 @@ class AnalyticsTracker {
      * Summarize historical usage
      */
     retroactiveSync() {
-        if (!this.isInitialized || localStorage.getItem('beerdex_ga_retro_synced')) return;
+        if (!this.isInitialized || Storage.getRawItem('beerdex_ga_retro_synced')) return;
 
         const allUserData = Storage.getAllUserData();
         const customBeers = Storage.getCustomBeers();
@@ -152,7 +147,7 @@ class AnalyticsTracker {
             custom_beers: customBeers.length
         });
 
-        localStorage.setItem('beerdex_ga_retro_synced', 'true');
+        Storage.setRawItem('beerdex_ga_retro_synced', 'true');
     }
 }
 

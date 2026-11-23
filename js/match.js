@@ -240,11 +240,11 @@ const Match = {
             p.tastedBeerIds = allConsumed;
         }
         if (Storage.getPreference('beermatch_share_achievements', true)) {
-            const ach = JSON.parse(localStorage.getItem('beerdex_achievements') || localStorage.getItem('unlockedAchievements') || '[]');
+            const ach = Storage.getUnlockedAchievementsRaw();
             p.achievementsCount = ach.length;
         }
         if (Storage.getPreference('beermatch_share_archetype', true)) {
-            p.archetype = localStorage.getItem('last_archetype') || 'archetype_novice';
+            p.archetype = Storage.getRawItem('last_archetype', 'archetype_novice');
         }
         
         return p;

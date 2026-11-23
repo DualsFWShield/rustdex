@@ -4,18 +4,14 @@
  * with the application frontend for zero-latency calculations.
  */
 
+import * as Storage from './storage.js';
+
 let wasmInstance = null;
 let isReady = false;
 let _initPromise = null;
 
 export function isRustEnabledPreference() {
-    try {
-        const val = localStorage.getItem('beerdex_pref_feat_rust_enabled');
-        if (val === null) return true;
-        return JSON.parse(val) !== false;
-    } catch {
-        return true;
-    }
+    return Storage.getPreference('feat_rust_enabled', true) !== false;
 }
 
 export function isAndroidNative() {

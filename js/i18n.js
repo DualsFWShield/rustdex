@@ -18,6 +18,10 @@ class I18nManager {
         this.supportedLangs = supportedLangs;
     }
 
+    getLanguage() {
+        return this.currentLang || 'fr';
+    }
+
     async init() {
         // Retrieve saved language from preferences or detect browser language
         let savedLang = Storage.getPreference('app_language', null);

@@ -495,15 +495,12 @@ export function checkAchievements(allBeers) {
 }
 
 // Storage Helpers for Achievements
-const STORAGE_KEY_ACHIEVEMENTS = 'beerdex_achievements';
-
 export function getUnlockedAchievements() {
-    const data = localStorage.getItem(STORAGE_KEY_ACHIEVEMENTS);
-    return data ? JSON.parse(data) : [];
+    return Storage.getUnlockedAchievementsRaw();
 }
 
 function saveUnlockedAchievements(list) {
-    localStorage.setItem(STORAGE_KEY_ACHIEVEMENTS, JSON.stringify(list));
+    Storage.saveUnlockedAchievementsRaw(list);
 }
 
 export function getAllAchievements() {

@@ -262,6 +262,198 @@ export async function generateBeerCard(beer, rating, comment) {
     });
 }
 
+const RARITY_TCG_PALETTE = {
+    base: { border: '#7a7a7a', accent: '#bdbdbd', glow: 'rgba(200,200,200,0.22)', label: 'BASE' },
+    commun: { border: '#cd7f32', accent: '#f3b36d', glow: 'rgba(205,127,50,0.28)', label: 'COMMUNE' },
+    rare: { border: '#38bdf8', accent: '#7dd3fc', glow: 'rgba(56,189,248,0.35)', label: 'RARE' },
+    super_rare: { border: '#a855f7', accent: '#d8b4fe', glow: 'rgba(168,85,247,0.38)', label: 'SUPER RARE' },
+    epique: { border: '#ec4899', accent: '#f9a8d4', glow: 'rgba(236,72,153,0.40)', label: 'ÉPIQUE' },
+    mythique: { border: '#f43f5e', accent: '#fda4af', glow: 'rgba(244,63,94,0.42)', label: 'MYTHIQUE' },
+    legendaire: { border: '#FFC000', accent: '#ffe169', glow: 'rgba(255,192,0,0.45)', label: 'LÉGENDAIRE' },
+    ultra_legendaire: { border: '#00f5d4', accent: '#ff4df0', glow: 'rgba(0,245,212,0.45)', label: 'ULTRA LÉGENDAIRE' },
+    saisonniere: { border: '#f97316', accent: '#fdba74', glow: 'rgba(249,115,22,0.38)', label: 'SAISONNIÈRE' },
+    fondateur: { border: '#FFC000', accent: '#ffffff', glow: 'rgba(255,192,0,0.50)', label: 'FONDATEUR' }
+};
+
+/**
+ * Generates a collectible TCG-style card (750x1050, ratio 5:7)
+ */
+export async function generateTCGCard(beer, userRating = {}) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 750;
+    const H = 1050;
+    canvas.width = W;
+    canvas.height = H;
+
+    const rarityKey = beer?.rarity || 'commun';
+    const pal = RARITY_TCG_PALETTE[rarityKey] || RARITY_TCG_PALETTE.commun;
+    const abvVal = parseFloat(String(beer?.alcohol || '5').replace('%', '').replace('°', '').replace(',', '.')) || 0;
+    const userScore = (userRating && userRating.score !== undefined && userRating.score !== '') ? parseFloat(userRating.score) : null;
+    const commScore = beer?.community_rating ? parseFloat(beer.community_rating) : null;
+
+    // 1. Outer Metallic Frame
+    const frameGrad = ctx.createLinearGradient(0, 0, W, H);
+    frameGrad.addColorStop(0, pal.border);
+    frameGrad.addColorStop(0.5, pal.accent);
+    frameGrad.addColorStop(1, pal.border);
+    drawRoundedRect(ctx, 0, 0, W, H, 36, frameGrad);
+
+    // 2. Inner Card Dark Surface
+    const bgGrad = ctx.createLinearGradient(22, 22, 22, H - 22);
+    bgGrad.addColorStop(0, '#18181f');
+    bgGrad.addColorStop(0.6, '#101015');
+    bgGrad.addColorStop(1, '#08080b');
+    drawRoundedRect(ctx, 22, 22, W - 44, H - 44, 24, bgGrad);
+
+    // Subtle holographic diagonal sheen
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(22, 22);
+    ctx.lineTo(W - 22, 22);
+    ctx.lineTo(W - 22, H - 22);
+    ctx.lineTo(22, H - 22);
+    ctx.closePath();
+    ctx.clip();
+    const sheen = ctx.createLinearGradient(0, 0, W, H);
+    sheen.addColorStop(0.25, 'rgba(255,255,255,0)');
+    sheen.addColorStop(0.48, 'rgba(255,255,255,0.06)');
+    sheen.addColorStop(0.55, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sheen;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    // 3. Header Bar (Title + ABV HP Badge)
+    drawRoundedRect(ctx, 44, 42, W - 88, 66, 14, 'rgba(255,255,255,0.05)');
+    ctx.fillStyle = pal.accent;
+    ctx.font = 'bold 18px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(pal.label, 62, 64);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    const rawTitle = beer?.title || 'Bière';
+    let fontSize = 28;
+    ctx.font = `bold ${fontSize}px "Russo One", sans-serif`;
+    while (ctx.measureText(rawTitle).width > W - 250 && fontSize > 16) {
+        fontSize -= 2;
+        ctx.font = `bold ${fontSize}px "Russo One", sans-serif`;
+    }
+    ctx.fillText(rawTitle, 62, 95);
+
+    // ABV Badge top-right (HP style)
+    drawRoundedRect(ctx, W - 180, 52, 118, 46, 23, pal.border);
+    ctx.fillStyle = '#0a0a0a';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 24px "Outfit", sans-serif';
+    ctx.fillText(`${abvVal.toFixed(1)}°`, W - 121, 83);
+
+    // 4. Artwork Stage
+    const artX = 48;
+    const artY = 124;
+    const artW = W - 96;
+    const artH = 380;
+    drawRoundedRect(ctx, artX, artY, artW, artH, 18, '#0b0b10');
+    ctx.strokeStyle = pal.border;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(artX, artY, artW, artH);
+
+    // Radial halo behind bottle
+    const halo = ctx.createRadialGradient(W / 2, artY + artH / 2, 10, W / 2, artY + artH / 2, 220);
+    halo.addColorStop(0, pal.glow);
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(artX, artY, artW, artH);
+
+    try {
+        const img = await loadImage(beer?.image || 'images/beer/default.png');
+        drawImageProp(ctx, img, 0, 0, img.width, img.height, artX + 20, artY + 18, artW - 40, artH - 36);
+    } catch {
+        ctx.font = '140px serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('🍺', W / 2, artY + 235);
+    }
+
+    // 5. Brewery & Type Ribbon
+    const ribbonY = artY + artH + 14;
+    drawRoundedRect(ctx, 48, ribbonY, W - 96, 44, 10, 'rgba(255,255,255,0.06)');
+    ctx.fillStyle = '#dddddd';
+    ctx.font = 'bold 20px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    const metaStr = [beer?.brewery, beer?.type, beer?.volume].filter(Boolean).join(' • ');
+    ctx.fillText(metaStr.slice(0, 62), W / 2, ribbonY + 29);
+
+    // 6. Stat Bars
+    const statsStartY = ribbonY + 64;
+    const drawStatBar = (label, displayVal, pct, y, barColor) => {
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = 'bold 20px "Outfit", sans-serif';
+        ctx.fillText(label, 52, y);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(displayVal, W - 52, y);
+
+        const trackY = y + 10;
+        const trackW = W - 104;
+        drawRoundedRect(ctx, 52, trackY, trackW, 14, 7, 'rgba(255,255,255,0.09)');
+        const fillW = Math.max(14, Math.min(trackW, trackW * Math.max(0, Math.min(1, pct))));
+        drawRoundedRect(ctx, 52, trackY, fillW, 14, 7, barColor);
+    };
+
+    const notePct = userScore !== null ? userScore / 20 : 0;
+    drawStatBar('⭐ NOTE PERSONNELLE', userScore !== null ? `${userScore}/20` : 'Non notée', notePct, statsStartY, pal.accent);
+
+    const commPct = commScore !== null ? commScore / 5 : 0;
+    drawStatBar('🌍 COMMUNAUTÉ', commScore !== null ? `${commScore}/5` : '—', commPct, statsStartY + 56, '#38bdf8');
+
+    const abvPct = Math.min(1, abvVal / 14);
+    drawStatBar('🔥 PUISSANCE (ABV)', `${abvVal.toFixed(1)}%`, abvPct, statsStartY + 112, '#f97316');
+
+    // 7. Aromas / Comment Box
+    const boxY = statsStartY + 168;
+    const boxH = 190;
+    drawRoundedRect(ctx, 48, boxY, W - 96, boxH, 14, 'rgba(255,255,255,0.04)');
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(48, boxY, W - 96, boxH);
+
+    const aromas = Array.isArray(userRating?.aromas) ? userRating.aromas : [];
+    const aromasLine = aromas.length > 0
+        ? `👃 ${aromas.slice(0, 5).map(a => i18n.t(`aroma_${a}`) || a).join(' · ')}`
+        : `🍺 Style: ${beer?.type || 'Craft Beer'} • ${beer?.searchCountry || beer?.countryCode || 'BEERDEX'}`;
+
+    ctx.fillStyle = pal.accent;
+    ctx.font = 'bold 20px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(aromasLine.slice(0, 58), 68, boxY + 38);
+
+    const commentText = userRating?.comment
+        ? `"${userRating.comment.trim().slice(0, 140)}"`
+        : (beer?.ingredients ? `🌿 ${beer.ingredients.slice(0, 140)}` : 'Dégustée et enregistrée dans Beerdex.');
+    ctx.fillStyle = '#cccccc';
+    ctx.font = 'italic 21px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    wrapText(ctx, commentText, W / 2, boxY + 86, W - 140, 30);
+
+    // 8. Footer
+    ctx.fillStyle = '#777777';
+    ctx.font = 'bold 17px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`#${String(beer?.id || 'CUSTOM').slice(0, 20)}`, 52, H - 48);
+
+    ctx.fillStyle = pal.accent;
+    ctx.font = 'bold 18px "Russo One", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('BEERDEX TCG • v5.3', W - 52, H - 48);
+
+    return new Promise(resolve => {
+        canvas.toBlob(blob => resolve(blob), 'image/png', 0.95);
+    });
+}
+
 /**
  * Generates a "Wrapped Summary" stats card (Infographic Style)
  * Distinct from the Beer Card

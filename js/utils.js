@@ -70,6 +70,19 @@ export function parseDegree(deg) {
     return parseFloat(s) || 0;
 }
 
+/**
+ * Escapes HTML special characters to safely render dynamic strings in templates.
+ */
+export function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // ============================== //
 // Text Normalization             //
 // ============================== //

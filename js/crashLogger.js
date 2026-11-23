@@ -6,6 +6,8 @@
  * Provides device info + report generation for user bug reports.
  */
 
+import * as Storage from './storage.js';
+
 const STORAGE_KEY = 'beerdex_crash_logs';
 const MAX_LOGS = 50;
 
@@ -16,21 +18,11 @@ let _logs = [];
 // ============================== //
 
 function _loadLogs() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        _logs = raw ? JSON.parse(raw) : [];
-    } catch {
-        _logs = [];
-    }
+    _logs = Storage.getJsonItem(STORAGE_KEY, []) || [];
 }
 
 function _saveLogs() {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(_logs));
-    } catch (e) {
-        // Storage full — silently fail
-        console.warn('[CrashLogger] Could not save logs:', e);
-    }
+    Storage.setJsonItem(STORAGE_KEY, _logs);
 }
 
 // ============================== //
@@ -118,16 +110,8 @@ export function getDeviceInfo() {
 }
 
 function _getStorageUsed() {
-    try {
-        let total = 0;
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            total += (localStorage.getItem(key) || '').length;
-        }
-        return `${(total / 1024).toFixed(1)} KB`;
-    } catch {
-        return 'N/A';
-    }
+    const bytes = Storage.getStorageUsageBytes();
+    return bytes === null ? 'N/A' : `${(bytes / 1024).toFixed(1)} KB`;
 }
 
 // ============================== //

@@ -16,10 +16,67 @@ import * as CrashLogger from './crashLogger.js';
 import * as Deduplicator from './deduplicator.js';
 import * as Theme from './theme.js';
 import * as Utils from './utils.js';
-import { loadQrScanner, loadVanillaTilt } from './vendor-loader.js';
+import { isMissingImage } from './data.js';
 import { updateWidgetData } from './widget-bridge.js';
+import { renderFoodPairingSection } from './pairing.js';
+import { openCompareModal } from './compare.js';
+import { openBeerPassport } from './passport.js';
 
-function _saveRatingFromDetail(beer, ratingData, onDone) {
+import {
+    getModalContainer,
+    showToast,
+    modalStack,
+    closeModal,
+    openModal,
+    showPromptModal,
+    showConfirmModal,
+    showAlertModal,
+    applyRarityAnimations,
+    updateNetworkStatus
+} from './ui-modals.js';
+
+import {
+    removeImageBackground,
+    renderBeerList,
+    generateStarRatingHTML,
+    renderUnratedBanner
+} from './ui-cards.js';
+
+import {
+    renderSettings,
+    filterSettings,
+    checkPatchnotes,
+    markPatchnotesSeen,
+    renderPatchnotesSection
+} from './ui-settings.js';
+
+import { openUniversalScanner } from './ui-scanner.js';
+
+export {
+    updateNetworkStatus,
+    showToast,
+    modalStack,
+    closeModal,
+    openModal,
+    showPromptModal,
+    showConfirmModal,
+    showAlertModal,
+    applyRarityAnimations,
+    removeImageBackground,
+    renderBeerList,
+    generateStarRatingHTML,
+    renderUnratedBanner,
+    renderSettings,
+    filterSettings,
+    checkPatchnotes,
+    markPatchnotesSeen,
+    renderPatchnotesSection,
+    openUniversalScanner,
+    openCompareModal,
+    openBeerPassport
+};
+
+export function _saveRatingFromDetail(beer, ratingData, onDone) {
     const oldRating = Storage.getBeerRating(beer.id);
     Storage.saveBeerRating(beer.id, ratingData);
     if (window.allBeers) Achievements.checkAchievements(window.allBeers);
@@ -36,375 +93,65 @@ function _saveRatingFromDetail(beer, ratingData, onDone) {
 
 let editModeBeer = null;
 
-// Helpers
-const modalContainer = document.getElementById('modal-container');
-
-// Toast Queue
-const toastQueue = [];
-let isToastActive = false;
-let modalCleanup = null;
+function _loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
 
 let chartJsPromise = null;
 function loadChartJs() {
     if (chartJsPromise) return chartJsPromise;
-    chartJsPromise = new Promise((resolve, reject) => {
-        if (window.Chart) {
-            resolve();
-            return;
+    chartJsPromise = (async () => {
+        if (window.Chart) return;
+        try {
+            await _loadScript('./js/vendor/chart.umd.min.js');
+            try {
+                await _loadScript('./js/vendor/chartjs-plugin-annotation.min.js');
+            } catch {
+                await _loadScript('https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js');
+            }
+        } catch {
+            await _loadScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js');
+            await _loadScript('https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js');
         }
-        const script1 = document.createElement('script');
-        script1.src = "https://cdn.jsdelivr.net/npm/chart.js";
-        script1.onload = () => {
-            const script2 = document.createElement('script');
-            script2.src = "https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation";
-            script2.onload = resolve;
-            script2.onerror = reject;
-            document.head.appendChild(script2);
-        };
-        script1.onerror = reject;
-        document.head.appendChild(script1);
-    });
+    })();
     return chartJsPromise;
 }
 
 import { checkAutoBackup, renderImportModal, renderExportModal, renderShareLink, renderOtaSyncModal } from './import-export.js';
 export { checkAutoBackup, renderImportModal, renderExportModal, renderShareLink, renderOtaSyncModal };
+
 window.UI = window.UI || {};
-window.UI.renderOtaSyncModal = renderOtaSyncModal;
-
-
-/**
- * Update UI state based on network connectivity
- * @param {boolean} isOnline 
- */
-/**
- * Update UI state based on network connectivity
- * @param {boolean} isOnline
- * Kept as a no-op export because `crates/beerdex-app/src/app.rs` binds to it
- * via wasm-bindgen `raw_module = "../js/ui.js"`. The actual offline handling
- * is done in `app.js::handleStatusChange` (adds/removes the `is-offline` class).
- */
-export function updateNetworkStatus(isOnline) {
-    // No-op: network status UI is already handled by app.js handleStatusChange
-}
-
-export function showToast(message, type = 'default') {
-    toastQueue.push({ message, type });
-    processToastQueue();
-}
-
-function processToastQueue() {
-    if (isToastActive || toastQueue.length === 0) return;
-
-    isToastActive = true;
-    const { message, type } = toastQueue.shift();
-
-    const toast = document.createElement('div');
-    toast.style.position = 'fixed';
-    toast.style.bottom = '80px';
-    toast.style.left = '50%';
-    toast.style.transform = 'translateX(-50%)';
-    toast.style.background = 'rgba(255, 192, 0, 0.9)';
-    toast.style.color = '#000';
-    toast.style.padding = '10px 20px';
-    toast.style.borderRadius = '20px';
-    toast.style.fontWeight = 'bold';
-    toast.style.zIndex = '1000';
-    toast.style.boxShadow = '0 5px 15px rgba(0,0,0,0.3)';
-    toast.innerText = message;
-
-    document.body.appendChild(toast);
-
-    // Initial Animation
-    toast.animate([
-        { transform: 'translateX(-50%) translateY(20px)', opacity: 0 },
-        { transform: 'translateX(-50%) translateY(0)', opacity: 1 }
-    ], { duration: 300, easing: 'ease-out' });
-
-    setTimeout(() => {
-        // Exit Animation
-        const anim = toast.animate([
-            { transform: 'translateX(-50%) translateY(0)', opacity: 1 },
-            { transform: 'translateX(-50%) translateY(20px)', opacity: 0 }
-        ], { duration: 300, easing: 'ease-in' });
-
-        anim.onfinish = () => {
-            toast.remove();
-            isToastActive = false;
-            // Small buffer between toasts
-            setTimeout(processToastQueue, 300);
-        };
-    }, 3000);
-}
-
-let previousFocusElement = null;
-
-function focusTrap(e) {
-    if (e.key === 'Escape') {
-        closeModal();
-        return;
-    }
-    if (e.key === 'Tab') {
-        const focusableElements = modalContainer.querySelectorAll('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])');
-        if (focusableElements.length === 0) {
-            e.preventDefault();
-            return;
-        }
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!e.shiftKey && document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-        } else if (e.shiftKey && document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-        }
-    }
-}
-
-export const modalStack = [];
-
-// Flag to prevent popstate from interfering when we programmatically close a modal
-let _closingModalProgrammatically = false;
-
-window.addEventListener('popstate', (e) => {
-    // If we triggered this popstate ourselves via closeModal -> history.back(), skip it
-    if (_closingModalProgrammatically) {
-        _closingModalProgrammatically = false;
-        return;
-    }
-
-    // Priority 1: Close modals
-    if (modalStack.length > 0) {
-        const topModalClose = modalStack.pop();
-        topModalClose(true); // pass true to indicate native back
-        return;
-    }
-
-    // Priority 2: Close search bar if open
-    const searchBar = document.getElementById('search-bar');
-    if (searchBar && !searchBar.classList.contains('hidden')) {
-        // Dispatch event for app.js to handle cleanup
-        window.dispatchEvent(new CustomEvent('beerdex-close-search'));
-        return;
-    }
-
-    // Priority 2.5: Skip obsolete search state if search bar is already closed
-    if (e.state && e.state.isSearch) {
-        window.history.back();
-        return;
-    }
-
-    // Priority 3: Navigate back to previous view
-    if (e.state && e.state.view) {
-        const targetView = e.state.view;
-        // Update nav bar active state
-        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-        const navBtn = document.querySelector(`.nav-item[data-view="${targetView}"]`);
-        if (navBtn) navBtn.classList.add('active');
-        // Dispatch a custom event for app.js to handle the view change
-        window.dispatchEvent(new CustomEvent('beerdex-navigate-back', { detail: { view: targetView } }));
-    }
+Object.assign(window.UI, {
+    renderOtaSyncModal,
+    renderImportModal,
+    renderExportModal,
+    openUniversalScanner,
+    openCompareModal,
+    openBeerPassport,
+    showToast,
+    openModal,
+    closeModal,
+    modalStack,
+    showPromptModal,
+    showConfirmModal,
+    showAlertModal,
+    _saveRatingFromDetail
 });
-
-export function closeModal(fromPopState = false) {
-    // If it's the standard modal, we handle its teardown
-    if (modalCleanup) {
-        modalCleanup();
-        modalCleanup = null;
-    }
-    
-    // If this wasn't triggered by native back, keep history stack clean
-    if (fromPopState !== true) {
-        // Remove ourselves from the modal stack so we don't orphan the reference
-        const idx = modalStack.indexOf(closeModal);
-        if (idx > -1) modalStack.splice(idx, 1);
-
-        if (window.history.state && window.history.state.isModal) {
-            _closingModalProgrammatically = true;
-            window.history.back();
-        }
-    }
-    
-    document.removeEventListener('keydown', focusTrap);
-    
-    // Blur any active element inside the modal before hiding it
-    if (document.activeElement && modalContainer.contains(document.activeElement)) {
-        document.activeElement.blur();
-    }
-    
-    if (previousFocusElement) {
-        previousFocusElement.focus();
-        previousFocusElement = null;
-    }
-
-    modalContainer.classList.add('hidden');
-    modalContainer.setAttribute('aria-hidden', 'true');
-    modalContainer.innerHTML = '';
-    
-    // Only remove body class if no other modals are open
-    if (modalStack.length === 0) {
-        document.body.classList.remove('modal-open');
-    }
-}
-
-export function openModal(content) {
-    previousFocusElement = document.activeElement;
-    
-    modalContainer.innerHTML = '';
-    modalContainer.appendChild(content);
-    modalContainer.classList.remove('hidden');
-    modalContainer.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('modal-open');
-
-    // Add state to browser history
-    window.history.pushState({ isModal: true, timestamp: Date.now() }, '');
-    
-    // Apply rarity animations if the modal contains rarity badges
-    applyRarityAnimations(modalContainer);
-
-    // Push the standard close function to the stack
-    modalStack.push(closeModal);
-
-    // Close on click outside
-    modalContainer.onclick = (e) => {
-        if (e.target === modalContainer) closeModal();
-    };
-    
-    document.addEventListener('keydown', focusTrap);
-    
-    // Auto focus first interactive element
-    setTimeout(() => {
-        const focusableElements = modalContainer.querySelectorAll('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])');
-        if (focusableElements.length) focusableElements[0].focus();
-    }, 10);
-}
-
-// ===== REUSABLE DIALOG MODALS (replaces prompt/confirm/alert) =====
-
-/**
- * Shows a styled prompt modal. Returns a Promise that resolves with the entered value or null if cancelled.
- */
-export function showPromptModal(title, defaultValue = '', opts = {}) {
-    return new Promise((resolve) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'modal-dialog';
-        wrapper.innerHTML = `
-            <h3>${title}</h3>
-            <input type="${opts.inputType || 'text'}" id="modal-prompt-input" class="form-input" 
-                   value="${defaultValue}" placeholder="${opts.placeholder || ''}">
-            <div class="modal-dialog-actions">
-                <button id="modal-prompt-cancel" class="btn-cancel" data-i18n="btn_cancel">Annuler</button>
-                <button id="modal-prompt-ok" class="btn-confirm" data-i18n="btn_confirm">Confirmer</button>
-            </div>
-        `;
-
-        openModal(wrapper);
-
-        const input = wrapper.querySelector('#modal-prompt-input');
-        input.focus();
-        input.select();
-
-        const finish = (val) => {
-            modalContainer.onclick = null;
-            closeModal();
-            resolve(val);
-        };
-
-        wrapper.querySelector('#modal-prompt-ok').onclick = () => finish(input.value);
-        wrapper.querySelector('#modal-prompt-cancel').onclick = () => finish(null);
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') finish(input.value);
-            if (e.key === 'Escape') finish(null);
-        });
-
-        modalContainer.onclick = (e) => {
-            if (e.target === modalContainer) finish(null);
-        };
-    });
-}
-
-/**
- * Shows a styled confirm modal. Returns a Promise<boolean>.
- */
-export function showConfirmModal(message, opts = {}) {
-    return new Promise((resolve) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'modal-dialog';
-
-        const isDanger = opts.danger !== false;
-        const icon = isDanger ? '⚠️' : 'ℹ️';
-        const dangerClass = isDanger ? ' danger' : '';
-
-        wrapper.innerHTML = `
-            <div class="dialog-icon">${icon}</div>
-            <p>${message}</p>
-            <div class="modal-dialog-actions">
-                <button id="modal-confirm-cancel" class="btn-cancel">${opts.cancelText || i18n.t('btn_cancel')}</button>
-                <button id="modal-confirm-ok" class="btn-confirm${dangerClass}">${opts.confirmText || i18n.t('btn_confirm')}</button>
-            </div>
-        `;
-
-        openModal(wrapper);
-
-        const finish = (val) => {
-            modalContainer.onclick = null;
-            closeModal();
-            resolve(val);
-        };
-
-        wrapper.querySelector('#modal-confirm-ok').onclick = () => finish(true);
-        wrapper.querySelector('#modal-confirm-cancel').onclick = () => finish(false);
-        modalContainer.onclick = (e) => {
-            if (e.target === modalContainer) finish(false);
-        };
-    });
-}
-
-/**
- * Shows a styled alert modal. Returns a Promise that resolves when dismissed.
- */
-export function showAlertModal(message, opts = {}) {
-    return new Promise((resolve) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'modal-dialog';
-
-        const icon = opts.icon || 'ℹ️';
-        const titleHtml = opts.title ? `<h3>${opts.title}</h3>` : '';
-
-        wrapper.innerHTML = `
-            <div class="dialog-icon">${icon}</div>
-            ${titleHtml}
-            <p>${message}</p>
-            <button id="modal-alert-ok" class="btn-ok">OK</button>
-        `;
-
-        openModal(wrapper);
-
-        const finish = () => {
-            modalContainer.onclick = null;
-            closeModal();
-            resolve();
-        };
-
-        wrapper.querySelector('#modal-alert-ok').onclick = finish;
-        modalContainer.onclick = (e) => {
-            if (e.target === modalContainer) finish();
-        };
-    });
-}
 
 // --- App Welcome & Consent Flow ---
 
 export function checkAndShowWelcome() {
-    // Only show welcome if consent is already given
-    if (localStorage.getItem('beerdex_consent') !== 'true') return;
+    if (Storage.getRawItem('beerdex_consent') !== 'true') return;
 
     const HAS_SEEN_KEY = 'beerdex_welcome_seen_v3';
-    if (localStorage.getItem(HAS_SEEN_KEY)) return;
+    if (Storage.getRawItem(HAS_SEEN_KEY)) return;
 
-    // Defer tutorial start to let UI settle
     setTimeout(() => {
         if (typeof TutorialSystem !== 'undefined') {
             TutorialSystem.start();
@@ -416,14 +163,11 @@ export async function checkAndShowConsent(onAccept) {
     const activeEvent = EventSystem.getActiveEvent();
     const shouldForce = EventSystem.shouldForceBanner();
 
-    // Check if we already showed the special event banner for this event
     const bannerShownKey = activeEvent ? `event_banner_shown_${activeEvent.id}` : null;
     const eventBannerShown = bannerShownKey ? Storage.getPreference(bannerShownKey, false) : false;
 
-    // Normal flow: if no forced event today, or if we already showed it this session,
-    // check normal consent.
     if (!shouldForce || eventBannerShown) {
-        if (localStorage.getItem('beerdex_consent') === 'true') {
+        if (Storage.getRawItem('beerdex_consent') === 'true') {
             if (onAccept) onAccept();
             return;
         }
@@ -503,11 +247,9 @@ export async function checkAndShowConsent(onAccept) {
     wrapper.querySelector('#btn-accept-consent').onclick = () => {
         if (window.navigator && window.navigator.vibrate) navigator.vibrate(50);
 
-        localStorage.setItem('beerdex_consent', 'true');
+        Storage.setRawItem('beerdex_consent', 'true');
 
-        // Ensure the banner doesn't show again for this event
         if (activeEvent && bannerShownKey) {
-            console.log(`[UI] Dismissing banner for event: ${activeEvent.id}`);
             Storage.savePreference(bannerShownKey, true);
         }
 
@@ -525,555 +267,6 @@ export async function checkAndShowConsent(onAccept) {
 }
 
 // --- Renders ---
-
-// Helper to remove background using 'Magic Wand' style flood fill (color distance)
-// Work is queued and executed one image per idle slice so it never competes with
-// scroll/render, and results are cached per source URL (cards are re-rendered often).
-// NOTE: `Map` is shadowed by `import * as Map from './map.js'` in this module.
-const NativeMap = window.Map;
-const _bgRemovalCache = new NativeMap();
-const BG_CACHE_MAX_ENTRIES = 240;
-const BG_CACHE_MAX_CHARS = 4 * 1024 * 1024; // ~4 MB of compressed data URLs
-let _bgCacheChars = 0;
-// Background removal is only displayed at card/detail size (<=180px tall),
-// so 240px max dimension keeps edges crisp while running ~6x faster on low-end CPUs.
-const BG_MAX_DIM = 240;
-const _bgQueue = [];
-let _bgQueueRunning = false;
-
-function _bgCacheSet(rawSrc, dataUrl) {
-    if (!rawSrc || dataUrl.length > BG_CACHE_MAX_CHARS) return;
-    const src = _bgCacheKey(rawSrc);
-    const existing = _bgRemovalCache.get(src);
-    if (existing) _bgCacheChars -= existing.length;
-    _bgRemovalCache.set(src, dataUrl);
-    _bgCacheChars += dataUrl.length;
-    while (_bgRemovalCache.size > BG_CACHE_MAX_ENTRIES || _bgCacheChars > BG_CACHE_MAX_CHARS) {
-        const firstKey = _bgRemovalCache.keys().next().value;
-        if (firstKey === undefined) break;
-        const old = _bgRemovalCache.get(firstKey);
-        _bgRemovalCache.delete(firstKey);
-        _bgCacheChars -= old ? old.length : 0;
-    }
-}
-
-function _bgCacheKey(src) {
-    try {
-        return new URL(src, document.baseURI).href;
-    } catch {
-        return src;
-    }
-}
-
-// Returns an already processed copy for this source, if cached (LRU refresh).
-function _bgCachedSrc(src) {
-    if (!src || src.startsWith('data:')) return null;
-    const key = _bgCacheKey(src);
-    const cached = _bgRemovalCache.get(key);
-    if (!cached) return null;
-    _bgRemovalCache.delete(key);
-    _bgRemovalCache.set(key, cached);
-    return cached;
-}
-
-window.removeImageBackground = function (img) {
-    if (!img || img.dataset.processed) return;
-    const src = img.currentSrc || img.src;
-    if (!src || src.startsWith('data:')) {
-        img.dataset.processed = "true";
-        return;
-    }
-    const cached = _bgCachedSrc(src);
-    if (cached) {
-        img.src = cached;
-        img.dataset.processed = "true";
-        return;
-    }
-    if (img.dataset.bgQueued) return;
-    img.dataset.bgQueued = "true";
-    _bgQueue.push(img);
-    _pumpBgQueue();
-};
-
-function _pumpBgQueue() {
-    if (_bgQueueRunning) return;
-    _bgQueueRunning = true;
-
-    const step = (deadline) => {
-        // Drain as many images as the remaining idle slice allows; large sources
-        // consume the slice on their own while small ones batch together.
-        let processed = 0;
-        while (_bgQueue.length > 0) {
-            const img = _bgQueue.shift();
-            if (img && img.isConnected && !img.dataset.processed) {
-                _removeImageBackgroundSync(img);
-            }
-            processed++;
-            if (deadline && typeof deadline.timeRemaining === 'function') {
-                if (deadline.timeRemaining() < 4) break;
-            } else if (processed >= 2) {
-                break;
-            }
-        }
-        if (_bgQueue.length === 0) {
-            _bgQueueRunning = false;
-            return;
-        }
-        if (typeof requestIdleCallback === 'function') {
-            requestIdleCallback(step, { timeout: 1000 });
-        } else {
-            setTimeout(step, 16);
-        }
-    };
-
-    if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(step, { timeout: 800 });
-    } else {
-        setTimeout(step, 0);
-    }
-}
-
-function _removeImageBackgroundSync(img) {
-    if (img.dataset.processed) return;
-
-    try {
-        let width = img.naturalWidth;
-        let height = img.naturalHeight;
-        // Guard against 0-sized (not decoded yet) sources.
-        if (!width || !height) {
-            img.dataset.processed = "true";
-            return;
-        }
-
-        // Downscale oversized sources for the flood fill; output is displayed small.
-        const scale = Math.min(1, BG_MAX_DIM / Math.max(width, height));
-        if (scale < 1) {
-            width = Math.round(width * scale);
-            height = Math.round(height * scale);
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const imgData = ctx.getImageData(0, 0, width, height);
-        const data = imgData.data;
-
-        // Fast exit if top-left corner is already transparent (already cut-out PNG/WebP)
-        if (data[3] < 20) {
-            img.dataset.processed = "true";
-            return;
-        }
-
-        // Settings for Magic Wand
-        const tolerance = 20;
-        const toleranceSq = tolerance * tolerance;
-
-        // 1. Get Reference Color from Top-Left Corner
-        const bgR = data[0];
-        const bgG = data[1];
-        const bgB = data[2];
-
-        const totalPixels = width * height;
-        const toRemove = new Uint8Array(totalPixels);
-
-        const isBackground = (dataIdx) => {
-            const dr = data[dataIdx] - bgR;
-            const dg = data[dataIdx + 1] - bgG;
-            const db = data[dataIdx + 2] - bgB;
-            return (dr * dr + dg * dg + db * db) <= toleranceSq;
-        };
-
-        // 2. Iterative Flood Fill from corners using a flat typed stack (zero GC pressure)
-        const stack = new Int32Array(totalPixels);
-        const floodFill = (startX, startY) => {
-            const startIdx = startY * width + startX;
-            if (toRemove[startIdx] || !isBackground(startIdx * 4)) return;
-            let sp = 0;
-            stack[sp++] = startIdx;
-            toRemove[startIdx] = 1;
-
-            while (sp > 0) {
-                const idx = stack[--sp];
-                const x = idx % width;
-                const y = (idx - x) / width;
-
-                if (x + 1 < width) {
-                    const n = idx + 1;
-                    if (!toRemove[n] && isBackground(n * 4)) { toRemove[n] = 1; stack[sp++] = n; }
-                }
-                if (x > 0) {
-                    const n = idx - 1;
-                    if (!toRemove[n] && isBackground(n * 4)) { toRemove[n] = 1; stack[sp++] = n; }
-                }
-                if (y + 1 < height) {
-                    const n = idx + width;
-                    if (!toRemove[n] && isBackground(n * 4)) { toRemove[n] = 1; stack[sp++] = n; }
-                }
-                if (y > 0) {
-                    const n = idx - width;
-                    if (!toRemove[n] && isBackground(n * 4)) { toRemove[n] = 1; stack[sp++] = n; }
-                }
-            }
-        };
-
-        floodFill(0, 0);
-        floodFill(width - 1, 0);
-        floodFill(0, height - 1);
-        floodFill(width - 1, height - 1);
-
-        // 3. Apply Alpha with O(1) 4-neighbor edge feathering
-        let hasChanges = false;
-        for (let y = 0; y < height; y++) {
-            const rowOffset = y * width;
-            for (let x = 0; x < width; x++) {
-                const idx = rowOffset + x;
-                const dataIdx = idx * 4;
-
-                if (toRemove[idx]) {
-                    data[dataIdx + 3] = 0;
-                    hasChanges = true;
-                    continue;
-                }
-
-                if (
-                    (x > 0 && toRemove[idx - 1]) ||
-                    (x + 1 < width && toRemove[idx + 1]) ||
-                    (y > 0 && toRemove[idx - width]) ||
-                    (y + 1 < height && toRemove[idx + width])
-                ) {
-                    data[dataIdx + 3] = Math.min(data[dataIdx + 3], 128);
-                    hasChanges = true;
-                }
-            }
-        }
-
-        if (hasChanges) {
-            ctx.putImageData(imgData, 0, 0);
-            let dataUrl = canvas.toDataURL('image/webp', 0.85);
-            if (!dataUrl.startsWith('data:image/webp')) {
-                dataUrl = canvas.toDataURL('image/png');
-            }
-            const src = img.currentSrc || img.src;
-            if (src && src !== dataUrl) {
-                _bgCacheSet(src, dataUrl);
-            }
-            img.src = dataUrl;
-            img.dataset.processed = "true";
-        } else {
-            img.dataset.processed = "true";
-        }
-    } catch (e) {
-        // Silent fail
-        img.dataset.processed = "true";
-    }
-};
-
-export function renderBeerList(beers, container, filters = null, showCreatePrompt = false, isDiscoveryCallback = null, isAppend = false) {
-    if (!isAppend) container.innerHTML = '';
-    const userData = Storage.getAllUserData();
-
-    // NOTE: Filtering & sorting is now handled upstream in app.js (applyFilters).
-    // The beers array passed here is already filtered and sorted.
-    let filteredBeers = beers;
-
-    if (filteredBeers.length === 0) {
-        if (showCreatePrompt && isDiscoveryCallback) {
-            container.innerHTML = `
-                <div style="text-align:center; padding: 40px 20px;">
-                    <p style="color: #888; margin-bottom: 20px;">${i18n.t('list_beer_not_exist')}</p>
-                    <button id="btn-create-discovery" class="btn-primary" style="background:var(--accent-gold); color:var(--bg-dark);">
-                        ${i18n.t('list_btn_create')}
-                    </button>
-                </div>`;
-            document.getElementById('btn-create-discovery').onclick = isDiscoveryCallback;
-            return;
-        }
-
-        // Specific Empty State for Discovery Mode (No Search, Empty Collection)
-        if (isDiscoveryCallback && !showCreatePrompt) {
-            container.innerHTML = `
-                <div style="text-align:center; padding: 50px 20px; color: #888;">
-                    <div style="font-size: 3rem; margin-bottom: 20px;">🕵️‍♂️</div>
-                    <h3>${i18n.t('list_discovery_mode')}</h3>
-                    <p style="margin-top: 10px;">${i18n.t('list_empty_collection')}</p>
-                    <p style="font-size: 0.8rem; margin-top: 5px;">${i18n.t('list_use_search_desc')}</p>
-                </div>`;
-            return;
-        }
-
-        if (!isDiscoveryCallback && filters && filters.query && filters.query.length > 2) {
-            container.innerHTML = `
-                <div style="text-align:center; padding: 40px 20px; color: #888;">
-                    <p style="font-size: 1.1rem; margin-bottom: 10px;">🔍 ${i18n.t('search_no_results')}</p>
-                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">${i18n.t('search_not_found') || 'Aucune bière ne correspond à votre recherche.'}</p>
-                    <button id="btn-create-manual-empty" class="form-input" style="max-width: 250px; margin: 0 auto;">➕ ${i18n.t('search_btn_create_manual') || 'Ajouter une bière'}</button>
-                </div>`;
-            const btnManual = container.querySelector('#btn-create-manual-empty');
-            if (btnManual) {
-                btnManual.onclick = () => {
-                    renderAddBeerForm((newBeer) => {
-                        Storage.saveCustomBeer(newBeer);
-                        window.updateBeerInState?.(newBeer);
-                        window.dispatchEvent(new CustomEvent('beerdex-action'));
-                        closeModal();
-                        showToast(i18n.t('toast_beer_added'));
-                        window.renderCurrentView?.();
-                    });
-                };
-            }
-            return;
-        }
-
-        container.innerHTML = `<div style="text-align:center; padding: 20px; color: #666;">${i18n.t('search_no_results')}</div>`;
-        return;
-    }
-
-    let grid;
-    if (isAppend) {
-        grid = container.querySelector('.beer-grid');
-    }
-
-    const viewMode = Storage.getPreference('viewMode', 'grid');
-    const gridClasses = viewMode === 'list' ? 'beer-grid view-list' : 'beer-grid';
-
-    // Preferences are identical for every card in a batch: read them once.
-    // Previously this caused ~6 synchronous localStorage+JSON.parse per card.
-    const prefRevealRarity = Storage.getPreference('revealRarity', false);
-    const prefAnimOnce = Storage.getPreference('anim_only_once', false);
-    const prefBacEnabled = Storage.getPreference('bac_enabled', true);
-    const prefCardCount = Storage.getPreference('card_stat_count', false);
-    const prefCardVolume = Storage.getPreference('card_stat_volume', false);
-    const prefShowBBPct = Storage.getPreference('card_brewbrother_pct', false)
-        && Storage.getPreference('feat_brewbrother_enabled', true);
-    const prefCardCountOrVolume = prefCardCount || prefCardVolume;
-
-    // Speculative BAC only depends on (volume, alcohol) — memoise per batch.
-    const bacBadgeCache = new NativeMap();
-    const getBacBadge = (volume, alcohol) => {
-        const key = `${volume}|${alcohol}`;
-        if (bacBadgeCache.has(key)) return bacBadgeCache.get(key);
-        let html = '';
-        const driveInfo = BAC.getSpeculativeDriveInfo(volume, alcohol);
-        if (driveInfo) {
-            const timeHtml = driveInfo.timeStr ? `<span class="bac-time"> · ${driveInfo.timeStr}</span>` : '';
-            html = `<div class="beer-card-bac-row" style="display:flex; justify-content:center; margin-top:8px;">
-                    <div class="bac-speculative-badge" style="color:${driveInfo.color}; border-color:${driveInfo.color}33; display:inline-flex;">
-                        <span class="bac-icon">${driveInfo.icon}</span>
-                        <span>+${driveInfo.delta.toFixed(2)}</span>${timeHtml}
-                    </div>
-                </div>`;
-        }
-        bacBadgeCache.set(key, html);
-        return html;
-    };
-
-    if (!grid) {
-        if (!isAppend) container.innerHTML = '';
-        grid = document.createElement('div');
-        grid.className = gridClasses;
-        container.appendChild(grid);
-    } else if (!isAppend) {
-        // Update grid class in case viewMode changed
-        grid.className = gridClasses;
-    }
-
-    filteredBeers.forEach((beer, index) => {
-        const u = userData[beer.id];
-        const isDrunk = u && u.count > 0;
-        const card = document.createElement('div');
-        card.className = `beer-card ${isDrunk ? 'drunk' : ''}`;
-        card.dataset.id = beer.id;
-
-        // Apply Rarity Border via CSS classes
-        // Logic: Reveal if Drunk OR if Setting "Reveal Rarity" is ON
-        const revealRarity = isDrunk || prefRevealRarity;
-        const animOnce = prefAnimOnce;
-        const hasPlayed = window.__playedAnims.has(beer.id);
-
-        if (revealRarity && beer.rarity && beer.rarity !== 'base') {
-            // Apply per-rarity CSS class for border color
-            card.classList.add(`card-rarity-${beer.rarity}`);
-
-            // Only add ANIMATION classes if:
-            // 1. Beer is unlocked (isDrunk) -- as per user request
-            // 2. Play Once setting is OFF OR it hasn't played yet
-            if (isDrunk && (!animOnce || !hasPlayed)) {
-                if (beer.rarity === 'ultra_legendaire') {
-                    card.classList.add('card-anim-ultra_legendary');
-                }
-                // Mark as played for this session
-                window.__playedAnims.add(beer.id);
-                if (window.savePlayedAnims) window.savePlayedAnims();
-            } else if (animOnce && hasPlayed) {
-                // Ultra Légendaire cards ALWAYS stay animated
-                if (beer.rarity === 'ultra_legendaire') {
-                    card.classList.add('card-anim-ultra_legendary');
-                } else {
-                    // Force static if played once (other rarities only)
-                    card.classList.add('stop-animations');
-                }
-            }
-        } else {
-            // Locked / Neutral State
-            card.style.borderColor = 'var(--border-color)';
-        }
-
-        // --- ANTI AUTO-INIT CLEANUP ---
-        // If not drunk, ensured no VanillaTilt behavior survives
-        if (!isDrunk) {
-            card.removeAttribute('data-tilt');
-            if (card.vanillaTilt) card.vanillaTilt.destroy();
-        }
-
-        if (beer.isSeasonal) {
-            // Add a small seasonal indicator if needed
-            if (!beer.rarity || beer.rarity === 'base') {
-                card.style.borderColor = 'var(--rarity-seasonal)';
-            }
-        }
-
-        // Stats Badges
-        const abv = beer.alcohol ? `<span class="beer-meta-pill">${beer.alcohol}</span>` : '';
-        const vol = beer.volume ? `<span class="beer-meta-pill">${Utils.formatVolume(beer.volume)}</span>` : '';
-        const typeBadge = beer.type ? `<span class="beer-meta-pill beer-meta-pill--type">${beer.type}</span>` : '';
-
-        // Determine correct fallback/default image based on volume
-        const isKeg = (vol) => {
-            if (!vol) return false;
-            const v = vol.toUpperCase();
-            // Simple heuristic for Kegs
-            return v.includes('20 L') || v.includes('30 L') || v.includes('50 L') || v.includes('FUT');
-        };
-        const fallbackImage = isKeg(beer.volume) ? 'images/beer/FUT.jpg' : 'images/beer/default.png';
-
-        // If current image is FUT but it's not a keg, fix it immediately
-        let displayImage = beer.image;
-        if (!displayImage || (displayImage.includes('FUT.jpg') && !isKeg(beer.volume))) {
-            displayImage = fallbackImage;
-        }
-        const cachedDisplayImage = _bgCachedSrc(displayImage);
-        if (cachedDisplayImage) displayImage = cachedDisplayImage;
-
-        const isFavorite = Boolean(u && u.favorite === true);
-
-        // Speculative BAC badge (if enabled) — memoised per (volume, alcohol)
-        const bacBadgeHtml = prefBacEnabled ? getBacBadge(beer.volume, beer.alcohol) : '';
-
-        // Card Stats Overlay
-        let cardStatsHtml = '';
-        if (isDrunk && prefCardCountOrVolume) {
-            const showCount = prefCardCount;
-            const showVolume = prefCardVolume;
-            if (showCount || showVolume) {
-                let statsParts = [];
-                if (showCount) statsParts.push(`${u.count}x`);
-                if (showVolume) {
-                    let totalMl = 0;
-                    if (u.history) {
-                        totalMl = u.history.reduce((sum, h) => sum + (h.volume || 0), 0);
-                    } else if (beer.volume) {
-                        // Fallback: parse beer.volume * count
-                        const parsed = Utils.parseVolumeToMl(beer.volume) || 330;
-                        totalMl = parsed * u.count;
-                    }
-                    if (totalMl > 0) {
-                        if (totalMl >= 1000) statsParts.push(`${(totalMl/1000).toFixed(1)}L`);
-                        else statsParts.push(`${totalMl}ml`);
-                    }
-                }
-                if (statsParts.length > 0) {
-                    cardStatsHtml = `<div class="bac-speculative-badge" style="color:#ddd; border-color:rgba(255,255,255,0.08); font-weight:normal; display:inline-flex;">
-                        <span>${statsParts.join(' · ')}</span>
-                    </div>`;
-                }
-            }
-        }
-
-        let bbMatchPct = beer.matchPercentage;
-        if (prefShowBBPct && bbMatchPct === undefined && window.Recommendation && window.Recommendation.getBeerMatchScoreSync) {
-            const syncMatch = window.Recommendation.getBeerMatchScoreSync(beer);
-            if (syncMatch) bbMatchPct = syncMatch.total;
-        }
-
-        const showBBPct = prefShowBBPct && bbMatchPct !== undefined;
-        if (showBBPct) {
-            const pct = Math.round(bbMatchPct * 100);
-            const color = pct >= 75 ? '#2ecc71' : (pct >= 50 ? '#f1c40f' : '#e74c3c');
-            cardStatsHtml += `<div class="bac-speculative-badge" style="color:${color}; border-color:${color}33; display:inline-flex; ${cardStatsHtml ? 'margin-top:4px;' : ''}">
-                <span style="font-weight:bold;">🤖 ${pct}%</span>
-            </div>`;
-        }
-
-        const trappistBadgeHtml = Utils.getTrappistBadgeHtml(beer);
-
-        let badgesContainerHtml = '';
-        if (cardStatsHtml) {
-            badgesContainerHtml = `<div class="card-badges-left" style="position:absolute; top:6px; left:6px; z-index:3; display:flex; flex-direction:column; gap:5px; font-size:0.75rem;">
-                ${cardStatsHtml}
-            </div>`;
-        }
-
-        const isLowEndPerf = document.body.classList.contains('perf-low-end');
-        const bgAttr = (beer.removeBackground && !isLowEndPerf) ? 'onload="removeImageBackground(this)"' : '';
-
-        card.innerHTML = `
-            ${badgesContainerHtml}
-            <div class="card-badges-right">
-                ${isFavorite ? '<span class="card-fav-star">⭐</span>' : ''}
-                ${trappistBadgeHtml}
-                <svg class="check-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-            </div>
-            <div class="beer-image-container">
-                <img src="${displayImage}" alt="${beer.title}" class="beer-image" loading="${index < 10 ? 'eager' : 'lazy'}" decoding="async"
-                     ${bgAttr}
-                     onerror="if(this.src.includes('${fallbackImage}')) return; this.src='${fallbackImage}';">
-            </div>
-            <div class="beer-info">
-                <h3 class="beer-title">${beer.title}</h3>
-                <p class="beer-brewery">${beer.brewery}</p>
-                <div class="beer-card-stats-row">
-                    ${beer._brewBrotherMatch ? `<span class="beer-meta-pill beer-meta-pill--match">🤖 ${beer._brewBrotherMatch.percentage}%</span>` : ''}
-                    ${abv} ${vol} ${typeBadge}
-                </div>
-                ${bacBadgeHtml}
-            </div>
-        `;
-
-        grid.appendChild(card);
-    });
-
-    // Initialize premium 3D tilt effects — lazy-loaded only on non-touch desktop & non-low-end
-    const isTouchPrimary = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-    const isLowEndPerf = document.body.classList.contains('perf-low-end');
-    if (!isTouchPrimary && !isLowEndPerf) {
-        loadVanillaTilt().then(() => {
-            if (typeof VanillaTilt === 'undefined' || !grid.isConnected) return;
-            const cards = grid.querySelectorAll('.beer-card.drunk');
-            if (cards.length > 0) {
-                VanillaTilt.init(cards, {
-                    max: 12,
-                    speed: 400,
-                    glare: true,
-                    "max-glare": 0.3,
-                    scale: 1.02,
-                    perspective: 1000,
-                    transition: true,
-                    gyroscope: false
-                });
-            }
-        }).catch(() => {});
-    }
-
-    // Apply rarity animations directly (replaces MutationObserver)
-    applyRarityAnimations(grid);
-
-}
 
 export function renderFilterModal(allBeers, activeFilters, onApply) {
     const wrapper = document.createElement('div');
@@ -1667,7 +860,7 @@ export function renderBeerDetail(beer, onSave) {
     wrapper.style.border = '2px solid transparent'; // Will be overridden by CSS classes
 
     let imgPath = beer.image;
-    if (!imgPath) imgPath = 'images/beer/default.png';
+    if (!imgPath || isMissingImage(imgPath)) imgPath = 'images/beer/default.png';
 
     const renderHistoryPanel = (historyData) => {
         const historyPanel = wrapper.querySelector('#beer-history-panel');
@@ -2014,6 +1207,8 @@ export function renderBeerDetail(beer, onSave) {
                     ` : ''}
                 </div>
 
+                ${renderFoodPairingSection(beer, existingData)}
+
                 <details style="background:var(--bg-card); padding:10px; border-radius:12px; margin-bottom:20px;">
                     <summary style="font-weight:bold; cursor:pointer; list-style:none;">📝 ${i18n.t('info_label_tasting_note')} ${existingData.score ? '✅' : ''}</summary>
                     <form id="rating-form" style="margin-top:15px;">
@@ -2031,6 +1226,10 @@ export function renderBeerDetail(beer, onSave) {
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <button id="btn-share-beer" class="form-input" style="flex:1;">📤 ${i18n.t('info_btn_link')}</button>
                     <button id="btn-share-insta" class="form-input" style="flex:1;">📸 ${i18n.t('info_btn_fast_story')}</button>
+                </div>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <button id="btn-compare-beer" class="form-input" style="flex:1;">⚖️ Comparer</button>
+                    <button id="btn-share-tcg" class="form-input" style="flex:1;">🃏 Carte TCG</button>
                 </div>
                 <button id="btn-share-advanced" class="btn-primary" style="margin-top:0; border:1px solid var(--accent-gold); color:var(--accent-gold); background:transparent;">
                     ✨ ${i18n.t('info_btn_custom_story')}
@@ -2052,7 +1251,7 @@ export function renderBeerDetail(beer, onSave) {
                     let explanationHtml = "";
                     if (window.BrewBrotherNLP) {
                         const tone = Storage.getPreference('brewbrother_tone', 'brewbrother');
-                        const lang = Storage.getPreference('lang', 'fr');
+                        const lang = Storage.getPreference('app_language', 'fr');
                         
                         try {
                             const existingData = Storage.getBeerRating(beer.id);
@@ -2319,30 +1518,14 @@ export function renderBeerDetail(beer, onSave) {
 
     // Share Image Handler (Insta-Beer)
     wrapper.querySelector('#btn-share-insta').onclick = async () => {
-        // Default behavior: uses existing score/comment
-        showToast(i18n.t('toast_generating_image'));
-        // API.handleShare or Share.shareImage directly?
-        // Let's use the API trigger to be safe or Share module directly if available
-        // We need 'api.js' handleShare logic but without params overrides
-        // Better: call Share directly for "Fast Mode"
-        const blob = await window.Share.generateBeerCard(beer, existingData.score || 0, existingData.comment || '');
-        window.Share.shareImage(blob, `Check-in ${beer.title}`);
-    };
-
-    // Advanced Share
-    wrapper.querySelector('#btn-share-advanced').onclick = () => {
-        renderAdvancedShareModal(beer, existingData);
-    };
-    wrapper.querySelector('#btn-share-insta').onclick = async () => {
         const btn = wrapper.querySelector('#btn-share-insta');
         const originalText = btn.innerHTML;
         btn.innerHTML = i18n.t('reveal_creating');
 
         try {
-            // Get user data
-            const existingData = Storage.getBeerRating(beer.id) || {};
-            const userRating = existingData.score || 0;
-            const userComment = existingData.comment || "";
+            const latestData = Storage.getBeerRating(beer.id) || {};
+            const userRating = latestData.score || 0;
+            const userComment = latestData.comment || "";
 
             const blob = await Share.generateBeerCard(beer, userRating, userComment);
             await Share.shareImage(blob, i18n.t('share_title_checkin', { title: beer.title }));
@@ -2352,6 +1535,31 @@ export function renderBeerDetail(beer, onSave) {
             btn.innerHTML = originalText;
             showToast(err.message === 'Web Share API not supported' ? i18n.t('toast_share_unsupported') : i18n.t('toast_share_error'));
         }
+    };
+
+    wrapper.querySelector('#btn-compare-beer').onclick = () => {
+        openCompareModal(beer);
+    };
+
+    wrapper.querySelector('#btn-share-tcg').onclick = async () => {
+        const btn = wrapper.querySelector('#btn-share-tcg');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = i18n.t('reveal_creating');
+        try {
+            const latestData = Storage.getBeerRating(beer.id) || {};
+            const blob = await Share.generateTCGCard(beer, latestData);
+            await Share.shareImage(blob, `${beer.title} — TCG`);
+        } catch (err) {
+            console.error(err);
+            showToast(i18n.t('toast_share_error'));
+        } finally {
+            btn.innerHTML = originalText;
+        }
+    };
+
+    // Advanced Share
+    wrapper.querySelector('#btn-share-advanced').onclick = () => {
+        renderAdvancedShareModal(beer, existingData);
     };
 
     // Re-binding Logic for Consumption
@@ -3286,15 +2494,41 @@ export function renderStats(allBeers, userData, container) {
         </div>
     ` : '';
 
+    const toolsBlock = `
+        <div class="stats-tools-grid">
+            <button type="button" id="btn-open-passport" class="stats-tool-btn">
+                <span class="stats-tool-icon">🛂</span>
+                <span class="stats-tool-text">
+                    <strong>Passeport Brassicole</strong>
+                    <span>Tampons par pays &amp; régions</span>
+                </span>
+            </button>
+            <button type="button" id="btn-open-compare" class="stats-tool-btn">
+                <span class="stats-tool-icon">⚖️</span>
+                <span class="stats-tool-text">
+                    <strong>Comparateur de Bières</strong>
+                    <span>Duel 2 à 3 fiches côte à côte</span>
+                </span>
+            </button>
+        </div>
+    `;
+
     container.innerHTML = `
         <div class="stats-view-wrapper" style="max-width: 600px; margin: 0 auto; width: 100%;">
             <div class="text-center p-20">
                 ${currentOrder.map(key => blocks[key] || '').join('')}
+                ${toolsBlock}
                 ${matchBlock}
                 ${wrappedBlock}
             </div>
         </div>
     `;
+
+    const btnPassport = container.querySelector('#btn-open-passport');
+    if (btnPassport) btnPassport.onclick = () => openBeerPassport(allBeers);
+
+    const btnCompare = container.querySelector('#btn-open-compare');
+    if (btnCompare) btnCompare.onclick = () => openCompareModal();
 
     // Hook up events
     const btnMatch = container.querySelector('#btn-match');
@@ -3325,15 +2559,15 @@ export function renderStats(allBeers, userData, container) {
             if (!ok) return;
             if (window.Match) window.Match.leaveParty();
             if (window.UI && window.UI.updateHeaderPartyUI) window.UI.updateHeaderPartyUI();
-            renderStatsView(container, allBeers, userData);
+            renderStats(allBeers, userData, container);
         };
     }
 
     const btnPartyQuickScan = container.querySelector('#btn-party-quick-scan');
     if (btnPartyQuickScan) {
         btnPartyQuickScan.onclick = () => {
-            if (window.UI && window.UI.renderUniversalScannerModal) {
-                window.UI.renderUniversalScannerModal();
+            if (window.UI && window.UI.openUniversalScanner) {
+                window.UI.openUniversalScanner();
             } else {
                 renderMatchModal(allBeers);
             }
@@ -4207,1373 +3441,8 @@ export function renderBACStatsContent(container) {
     };
 }
 
-let _activeSettingsGroup = 'appearance';
-
-function _restoreSettingsConditionalVisibility(container) {
-    if (!container) return;
-    const bacEnabled = Storage.getPreference('bac_enabled', true);
-    const bacGroup = container.querySelector('#bac-settings-group');
-    if (bacGroup) bacGroup.style.display = bacEnabled ? 'block' : 'none';
-
-    const hideWg = Storage.getPreference('bac_hide_weight_gender', false);
-    const wgRow = container.querySelector('#bac-weight-gender-row');
-    if (wgRow) wgRow.style.display = hideWg ? 'none' : 'flex';
-
-    const partyEnabled = Storage.getPreference('feat_beermatch_enabled', true);
-    container.querySelectorAll('.party-sub-row').forEach(r => {
-        r.style.display = partyEnabled ? 'flex' : 'none';
-    });
-}
-
-function _applyOneAtATimeAccordion(container, targetGroup) {
-    if (!container) return;
-    container.querySelectorAll('.settings-accordion').forEach(section => {
-        const isOpen = targetGroup !== null && section.dataset.group === targetGroup;
-        section.classList.toggle('is-open', isOpen);
-        const header = section.querySelector('.settings-accordion-header');
-        if (header) header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    });
-}
-
-export function renderSettings(allBeers, userData, container, isDiscovery = false, discoveryCallback = null) {
-    const perfMode = Storage.getPreference('perf_mode', 'auto');
-    const isLowEndActive = document.body.classList.contains('perf-low-end');
-    const detectedLow = typeof window.detectLowEndDevice === 'function' ? window.detectLowEndDevice() : false;
-    const rustEnabled = Storage.getPreference('feat_rust_enabled', true);
-    const rustAvail = Boolean(rustEnabled && window.BeerdexRust && window.BeerdexRust.isAvailable());
-    const partyEnabled = Storage.getPreference('feat_beermatch_enabled', true);
-    const bacEnabled = Storage.getPreference('bac_enabled', true);
-    const currentPreset = Theme.getActivePreset();
-    const currentColors = Theme.getActiveColors();
-
-    const makeAccordion = (groupId, icon, title, subtitle, innerHtml) => {
-        const isOpen = _activeSettingsGroup === groupId;
-        return `
-            <section class="settings-accordion ${isOpen ? 'is-open' : ''}" data-group="${groupId}">
-                <button type="button" class="settings-accordion-header" aria-expanded="${isOpen ? 'true' : 'false'}" aria-controls="settings-panel-${groupId}">
-                    <span class="settings-acc-icon" aria-hidden="true">${icon}</span>
-                    <span class="settings-acc-meta">
-                        <span class="settings-acc-title">${title}</span>
-                        <span class="settings-acc-subtitle">${subtitle}</span>
-                    </span>
-                    <svg class="settings-acc-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                </button>
-                <div class="settings-accordion-body" id="settings-panel-${groupId}">
-                    <div class="settings-accordion-inner">
-                        ${innerHtml}
-                    </div>
-                </div>
-            </section>
-        `;
-    };
-
-    const appearanceHtml = `
-        <div class="setting-row" data-keywords="langue language english français francais">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_language">Langue</span>
-                <span class="setting-desc" data-i18n="settings_language_desc">Choisir la langue d'affichage</span>
-            </div>
-            <div class="setting-action">
-                <select id="select-language" class="form-select">
-                    <option value="fr" ${Storage.getPreference('app_language', 'fr') === 'fr' ? 'selected' : ''}>Français</option>
-                    <option value="en" ${Storage.getPreference('app_language', 'fr') === 'en' ? 'selected' : ''}>English</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="setting-row setting-row--stack" data-keywords="thème theme couleurs color preset custom palette dark gold cyberpunk forest ocean sunset">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_theme_preset') || 'Thème & Couleurs'}</span>
-                <span class="setting-desc" data-i18n="settings_theme_desc">Personnalisez l'apparence de l'application</span>
-            </div>
-            <div id="theme-presets-grid" class="theme-presets-grid">
-                ${Object.entries(Theme.THEME_PRESETS).map(([key, preset]) => {
-                    const isActive = currentPreset === key;
-                    return `<button type="button" class="theme-preset-btn ${isActive ? 'is-active' : ''}" data-preset="${key}">
-                        <span class="theme-preset-swatch" style="background:${preset.colors['--accent-gold']};"></span>
-                        <span class="theme-preset-emoji">${preset.emoji}</span>
-                        <span>${preset.name}</span>
-                    </button>`;
-                }).join('')}
-                <button type="button" class="theme-preset-btn ${currentPreset === 'custom' ? 'is-active' : ''}" data-preset="custom">
-                    <span class="theme-preset-swatch" style="background:conic-gradient(#ff00cc,#ffc000,#00bcd4,#ff00cc);"></span>
-                    <span class="theme-preset-emoji">✏️</span>
-                    <span>Custom</span>
-                </button>
-            </div>
-
-            <div id="theme-custom-colors" class="theme-custom-colors" style="display:${currentPreset === 'custom' ? 'block' : 'none'};">
-                <strong class="theme-custom-title">${i18n.t('settings_theme_colors') || 'Couleurs personnalisées'}</strong>
-                <div class="theme-custom-grid">
-                    ${Theme.THEME_VARS.map(v => `
-                        <label class="theme-color-chip">
-                            <input type="color" class="theme-color-input" data-var="${v.key}" value="${currentColors[v.key] || v.default}">
-                            <span>${i18n.t(v.label) || v.key.replace('--', '')}</span>
-                        </label>
-                    `).join('')}
-                </div>
-            </div>
-
-            <div class="settings-btn-row">
-                <button type="button" id="btn-theme-export" class="setting-btn">📤 ${i18n.t('settings_theme_export') || 'Exporter'}</button>
-                <button type="button" id="btn-theme-import" class="setting-btn">📥 ${i18n.t('settings_theme_import') || 'Importer'}</button>
-                <button type="button" id="btn-theme-reset" class="setting-btn danger">↩️ ${i18n.t('theme_btn_reset') || 'Reset'}</button>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="police font écriture ecriture text outfit inter roboto">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_font_title') || "Police d'écriture"}</span>
-                <span class="setting-desc" data-i18n="settings_font_desc">Choisissez la police d'écriture de l'application</span>
-            </div>
-            <div class="setting-action">
-                <select id="select-font-family" class="form-select">
-                    ${Object.keys(Theme.FONTS).map(fontKey => `<option value="${fontKey}" ${Theme.getActiveFont() === fontKey ? 'selected' : ''}>${Theme.FONTS[fontKey].label}</option>`).join('')}
-                </select>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="musée musee museum 3d expo rideau">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_museum_title">${i18n.t('settings_museum_title')}</span>
-                <span class="setting-desc" data-i18n="settings_museum_desc">${i18n.t('settings_museum_desc')}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-museum" ${Storage.getPreference('museumThemeEnabled', false) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-    `;
-
-    const perfHtml = `
-        <div class="setting-row" data-keywords="performance lag fps fluidité fluidite low-end batterie economiseur animation blur">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_perf_mode_title') || 'Mode Performance (Low-End)'}</span>
-                <span class="setting-desc" id="settings-perf-status">
-                    ${isLowEndActive
-                        ? '⚡ Mode fluide actif : effets de flou, animations infinies et surcharges GPU réduits.'
-                        : '✨ Effets visuels complets actifs.'}
-                    ${perfMode === 'auto' ? ` (Auto : ${detectedLow ? 'appareil modeste détecté' : 'appareil standard/rapide'})` : ''}
-                </span>
-            </div>
-            <div class="setting-action">
-                <select id="select-perf-mode" class="form-select">
-                    <option value="auto" ${perfMode === 'auto' ? 'selected' : ''}>Auto</option>
-                    <option value="low" ${perfMode === 'low' ? 'selected' : ''}>Activé (Fluide)</option>
-                    <option value="high" ${perfMode === 'high' ? 'selected' : ''}>Désactivé (FX Max)</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="animations une seule fois once rareté rarete perf">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_anim_once_title')}</span>
-                <span class="setting-desc" data-i18n="settings_anim_once_desc">L'animation de rareté ne joue que la première fois</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="check-anim-once" ${Storage.getPreference('anim_only_once', false) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="rust wasm webassembly performance moteur core acceleration">
-            <div class="setting-info">
-                <span class="setting-title"><img src="icons/rust.png" alt="Rust" style="width:18px; height:18px; vertical-align:middle; margin-right:6px;"> Moteur Haute Performance Rust</span>
-                <span class="setting-desc" id="settings-rust-status">Moteur de calcul natif WebAssembly (v5.2.0) : ${rustAvail ? '⚡ Actif (Accélération matérielle)' : (rustEnabled ? 'Prêt / Fallback JS' : 'Inactif (Mode JavaScript)')}</span>
-            </div>
-            <div class="setting-action">
-                <input type="checkbox" id="toggle-feat-rust" class="toggle-switch" ${rustEnabled ? 'checked' : ''}>
-            </div>
-        </div>
-    `;
-
-    const experienceHtml = `
-        <div class="setting-row" data-keywords="découverte decouverte discovery exploration pokedex">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_discovery_title">${i18n.t('settings_discovery_title')}</span>
-                <span class="setting-desc" data-i18n="settings_discovery_desc">${i18n.t('settings_discovery_desc')}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-discovery" ${isDiscovery ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="rareté rarete spoil reveal rarity">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_reveal_rarity_title')}</span>
-                <span class="setting-desc" data-i18n="settings_reveal_rarity_desc">Cache la rareté des bières non goûtées</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="check-reveal-rarity" ${Storage.getPreference('revealRarity', false) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row setting-row--stack" data-keywords="cartes stats overlay volume compteur count card brewbrother">
-            <div class="setting-info">
-                <span class="setting-title" style="color:var(--accent-gold);">${i18n.t('settings_card_stats_title')}</span>
-            </div>
-            <div class="setting-sublist">
-                <div class="setting-subitem">
-                    <div>
-                        <span class="setting-title">${i18n.t('settings_card_stats_count_title')}</span>
-                        <span class="setting-desc">${i18n.t('settings_card_stats_count_desc')}</span>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" class="toggle-switch" id="toggle-card-stat-count" ${Storage.getPreference('card_stat_count', false) ? 'checked' : ''}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="setting-subitem">
-                    <div>
-                        <span class="setting-title">${i18n.t('settings_card_stats_volume_title')}</span>
-                        <span class="setting-desc">${i18n.t('settings_card_stats_volume_desc')}</span>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" class="toggle-switch" id="toggle-card-stat-volume" ${Storage.getPreference('card_stat_volume', false) ? 'checked' : ''}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="setting-subitem">
-                    <div>
-                        <span class="setting-title">${i18n.t('settings_card_bb_pct_title') || 'Match BrewBrother (%)'}</span>
-                        <span class="setting-desc">${i18n.t('settings_card_bb_pct_desc') || 'Afficher le pourcentage de match sur la carte'}</span>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" class="toggle-switch" id="toggle-card-brewbrother" ${Storage.getPreference('card_brewbrother_pct', false) ? 'checked' : ''}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-            </div>
-        </div>
-
-        <div class="setting-row setting-row--stack" data-keywords="grille notation rating note template critère critere preset tristan noah">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_rating_grid_title">${i18n.t('settings_rating_grid_title') || 'Grille de notation'}</span>
-                <span class="setting-desc" data-i18n="settings_rating_grid_desc">${i18n.t('settings_rating_grid_desc') || 'Personnalisez les critères de notation de vos bières.'}</span>
-            </div>
-            <button type="button" id="btn-template" class="setting-btn">
-                ${i18n.t('settings_btn_configure_rating')}
-            </button>
-            <div class="settings-btn-row">
-                <button type="button" id="btn-preset-default" class="setting-btn ${Storage.getPreference('activePreset') === 'default' ? 'primary' : ''}">${i18n.t('preset_default')}</button>
-                <button type="button" id="btn-preset-tristan" class="setting-btn ${Storage.getPreference('activePreset') === 'tristan' ? 'primary' : ''}">${i18n.t('preset_tristan')}</button>
-                <button type="button" id="btn-preset-noah" class="setting-btn ${Storage.getPreference('activePreset') === 'noah' ? 'primary' : ''}">${i18n.t('preset_noah')}</button>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="son audio sound effets">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_sound_title">${i18n.t('settings_sound_title')}</span>
-                <span class="setting-desc" data-i18n="settings_sound_desc">${i18n.t('settings_sound_desc')}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-sound" ${Storage.getPreference('soundEnabled', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="haptique vibrations retour haptics">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_haptics_title">${i18n.t('settings_haptics_title')}</span>
-                <span class="setting-desc" data-i18n="settings_haptics_desc">${i18n.t('settings_haptics_desc')}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-haptics" ${Storage.getPreference('hapticsEnabled', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-    `;
-
-    const bacHtml = `
-        <div class="setting-row" data-keywords="bac alcoolémie alcoolemie sang blood alcohol calcul">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_bac_enable_title">${i18n.t('settings_bac_enable_title')}</span>
-                <span class="setting-desc" data-i18n="settings_bac_enable_desc">${i18n.t('settings_bac_enable_desc')}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-bac-enabled" ${bacEnabled ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div id="bac-settings-group" class="settings-subgroup" style="display:${bacEnabled ? 'block' : 'none'};">
-            <div class="setting-row setting-row--split" id="bac-weight-gender-row" style="display:${Storage.getPreference('bac_hide_weight_gender', false) ? 'none' : 'flex'};" data-keywords="poids genre weight gender bac sexe">
-                <div class="setting-split-col">
-                    <span class="setting-desc" data-i18n="settings_weight_label">${i18n.t('settings_weight_label')}</span>
-                    <input type="number" id="input-bac-weight" class="form-input" value="${Storage.getPreference('bac_weight', '')}" placeholder="ex: 70" min="30" max="200">
-                </div>
-                <div class="setting-split-col">
-                    <span class="setting-desc" data-i18n="settings_gender_label">${i18n.t('settings_gender_label')}</span>
-                    <select id="select-bac-gender" class="form-select">
-                        <option value="" ${!Storage.getPreference('bac_gender', null) ? 'selected' : ''}>${i18n.t('settings_gender_none')}</option>
-                        <option value="M" ${Storage.getPreference('bac_gender', null) === 'M' ? 'selected' : ''}>${i18n.t('gender_male')}</option>
-                        <option value="F" ${Storage.getPreference('bac_gender', null) === 'F' ? 'selected' : ''}>${i18n.t('gender_female')}</option>
-                        <option value="X" ${Storage.getPreference('bac_gender', null) === 'X' ? 'selected' : ''}>${i18n.t('gender_other')}</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="setting-row" data-keywords="cacher poids genre hide weight gender bac confidentialite">
-                <div class="setting-info">
-                    <span class="setting-title">${i18n.t('settings_bac_hide_wg_title')}</span>
-                </div>
-                <div class="setting-action">
-                    <label class="switch">
-                        <input type="checkbox" class="toggle-switch" id="toggle-bac-hide-wg" ${Storage.getPreference('bac_hide_weight_gender', false) ? 'checked' : ''}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="setting-row" data-keywords="pays rules bac law limite conduite">
-                <div class="setting-info">
-                    <span class="setting-title">${i18n.t('settings_bac_country')}</span>
-                    <span class="setting-desc">${i18n.t('settings_bac_country_desc')}</span>
-                </div>
-                <div class="setting-action">
-                    <select id="select-bac-country" class="form-select">
-                        <option value="BE" ${Storage.getPreference('bac_country', 'BE') === 'BE' ? 'selected' : ''}>🇧🇪 BE</option>
-                        <option value="FR" ${Storage.getPreference('bac_country', 'BE') === 'FR' ? 'selected' : ''}>🇫🇷 FR</option>
-                        <option value="DE" ${Storage.getPreference('bac_country', 'BE') === 'DE' ? 'selected' : ''}>🇩🇪 DE</option>
-                        <option value="NL" ${Storage.getPreference('bac_country', 'BE') === 'NL' ? 'selected' : ''}>🇳🇱 NL</option>
-                        <option value="IT" ${Storage.getPreference('bac_country', 'BE') === 'IT' ? 'selected' : ''}>🇮🇹 IT</option>
-                        <option value="CO" ${Storage.getPreference('bac_country', 'BE') === 'CO' ? 'selected' : ''}>🇨🇴 CO</option>
-                        <option value="US" ${Storage.getPreference('bac_country', 'BE') === 'US' ? 'selected' : ''}>🇺🇸 US</option>
-                        <option value="CN" ${Storage.getPreference('bac_country', 'BE') === 'CN' ? 'selected' : ''}>🇨🇳 CN</option>
-                        <option value="JP" ${Storage.getPreference('bac_country', 'BE') === 'JP' ? 'selected' : ''}>🇯🇵 JP</option>
-                        <option value="KR" ${Storage.getPreference('bac_country', 'BE') === 'KR' ? 'selected' : ''}>🇰🇷 KR</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="setting-row setting-row--split" data-keywords="durée duree véhicule vehicule duration vehicle bac conduite velo moto voiture">
-                <div class="setting-split-col">
-                    <span class="setting-desc">${i18n.t('settings_bac_duration')}</span>
-                    <select id="select-bac-duration" class="form-select">
-                        <option value="0" ${Storage.getPreference('bac_drink_duration', '0') === '0' ? 'selected' : ''}>${i18n.t('settings_bac_instant')}</option>
-                        <option value="15" ${Storage.getPreference('bac_drink_duration', '0') === '15' ? 'selected' : ''}>15 min</option>
-                        <option value="30" ${Storage.getPreference('bac_drink_duration', '0') === '30' ? 'selected' : ''}>30 min</option>
-                        <option value="45" ${Storage.getPreference('bac_drink_duration', '0') === '45' ? 'selected' : ''}>45 min</option>
-                        <option value="60" ${Storage.getPreference('bac_drink_duration', '0') === '60' ? 'selected' : ''}>1h</option>
-                    </select>
-                </div>
-                <div class="setting-split-col">
-                    <span class="setting-desc">${i18n.t('settings_bac_vehicle')}</span>
-                    <select id="select-bac-vehicle" class="form-select">
-                        <option value="voiture" ${Storage.getPreference('bac_vehicle', 'voiture') === 'voiture' ? 'selected' : ''}>🚗</option>
-                        <option value="moto" ${Storage.getPreference('bac_vehicle', 'voiture') === 'moto' ? 'selected' : ''}>🏍️</option>
-                        <option value="velo" ${Storage.getPreference('bac_vehicle', 'voiture') === 'velo' ? 'selected' : ''}>🚲</option>
-                        <option value="pieton" ${Storage.getPreference('bac_vehicle', 'voiture') === 'pieton' ? 'selected' : ''}>🚶</option>
-                        <option value="gamer" ${Storage.getPreference('bac_vehicle', 'voiture') === 'gamer' ? 'selected' : ''}>🎮</option>
-                        <option value="ne_conduit_pas" ${Storage.getPreference('bac_vehicle', 'voiture') === 'ne_conduit_pas' ? 'selected' : ''}>🚫</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="setting-row setting-row--stack" data-keywords="manuel home accueil widget bac show manual">
-                <div class="setting-sublist">
-                    <div class="setting-subitem">
-                        <div>
-                            <span class="setting-title">${i18n.t('settings_show_home_title')}</span>
-                            <span class="setting-desc" data-i18n="settings_show_home_desc">Permet d'ajouter un widget sur votre écran d'accueil</span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-bac-home" ${Storage.getPreference('bac_show_home', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="setting-subitem">
-                        <div>
-                            <span class="setting-title">${i18n.t('settings_manual_only_title')}</span>
-                            <span class="setting-desc" data-i18n="settings_manual_only_desc">Seules les bières ajoutées manuellement impactent l'alcoolémie</span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-bac-manual" ${Storage.getPreference('bac_manual_only', false) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="setting-row setting-row--stack" data-keywords="historique calendrier série serie history calendar streak bac show">
-                <div class="setting-sublist">
-                    <div class="setting-subitem">
-                        <div>
-                            <span class="setting-title">${i18n.t('settings_bac_show_history')}</span>
-                            <span class="setting-desc" data-i18n="settings_bac_show_history_desc">Affiche vos récentes dégustations</span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-show-history" ${Storage.getPreference('bac_show_history', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="setting-subitem">
-                        <div>
-                            <span class="setting-title">${i18n.t('settings_bac_show_calendar')}</span>
-                            <span class="setting-desc" data-i18n="settings_bac_show_calendar_desc">Affiche vos jours de consommation en calendrier</span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-show-calendar" ${Storage.getPreference('bac_show_calendar', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="setting-subitem">
-                        <div>
-                            <span class="setting-title">${i18n.t('settings_bac_show_streak')}</span>
-                            <span class="setting-desc" data-i18n="settings_bac_show_streak_desc">Affiche le suivi de série quotidienne</span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" class="toggle-switch" id="toggle-show-streak" ${Storage.getPreference('bac_show_streak', true) ? 'checked' : ''}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    const modulesHtml = `
-        <div class="setting-row" data-keywords="carte map localisation region">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_toggle_map') || 'Afficher la carte (Map)'}</span>
-                <span class="setting-desc" data-i18n="settings_map_desc">Affiche une carte interactive de vos dégustations</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-feat-map" ${Storage.getPreference('feat_map_enabled', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="carte défaut defaut pays default map country">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_map_default')}</span>
-                <span class="setting-desc">${i18n.t('settings_map_default_desc')}</span>
-            </div>
-            <div class="setting-action">
-                <select id="select-default-map" class="form-select">
-                    <option value="" ${!localStorage.getItem('defaultMapScope') ? 'selected' : ''}>${i18n.t('settings_map_auto')}</option>
-                    <option value="be" ${localStorage.getItem('defaultMapScope') === 'be' ? 'selected' : ''}>🇧🇪 ${i18n.t('country_be')}</option>
-                    <option value="fr" ${localStorage.getItem('defaultMapScope') === 'fr' ? 'selected' : ''}>🇫🇷 ${i18n.t('country_fr')}</option>
-                    <option value="de" ${localStorage.getItem('defaultMapScope') === 'de' ? 'selected' : ''}>🇩🇪 ${i18n.t('country_de')}</option>
-                    <option value="nl" ${localStorage.getItem('defaultMapScope') === 'nl' ? 'selected' : ''}>🇳🇱 ${i18n.t('country_nl')}</option>
-                    <option value="us" ${localStorage.getItem('defaultMapScope') === 'us' ? 'selected' : ''}>🇺🇸 ${i18n.t('country_us')}</option>
-                    <option value="co" ${localStorage.getItem('defaultMapScope') === 'co' ? 'selected' : ''}>🇨🇴 ${i18n.t('country_co')}</option>
-                    <option value="kr" ${localStorage.getItem('defaultMapScope') === 'kr' ? 'selected' : ''}>🇰🇷 ${i18n.t('country_kr')}</option>
-                    <option value="jp" ${localStorage.getItem('defaultMapScope') === 'jp' ? 'selected' : ''}>🇯🇵 ${i18n.t('country_jp')}</option>
-                    <option value="cn" ${localStorage.getItem('defaultMapScope') === 'cn' ? 'selected' : ''}>🇨🇳 ${i18n.t('country_cn')}</option>
-                    <option value="eu" ${localStorage.getItem('defaultMapScope') === 'eu' ? 'selected' : ''}>🇪🇺 ${i18n.t('map_scope_eu')}</option>
-                    <option value="wo" ${localStorage.getItem('defaultMapScope') === 'wo' ? 'selected' : ''}>🌍 ${i18n.t('map_scope_wo')}</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="brewbrother recommendation recommandations ia ai gout">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_toggle_brewbrother') || 'Activer BrewBrother'}</span>
-                <span class="setting-desc">${i18n.t('settings_brewbrother_desc') || 'Assistant IA de recommandations et profil de goût'}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-feat-brewbrother" ${Storage.getPreference('feat_brewbrother_enabled', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="brewbrother tone ton ia recommandation style">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_bb_tone_title">${i18n.t('settings_bb_tone_title') || 'Ton BrewBrother'}</span>
-                <span class="setting-desc" data-i18n="settings_bb_tone_desc">${i18n.t('settings_bb_tone_desc') || 'Choisissez le style des descriptions'}</span>
-            </div>
-            <div class="setting-action">
-                <select id="select-bb-tone" class="form-select">
-                    <option value="brewbrother" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'brewbrother' ? 'selected' : ''}>${i18n.t('settings_bb_tone_default') || 'BrewBrother'}</option>
-                    <option value="friend" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'friend' ? 'selected' : ''}>${i18n.t('settings_bb_tone_friend') || 'Ami'}</option>
-                    <option value="neutral" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'neutral' ? 'selected' : ''}>${i18n.t('settings_bb_tone_neutral') || 'Neutre'}</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="beer party dégustation salon direct p2p beermatch">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_toggle_beermatch') || 'Beer Party'}</span>
-                <span class="setting-desc" data-i18n="settings_beermatch_desc">${i18n.t('settings_beermatch_desc') || 'Salons de dégustation en direct, statistiques collectives et partage P2P'}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-feat-beermatch" ${partyEnabled ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-pseudo-row" data-keywords="party pseudo nom animal">
-            <div class="setting-info">
-                <span class="setting-title">Pseudo Party</span>
-                <span class="setting-desc">Votre nom affiché dans la salle.</span>
-            </div>
-            <div class="setting-action" style="gap:6px;">
-                <input type="text" id="input-party-pseudo" class="form-input" placeholder="Anonyme" value="${Storage.getPreference('beermatch_pseudo', '')}" style="width:120px; font-size:0.8rem; text-align:right; padding:8px;">
-                <button type="button" id="btn-settings-dice-pseudo" class="beerparty-pseudo-edit-btn" title="Générer un animal aléatoire">🎲</button>
-            </div>
-        </div>
-
-        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-total-row" data-keywords="party partager volumes total">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_party_share_total') || 'Partager volumes & total bu'}</span>
-                <span class="setting-desc" data-i18n="settings_party_share_total_desc">${i18n.t('settings_party_share_total_desc') || 'Partager vos verres, litres et alcool pur pour le cumul du groupe.'}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-total" ${Storage.getPreference('beermatch_share_total', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-catalog-row" data-keywords="party partager bières commun">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_party_share_catalog') || 'Partager bières en commun'}</span>
-                <span class="setting-desc" data-i18n="settings_party_share_catalog_desc">${i18n.t('settings_party_share_catalog_desc') || 'Comparer vos bières goûtées pour découvrir vos affinités.'}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-catalog" ${Storage.getPreference('beermatch_share_catalog', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-top-row" data-keywords="party partager favorites">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_party_share_top') || 'Partager bières favorites'}</span>
-                <span class="setting-desc" data-i18n="settings_party_share_top_desc">${i18n.t('settings_party_share_top_desc') || 'Afficher votre bière préférée et participer à la bière reine du groupe.'}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-top" ${Storage.getPreference('beermatch_share_top', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-unique-row" data-keywords="party partager uniques explorateur">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_party_share_unique') || 'Partager bières uniques'}</span>
-                <span class="setting-desc" data-i18n="settings_party_share_unique_desc">${i18n.t('settings_party_share_unique_desc') || 'Diffuser votre total de bières différentes (podium Explorateur).'}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-unique" ${Storage.getPreference('beermatch_share_unique', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row party-sub-row" style="display:${partyEnabled ? 'flex' : 'none'};" id="party-privacy-achievements-row" data-keywords="party partager trophées trophees badges">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_party_share_achievements') || 'Partager trophées & badges'}</span>
-                <span class="setting-desc" data-i18n="settings_party_share_achievements_desc">${i18n.t('settings_party_share_achievements_desc') || 'Diffuser vos succès débloqués (podium Chasseur).'}</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-party-share-achievements" ${Storage.getPreference('beermatch_share_achievements', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="wrapped bilan spotify annee">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_toggle_wrapped') || 'Beerdex Wrapped'}</span>
-                <span class="setting-desc" data-i18n="settings_wrapped_desc">Générez un bilan visuel annuel de vos dégustations</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-feat-wrapped" ${Storage.getPreference('feat_wrapped_enabled', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="équivalences equivalences alcool verres">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_toggle_equivalences') || 'Équivalences alcool'}</span>
-                <span class="setting-desc" data-i18n="settings_equivalences_desc">Affiche l'équivalent en verres standards (vin, shots)</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-feat-equivalences" ${Storage.getPreference('feat_equivalences_enabled', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="rappels reminders notif doublons non notees">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_toggle_reminders') || 'Rappels (Notation & Duplications)'}</span>
-                <span class="setting-desc" data-i18n="settings_reminders_desc">Notifications pour les bières non notées ou les doublons</span>
-            </div>
-            <div class="setting-action">
-                <label class="switch">
-                    <input type="checkbox" class="toggle-switch" id="toggle-feat-reminders" ${Storage.getPreference('feat_reminders_enabled', true) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-    `;
-
-    const defaultStatsOrder = ['progression', 'equivalences', 'bac', 'streak', 'history', 'calendar', 'achievements', 'map', 'brewbrother'];
-    let currentStatsOrder = Storage.getPreference('stats_order', defaultStatsOrder);
-    if (currentStatsOrder.includes('donut')) {
-        currentStatsOrder = [...defaultStatsOrder];
-    } else {
-        currentStatsOrder = [...currentStatsOrder];
-        defaultStatsOrder.forEach(k => { if (!currentStatsOrder.includes(k)) currentStatsOrder.push(k); });
-        currentStatsOrder = currentStatsOrder.filter(k => defaultStatsOrder.includes(k));
-    }
-    Storage.savePreference('stats_order', currentStatsOrder);
-
-    const buildStatsOrderItemsHtml = (order) => {
-        const labels = {
-            'progression': i18n.t('stats_block_progression') || "Progression",
-            'bac': i18n.t('stats_block_bac') || "Taux d'alcool (BAC)",
-            'streak': i18n.t('stats_block_streak') || "Série (Streak)",
-            'equivalences': i18n.t('stats_block_equivalences') || "Équivalences",
-            'history': i18n.t('stats_block_history') || "Historique des consos",
-            'calendar': i18n.t('stats_block_calendar') || "Calendrier de dégustation",
-            'achievements': i18n.t('stats_block_achievements') || "Succès et Badges",
-            'map': i18n.t('stats_block_map') || "Carte de Dégustation",
-            'brewbrother': i18n.t('stats_block_brewbrother') || "Profil BrewBrother"
-        };
-        return order.map((key, index) => `
-            <div class="stats-order-item" data-key="${key}">
-                <span>${labels[key] || key}</span>
-                <div class="stats-order-actions">
-                    <button type="button" class="btn-stat-move-up setting-btn" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
-                    <button type="button" class="btn-stat-move-down setting-btn" data-index="${index}" ${index === order.length - 1 ? 'disabled' : ''}>↓</button>
-                </div>
-            </div>
-        `).join('');
-    };
-
-    const statsOrderHtml = `
-        <div class="setting-row setting-row--stack" data-keywords="ordre tri stats order sort position">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_group_stats_order') || 'Ordre des Statistiques'}</span>
-                <span class="setting-desc" data-i18n="settings_group_stats_order_desc">Personnalisez l'ordre d'affichage des blocs sur la page Stats</span>
-            </div>
-            <div id="stats-order-list" class="stats-order-list">
-                ${buildStatsOrderItemsHtml(currentStatsOrder)}
-            </div>
-        </div>
-    `;
-
-    const dataHtml = `
-        <div class="setting-row setting-row--stack" data-keywords="exporter importer données donnees json export import data save sauvegarde partage ota">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_group_data') || 'Gestion des données'}</span>
-                <span class="setting-desc">${i18n.t('settings_data_desc')}</span>
-            </div>
-            <div class="settings-btn-row">
-                <button type="button" id="btn-manage-export" class="setting-btn primary">📤 ${i18n.t('export_btn_submit')}</button>
-                <button type="button" id="btn-manage-import" class="setting-btn">📥 ${i18n.t('import_title')}</button>
-            </div>
-            <button type="button" id="btn-manage-bulk-share" class="setting-btn accent-soft">📦 Partage Multiple (Bières perso)</button>
-        </div>
-
-        <div class="setting-row" data-keywords="nettoyer doublons deduplicate clean thanos">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_btn_dedup') || 'Nettoyer les doublons'}</span>
-                <span class="setting-desc" data-i18n="settings_dedup_desc">Fusionner vos bières personnalisées avec les bières officielles</span>
-            </div>
-            <div class="setting-action">
-                <button type="button" id="btn-deduplicate-db" class="setting-btn">🧹 ${i18n.t('btn_clean') || 'Nettoyer'}</button>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="demander ajouter bière biere request beer">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('request_beer_btn') || 'Demander une Bière'}</span>
-                <span class="setting-desc" data-i18n="settings_request_beer_desc">Soumettre une bière manquante pour ajout à la base</span>
-            </div>
-            <div class="setting-action">
-                <button type="button" id="btn-request-beer" class="setting-btn primary">🍺 ${i18n.t('btn_request') || 'Demander'}</button>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="mise à jour mise a jour update actualiser version cache">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_check_update') || 'Vérifier les mises à jour'}</span>
-                <span class="setting-desc" data-i18n="settings_check_update_desc">Forcer la recherche de la dernière version de l'application</span>
-            </div>
-            <div class="setting-action">
-                <button type="button" id="btn-check-update" class="setting-btn">🔄 ${i18n.t('btn_refresh') || 'Actualiser'}</button>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="tutoriel guide aide tutorial tuto">
-            <div class="setting-info">
-                <span class="setting-title">${i18n.t('settings_restart_tuto') || 'Refaire le tutoriel'}</span>
-                <span class="setting-desc" data-i18n="settings_restart_tuto_desc">Relancer le guide de démarrage interactif</span>
-            </div>
-            <div class="setting-action">
-                <button type="button" id="btn-restart-tuto" class="setting-btn">🎓 ${i18n.t('btn_launch') || 'Lancer'}</button>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="diagnostic debug log admin développeur developpeur console">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="debug_dev_settings">${i18n.t('debug_dev_settings') || 'Diagnostic & Debug'}</span>
-                <span class="setting-desc" data-i18n="settings_debug_desc">Outils avancés pour la réparation et le test</span>
-            </div>
-            <div class="setting-action">
-                <button type="button" id="btn-open-debug" class="setting-btn">⚙️ ${i18n.t('btn_open') || 'Ouvrir'}</button>
-            </div>
-        </div>
-
-        <div class="setting-row" data-keywords="test qa lab suite qualité qualite vérification verification">
-            <div class="setting-info">
-                <span class="setting-title">🧪 QA Lab — Suite de Tests</span>
-                <span class="setting-desc">Lancer la batterie de tests automatisés pour vérifier l'intégrité de l'app</span>
-            </div>
-            <div class="setting-action">
-                <button type="button" id="btn-open-qalab" class="setting-btn">🧪 Ouvrir</button>
-            </div>
-        </div>
-
-        <div class="setting-row setting-row--stack setting-row--danger" data-keywords="réinitialiser reinitialiser supprimer reset clear effacer delete danger">
-            <div class="setting-info">
-                <span class="setting-title" style="color:#ff6b6b;">${i18n.t('settings_danger_zone')}</span>
-                <span class="setting-desc" data-i18n="settings_danger_desc">${i18n.t('settings_danger_desc') || 'Suppression définitive des données'}</span>
-            </div>
-            <div class="settings-danger-grid">
-                <button type="button" id="btn-reset-ratings" class="setting-btn">${i18n.t('settings_reset_ratings')}</button>
-                <button type="button" id="btn-reset-custom" class="setting-btn">${i18n.t('settings_reset_custom')}</button>
-                <button type="button" id="btn-reset-history" class="setting-btn">${i18n.t('settings_reset_history')}</button>
-                <button type="button" id="btn-reset-fav" class="setting-btn">${i18n.t('settings_reset_favs')}</button>
-            </div>
-            <button type="button" id="btn-reset-app" class="setting-btn danger">🔥 ${i18n.t('settings_reset_app')}</button>
-        </div>
-    `;
-
-    const aboutHtml = `
-        <div class="setting-row setting-row--stack" data-keywords="nouveautés nouveautes patchnotes patch notes changelog version">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_whats_new">${i18n.t('settings_whats_new')}</span>
-            </div>
-            <div class="settings-patchnotes-wrap">
-                ${renderPatchnotesSection()}
-            </div>
-        </div>
-
-        <div class="setting-row setting-row--stack" data-keywords="crédits credits fondateurs equipe equipe author noah dorian tristan maxance">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_credits">${i18n.t('settings_credits')}</span>
-            </div>
-            <div class="settings-credits-card">
-                <div>
-                    <div class="settings-credit-label" data-i18n="settings_founders">${i18n.t('settings_founders')}</div>
-                    <div class="settings-credit-names">Dorian Storms, Noah Bruijninckx, Tristan Storms & Maxance Veulemans</div>
-                </div>
-                <div>
-                    <div class="settings-credit-label" data-i18n="settings_design_code">${i18n.t('settings_design_code')}</div>
-                    <div class="settings-credit-names">Noah Bruijninckx</div>
-                </div>
-                <div class="settings-version-pill">Beerdex v5.2.0 &copy; 2026</div>
-            </div>
-        </div>
-
-        <div class="setting-row setting-row--stack" data-keywords="légal legal cgu tos confidentialité confidentialite privacy copyright">
-            <div class="setting-info">
-                <span class="setting-title" data-i18n="settings_legal_section">${i18n.t('settings_legal_section')}</span>
-            </div>
-            <div class="settings-legal-list">
-                <button type="button" id="btn-legal-tos" class="setting-btn settings-legal-btn">📄 ${i18n.t('legal_tos_title')}</button>
-                <button type="button" id="btn-legal-privacy" class="setting-btn settings-legal-btn">🛡️ ${i18n.t('legal_privacy_title')}</button>
-                <button type="button" id="btn-legal-copyright" class="setting-btn settings-legal-btn">⚖️ ${i18n.t('legal_copyright_title')}</button>
-            </div>
-        </div>
-    `;
-
-    container.innerHTML = `
-        <div id="settings-container" class="settings-container">
-            <div class="settings-header">
-                <h2 class="settings-main-title" data-i18n="settings_main_title">Paramètres & Données</h2>
-                <p class="settings-main-subtitle">Une seule catégorie ouverte à la fois, ou recherchez un réglage instantanément.</p>
-            </div>
-
-            <div class="settings-search-box">
-                <svg class="settings-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-                <input type="search" id="settings-search-input" placeholder="Rechercher un paramètre (ex: alcool, thème, lag, backup...)" autocomplete="off" aria-label="Rechercher un paramètre">
-                <button type="button" id="settings-search-clear" class="settings-search-clear hidden" aria-label="Effacer la recherche">&times;</button>
-            </div>
-            <div id="settings-search-count" class="settings-search-count hidden"></div>
-
-            <div class="settings-accordions-list">
-                ${makeAccordion('appearance', '🎨', i18n.t('settings_group_theme_appearance') || 'Apparence & Thème', 'Langue, palettes, police, mode musée', appearanceHtml)}
-                ${makeAccordion('performance', '⚡', 'Performance & Fluidité', 'Mode low-end, animations, moteur Rust', perfHtml)}
-                ${makeAccordion('experience', '🍺', 'Expérience & Cartes', 'Découverte, rareté, grille de notation, sons', experienceHtml)}
-                ${makeAccordion('bac', '🩸', 'Alcoolémie (BAC) & Sécurité', 'Profil, pays, véhicule, calendrier & séries', bacHtml)}
-                ${makeAccordion('modules', '🧩', i18n.t('settings_group_features_immersion') || 'Modules & Social', 'Carte, BrewBrother, Beer Party, Wrapped', modulesHtml)}
-                ${makeAccordion('stats_order', '📊', i18n.t('settings_group_stats_order') || 'Ordre des Statistiques', 'Réorganiser les blocs de la page Stats', statsOrderHtml)}
-                ${makeAccordion('data', '💾', i18n.t('settings_group_data_backup') || 'Données, Outils & Danger', 'Import/Export, doublons, debug, réinitialisation', dataHtml)}
-                ${makeAccordion('about', 'ℹ️', 'Nouveautés, Crédits & Légal', 'Patchnotes v5.2, équipe, mentions légales', aboutHtml)}
-            </div>
-
-            <div id="settings-search-empty" class="settings-search-empty hidden">
-                <div style="font-size:2rem; margin-bottom:8px;">🔍</div>
-                <div>Aucun paramètre trouvé pour cette recherche.</div>
-            </div>
-        </div>
-    `;
-
-    // --- One-at-a-Time Accordion Handlers ---
-    container.querySelectorAll('.settings-accordion-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const section = header.closest('.settings-accordion');
-            if (!section) return;
-            const groupId = section.dataset.group;
-            const willOpen = !section.classList.contains('is-open');
-            _activeSettingsGroup = willOpen ? groupId : null;
-            _applyOneAtATimeAccordion(container, _activeSettingsGroup);
-
-            if (willOpen) {
-                requestAnimationFrame(() => {
-                    header.scrollIntoView({
-                        behavior: document.body.classList.contains('perf-low-end') ? 'auto' : 'smooth',
-                        block: 'nearest'
-                    });
-                });
-            }
-        });
-    });
-
-    // --- Integrated Settings Search ---
-    const settingsSearchInput = container.querySelector('#settings-search-input');
-    const settingsSearchClear = container.querySelector('#settings-search-clear');
-    if (settingsSearchInput) {
-        settingsSearchInput.addEventListener('input', (e) => {
-            filterSettings(e.target.value);
-        });
-    }
-    if (settingsSearchClear) {
-        settingsSearchClear.addEventListener('click', () => {
-            if (settingsSearchInput) {
-                settingsSearchInput.value = '';
-                settingsSearchInput.focus();
-            }
-            filterSettings('');
-        });
-    }
-
-    // --- Performance Mode Handler ---
-    const selectPerfMode = container.querySelector('#select-perf-mode');
-    if (selectPerfMode) {
-        selectPerfMode.addEventListener('change', (e) => {
-            const mode = e.target.value;
-            Storage.savePreference('perf_mode', mode);
-            const isLow = typeof window.applyPerformanceMode === 'function' ? window.applyPerformanceMode() : false;
-            const statusEl = container.querySelector('#settings-perf-status');
-            if (statusEl) {
-                statusEl.textContent = isLow
-                    ? '⚡ Mode fluide actif : effets de flou, animations infinies et surcharges GPU réduits.'
-                    : '✨ Effets visuels complets actifs.';
-            }
-            showToast(isLow ? 'Mode Performance activé (60 FPS)' : 'Effets visuels complets activés');
-        });
-    }
-
-    // --- Theme Handlers (in-place update, preserves accordion & scroll) ---
-    const syncThemeButtonsUI = () => {
-        const activePreset = Theme.getActivePreset();
-        const activeColors = Theme.getActiveColors();
-        container.querySelectorAll('.theme-preset-btn').forEach(b => {
-            b.classList.toggle('is-active', b.dataset.preset === activePreset);
-        });
-        const customDiv = container.querySelector('#theme-custom-colors');
-        if (customDiv) customDiv.style.display = activePreset === 'custom' ? 'block' : 'none';
-        container.querySelectorAll('.theme-color-input').forEach(inp => {
-            const k = inp.dataset.var;
-            if (activeColors[k]) inp.value = activeColors[k];
-        });
-    };
-
-    container.querySelectorAll('.theme-preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const preset = btn.dataset.preset;
-            if (preset === 'custom') {
-                Storage.savePreference('theme_preset', 'custom');
-                Theme.applyColors(Theme.getActiveColors());
-            } else {
-                Theme.applyPreset(preset);
-            }
-            syncThemeButtonsUI();
-            showToast(i18n.t('toast_theme_applied') || 'Thème appliqué !', 'success');
-        });
-    });
-
-    container.querySelectorAll('.theme-color-input').forEach(input => {
-        input.addEventListener('input', (e) => {
-            Theme.setCustomColor(e.target.dataset.var, e.target.value);
-            container.querySelectorAll('.theme-preset-btn').forEach(b => {
-                b.classList.toggle('is-active', b.dataset.preset === 'custom');
-            });
-        });
-    });
-
-    const btnThemeExport = container.querySelector('#btn-theme-export');
-    if (btnThemeExport) {
-        btnThemeExport.addEventListener('click', async () => {
-            const code = Theme.exportTheme();
-            try {
-                await navigator.clipboard.writeText(code);
-                Storage.savePreference('theme_shared', true);
-                window.dispatchEvent(new Event('beerdex-action'));
-                showToast(i18n.t('toast_theme_exported') || 'Code thème copié dans le presse-papiers !', 'success');
-            } catch {
-                await showPromptModal(i18n.t('toast_theme_export_manual') || 'Copiez ce code :', code);
-            }
-        });
-    }
-
-    const btnThemeImport = container.querySelector('#btn-theme-import');
-    if (btnThemeImport) {
-        btnThemeImport.addEventListener('click', async () => {
-            const code = await showPromptModal(i18n.t('settings_theme_import_prompt') || 'Collez le code du thème (THEME_...) :', '', { placeholder: 'THEME_...' });
-            if (code) {
-                const result = Theme.importTheme(code.trim());
-                if (result.success) {
-                    syncThemeButtonsUI();
-                    showToast(result.message, 'success');
-                } else {
-                    showToast(result.message, 'error');
-                }
-            }
-        });
-    }
-
-    const btnThemeReset = container.querySelector('#btn-theme-reset');
-    if (btnThemeReset) {
-        btnThemeReset.addEventListener('click', () => {
-            Theme.resetTheme();
-            syncThemeButtonsUI();
-            const fontSel = container.querySelector('#select-font-family');
-            if (fontSel) fontSel.value = Theme.getActiveFont();
-            showToast(i18n.t('toast_theme_reset') || 'Thème réinitialisé', 'info');
-        });
-    }
-
-    const fontSelect = container.querySelector('#select-font-family');
-    if (fontSelect) {
-        fontSelect.addEventListener('change', (e) => {
-            Theme.applyFont(e.target.value);
-            showToast("Police d'écriture mise à jour");
-        });
-    }
-
-    const btnDebug = container.querySelector('#btn-open-debug');
-    if (btnDebug) {
-        btnDebug.addEventListener('click', () => {
-            renderDebugModal();
-        });
-    }
-
-    const btnQALab = container.querySelector('#btn-open-qalab');
-    if (btnQALab) {
-        btnQALab.addEventListener('click', () => {
-            window.open('tests/index.html', '_blank');
-        });
-    }
-
-    const mapSelect = container.querySelector('#select-default-map');
-    if (mapSelect) {
-        mapSelect.onchange = (e) => {
-            const val = e.target.value;
-            if (val) localStorage.setItem('defaultMapScope', val);
-            else localStorage.removeItem('defaultMapScope');
-            showToast(i18n.t('toast_map_updated'));
-        };
-    }
-
-    const bbToneSelect = container.querySelector('#select-bb-tone');
-    if (bbToneSelect) {
-        bbToneSelect.onchange = (e) => {
-            Storage.savePreference('brewbrother_tone', e.target.value);
-            showToast(i18n.t('toast_settings_saved') || 'Paramètre sauvegardé');
-        };
-    }
-
-    const toggles = [
-        { id: '#toggle-feat-map', key: 'feat_map_enabled' },
-        { id: '#toggle-feat-reminders', key: 'feat_reminders_enabled' },
-        { id: '#toggle-feat-equivalences', key: 'feat_equivalences_enabled' },
-        { id: '#toggle-feat-beermatch', key: 'feat_beermatch_enabled' },
-        { id: '#toggle-party-share-total', key: 'beermatch_share_total' },
-        { id: '#toggle-party-share-catalog', key: 'beermatch_share_catalog' },
-        { id: '#toggle-party-share-top', key: 'beermatch_share_top' },
-        { id: '#toggle-party-share-unique', key: 'beermatch_share_unique' },
-        { id: '#toggle-party-share-achievements', key: 'beermatch_share_achievements' },
-        { id: '#toggle-feat-wrapped', key: 'feat_wrapped_enabled' },
-        { id: '#toggle-feat-rust', key: 'feat_rust_enabled' }
-    ];
-
-    toggles.forEach(t => {
-        const el = container.querySelector(t.id);
-        if (el) {
-            el.addEventListener('change', (e) => {
-                Storage.savePreference(t.key, e.target.checked);
-                if (t.key === 'feat_rust_enabled') {
-                    const isChecked = e.target.checked;
-                    const statusEl = container.querySelector('#settings-rust-status');
-                    if (statusEl) {
-                        statusEl.textContent = isChecked ? 'Moteur de calcul natif WebAssembly (v5.2.0) : ⚡ Actif (Accélération matérielle)' : 'Moteur de calcul natif WebAssembly (v5.2.0) : Inactif (Mode JavaScript)';
-                    }
-                    const indicator = document.getElementById('rust-wasm-indicator');
-                    if (indicator) {
-                        indicator.style.display = isChecked ? 'inline-block' : 'none';
-                    }
-                    if (isChecked && window.initRustCore) {
-                        window.initRustCore().catch(() => {});
-                    }
-                }
-                if (t.key === 'feat_beermatch_enabled') {
-                    const partySubRows = container.querySelectorAll('.party-sub-row');
-                    partySubRows.forEach(r => r.style.display = e.target.checked ? 'flex' : 'none');
-                }
-            });
-        }
-    });
-
-    const inputPartyPseudo = container.querySelector('#input-party-pseudo');
-    if (inputPartyPseudo) {
-        inputPartyPseudo.addEventListener('input', (e) => {
-            const trimmed = e.target.value.trim();
-            Storage.savePreference('beermatch_pseudo', trimmed);
-            if (window.Match) {
-                if (window.Match.updateMyPseudo) window.Match.updateMyPseudo(trimmed);
-                else if (window.Match.myProfile) window.Match.myProfile.pseudo = trimmed || 'Anonyme';
-                if (window.Match.broadcastState) window.Match.broadcastState();
-            }
-        });
-    }
-
-    const btnSettingsDice = container.querySelector('#btn-settings-dice-pseudo');
-    if (btnSettingsDice) {
-        btnSettingsDice.addEventListener('click', () => {
-            const randomP = window.Match && window.Match.getRandomPseudo ? window.Match.getRandomPseudo() : 'Renard Houblonné';
-            Storage.savePreference('beermatch_pseudo', randomP);
-            if (inputPartyPseudo) inputPartyPseudo.value = randomP;
-            if (window.Match) {
-                if (window.Match.updateMyPseudo) window.Match.updateMyPseudo(randomP);
-                else if (window.Match.myProfile) window.Match.myProfile.pseudo = randomP;
-                if (window.Match.broadcastState) window.Match.broadcastState();
-            }
-            showToast(`Nouveau pseudo : ${randomP}`);
-        });
-    }
-
-    container.querySelector('#btn-template').onclick = () => renderTemplateEditor();
-
-    const syncPresetButtons = (active) => {
-        container.querySelector('#btn-preset-default')?.classList.toggle('primary', active === 'default');
-        container.querySelector('#btn-preset-tristan')?.classList.toggle('primary', active === 'tristan');
-        container.querySelector('#btn-preset-noah')?.classList.toggle('primary', active === 'noah');
-    };
-
-    container.querySelector('#btn-preset-default').onclick = async () => {
-        if (await showConfirmModal(i18n.t('modal_confirm_std_preset'), { danger: false })) {
-            Storage.resetRatingTemplate();
-            Storage.savePreference('activePreset', 'default');
-            syncPresetButtons('default');
-            showToast(i18n.t('toast_preset_std_applied'));
-        }
-    };
-
-    container.querySelector('#btn-preset-tristan').onclick = async () => {
-        if (await showConfirmModal(i18n.t('modal_confirm_tristan_preset'), { danger: false })) {
-            applyTristanPreset();
-            syncPresetButtons('tristan');
-            showToast(i18n.t('toast_preset_tristan_applied'));
-        }
-    };
-
-    container.querySelector('#btn-preset-noah').onclick = async () => {
-        if (await showConfirmModal(i18n.t('modal_confirm_noah_preset'), { danger: false })) {
-            applyNoahPreset();
-            syncPresetButtons('noah');
-            showToast(i18n.t('toast_preset_noah_applied'));
-        }
-    };
-
-    if (discoveryCallback) {
-        container.querySelector('#toggle-discovery').onchange = (e) => {
-            discoveryCallback(e.target.checked);
-        };
-    }
-
-    // Stats order in-place binding (no full settings re-render)
-    const bindStatsOrderHandlers = () => {
-        const listEl = container.querySelector('#stats-order-list');
-        if (!listEl) return;
-        listEl.querySelectorAll('.btn-stat-move-up').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.currentTarget.dataset.index, 10);
-                const order = [...Storage.getPreference('stats_order', defaultStatsOrder)];
-                if (idx > 0) {
-                    [order[idx], order[idx - 1]] = [order[idx - 1], order[idx]];
-                    Storage.savePreference('stats_order', order);
-                    listEl.innerHTML = buildStatsOrderItemsHtml(order);
-                    bindStatsOrderHandlers();
-                }
-            });
-        });
-        listEl.querySelectorAll('.btn-stat-move-down').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.currentTarget.dataset.index, 10);
-                const order = [...Storage.getPreference('stats_order', defaultStatsOrder)];
-                if (idx < order.length - 1) {
-                    [order[idx], order[idx + 1]] = [order[idx + 1], order[idx]];
-                    Storage.savePreference('stats_order', order);
-                    listEl.innerHTML = buildStatsOrderItemsHtml(order);
-                    bindStatsOrderHandlers();
-                }
-            });
-        });
-    };
-    bindStatsOrderHandlers();
-
-    const toggleMuseum = container.querySelector('#toggle-museum');
-    if (toggleMuseum) {
-        toggleMuseum.onchange = (e) => {
-            const enabled = e.target.checked;
-            Storage.savePreference('museumThemeEnabled', enabled);
-            window.dispatchEvent(new Event('beerdex-action'));
-            if (window.applyTheme) {
-                window.__curtainPlayed = false;
-                window.applyTheme();
-            } else {
-                const museumLink = document.getElementById('css-museum');
-                if (museumLink) museumLink.disabled = !enabled;
-                document.body.classList.toggle('theme-museum', enabled);
-            }
-            showToast(enabled ? i18n.t('toast_museum_on') : i18n.t('toast_museum_off'));
-        };
-    }
-
-    container.querySelector('#toggle-sound').onchange = (e) => {
-        Storage.savePreference('soundEnabled', e.target.checked);
-        Feedback.reloadSettings();
-        if (e.target.checked) Feedback.playSuccess();
-    };
-
-    container.querySelector('#toggle-haptics').onchange = (e) => {
-        Storage.savePreference('hapticsEnabled', e.target.checked);
-        Feedback.reloadSettings();
-        if (e.target.checked) Feedback.impactMedium();
-    };
-
-    const checkRarity = container.querySelector('#check-reveal-rarity');
-    if (checkRarity) checkRarity.onchange = (e) => { Storage.savePreference('revealRarity', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
-
-    const checkAnimOnce = container.querySelector('#check-anim-once');
-    if (checkAnimOnce) checkAnimOnce.onchange = (e) => { Storage.savePreference('anim_only_once', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
-
-    const toggleCardStatCount = container.querySelector('#toggle-card-stat-count');
-    if (toggleCardStatCount) toggleCardStatCount.onchange = (e) => { Storage.savePreference('card_stat_count', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
-
-    const toggleCardStatVolume = container.querySelector('#toggle-card-stat-volume');
-    if (toggleCardStatVolume) toggleCardStatVolume.onchange = (e) => { Storage.savePreference('card_stat_volume', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
-
-    const toggleCardBrewBrother = container.querySelector('#toggle-card-brewbrother');
-    if (toggleCardBrewBrother) toggleCardBrewBrother.onchange = async (e) => { 
-        Storage.savePreference('card_brewbrother_pct', e.target.checked);
-        if (e.target.checked && Storage.getPreference('feat_brewbrother_enabled', true) && window.Recommendation) {
-            try { await window.Recommendation.getUserTasteProfile(allBeers); } catch (_) {}
-        }
-        showToast(i18n.t('toast_preference_saved')); 
-    };
-
-    const toggleFeatBrewBrother = container.querySelector('#toggle-feat-brewbrother');
-    if (toggleFeatBrewBrother) toggleFeatBrewBrother.onchange = async (e) => { 
-        Storage.savePreference('feat_brewbrother_enabled', e.target.checked);
-        if (e.target.checked && window.Recommendation) {
-            window.Recommendation.init(allBeers);
-            if (Storage.getPreference('card_brewbrother_pct', false)) {
-                try { await window.Recommendation.getUserTasteProfile(allBeers); } catch (_) {}
-            }
-        }
-        showToast(i18n.t('toast_preference_saved')); 
-    };
-
-    const toggleBac = container.querySelector('#toggle-bac-enabled');
-    if (toggleBac) {
-        toggleBac.onchange = (e) => {
-            const enabled = e.target.checked;
-            Storage.savePreference('bac_enabled', enabled);
-            BAC.invalidateBACCache();
-            const group = container.querySelector('#bac-settings-group');
-            if (group) group.style.display = enabled ? 'block' : 'none';
-            showToast(enabled ? i18n.t('toast_bac_on') : i18n.t('toast_bac_off'));
-        };
-    }
-
-    const inputWeight = container.querySelector('#input-bac-weight');
-    if (inputWeight) inputWeight.onchange = (e) => { let val = parseInt(e.target.value); if (isNaN(val) || val < 30) val = 30; Storage.savePreference('bac_weight', val); BAC.invalidateBACCache(); };
-
-    const selectGender = container.querySelector('#select-bac-gender');
-    if (selectGender) selectGender.onchange = (e) => { Storage.savePreference('bac_gender', e.target.value); BAC.invalidateBACCache(); };
-
-    const toggleBacHome = container.querySelector('#toggle-bac-home');
-    if (toggleBacHome) toggleBacHome.onchange = (e) => { Storage.savePreference('bac_show_home', e.target.checked); };
-
-    const toggleBacHideWg = container.querySelector('#toggle-bac-hide-wg');
-    if (toggleBacHideWg) {
-        toggleBacHideWg.onchange = (e) => {
-            const hide = e.target.checked;
-            Storage.savePreference('bac_hide_weight_gender', hide);
-            const row = container.querySelector('#bac-weight-gender-row');
-            if (row) row.style.display = hide ? 'none' : 'flex';
-        };
-    }
-
-    const toggleBacManual = container.querySelector('#toggle-bac-manual');
-    if (toggleBacManual) toggleBacManual.onchange = (e) => { Storage.savePreference('bac_manual_only', e.target.checked); };
-
-    const selectBacDuration = container.querySelector('#select-bac-duration');
-    if (selectBacDuration) selectBacDuration.onchange = (e) => { Storage.savePreference('bac_drink_duration', e.target.value); BAC.invalidateBACCache(); showToast(i18n.t('toast_bac_duration_updated')); };
-
-    const selectBacVehicle = container.querySelector('#select-bac-vehicle');
-    if (selectBacVehicle) selectBacVehicle.onchange = (e) => { Storage.savePreference('bac_vehicle', e.target.value); showToast(i18n.t('toast_bac_vehicle_updated')); };
-
-    const selectBacCountry = container.querySelector('#select-bac-country');
-    if (selectBacCountry) selectBacCountry.onchange = (e) => { Storage.savePreference('bac_country', e.target.value); showToast(i18n.t('toast_bac_rule_updated')); };
-
-    const toggleHistory = container.querySelector('#toggle-show-history');
-    if (toggleHistory) toggleHistory.onchange = (e) => { Storage.savePreference('bac_show_history', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
-    const toggleCalendar = container.querySelector('#toggle-show-calendar');
-    if (toggleCalendar) toggleCalendar.onchange = (e) => { Storage.savePreference('bac_show_calendar', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
-    const toggleStreak = container.querySelector('#toggle-show-streak');
-    if (toggleStreak) toggleStreak.onchange = (e) => { Storage.savePreference('bac_show_streak', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
-
-    container.querySelector('#btn-legal-tos').onclick = () => renderLegalPage('tos');
-    container.querySelector('#btn-legal-privacy').onclick = () => renderLegalPage('privacy');
-    container.querySelector('#btn-legal-copyright').onclick = () => renderLegalPage('copyright');
-
-    const selectLanguage = container.querySelector('#select-language');
-    if (selectLanguage) {
-        selectLanguage.onchange = async (e) => {
-            await i18n.setLanguage(e.target.value);
-            showToast(i18n.t('toast_lang_updated'));
-            renderSettings(allBeers, userData, container, isDiscovery, discoveryCallback);
-        };
-    }
-
-    const patchnoteEl = container.querySelector('.patchnote-section[data-new="true"]');
-    if (patchnoteEl) {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    markPatchnotesSeen();
-                    observer.disconnect();
-                }
-            });
-        }, { threshold: 0.3 });
-        observer.observe(patchnoteEl);
-    }
-
-    container.querySelector('#btn-manage-import').onclick = () => renderImportModal();
-    container.querySelector('#btn-manage-export').onclick = () => renderExportModal();
-    const btnBulkShare = container.querySelector('#btn-manage-bulk-share');
-    if (btnBulkShare) {
-        btnBulkShare.onclick = () => renderBulkShareModal();
-    }
-
-    container.querySelector('#btn-check-update').onclick = async () => {
-        if ('serviceWorker' in navigator) {
-            showToast(i18n.t('toast_forcing_update'), "info");
-            try {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                for (let registration of registrations) await registration.unregister();
-                const cacheKeys = await caches.keys();
-                await Promise.all(cacheKeys.map(key => caches.delete(key)));
-                showToast(i18n.t('toast_caches_cleared'), "success");
-                setTimeout(() => window.location.reload(true), 1500);
-            } catch (e) {
-                console.error("Update failed", e);
-                showToast(i18n.t('toast_update_error', { err: e.message }));
-            }
-        } else {
-            showToast(i18n.t('toast_sw_unsupported'));
-        }
-    };
-
-    container.querySelector('#btn-restart-tuto').onclick = () => {
-        const homeBtn = document.querySelector('.nav-item[data-view="home"]');
-        if (homeBtn) homeBtn.click();
-        setTimeout(() => TutorialSystem.start(), 500);
-    };
-
-    container.querySelector('#btn-request-beer').onclick = () => renderRequestBeerForm(allBeers);
-    container.querySelector('#btn-deduplicate-db').onclick = () => renderDeduplicationWizard(allBeers);
-
-    const confirmReset = async (msg, action) => {
-        if (await showConfirmModal(msg)) {
-            action();
-            Analytics.track('data_reset', { action: action.name || 'unknown' });
-            showToast(i18n.t('toast_data_clear_success'));
-            setTimeout(() => location.reload(), 1000);
-        }
-    };
-
-    const btnResetRatings = container.querySelector('#btn-reset-ratings');
-    if (btnResetRatings) btnResetRatings.onclick = () => confirmReset(i18n.t('modal_confirm_delete_ratings'), Storage.resetRatingsOnly);
-
-    const btnResetCustom = container.querySelector('#btn-reset-custom');
-    if (btnResetCustom) btnResetCustom.onclick = () => confirmReset(i18n.t('modal_confirm_delete_custom'), Storage.resetCustomBeersOnly);
-
-    const btnResetHistory = container.querySelector('#btn-reset-history');
-    if (btnResetHistory) btnResetHistory.onclick = () => confirmReset(i18n.t('modal_confirm_delete_history'), Storage.resetConsumptionHistoryOnly);
-
-    const btnResetFav = container.querySelector('#btn-reset-fav');
-    if (btnResetFav) btnResetFav.onclick = () => confirmReset(i18n.t('modal_confirm_delete_favs'), Storage.resetFavoritesOnly);
-
-    container.querySelector('#btn-reset-app').onclick = async () => {
-        if (await showConfirmModal(i18n.t('modal_confirm_reset_app'))) {
-            if (await showConfirmModal(i18n.t('modal_confirm_reset_app_final'), { confirmText: i18n.t('btn_reset') })) {
-                Storage.resetAllData();
-                location.reload();
-            }
-        }
-    };
-
-    i18n.translateDOM(container);
-}
-
 export function renderDeduplicationWizard(allBeers) {
+    const modalContainer = getModalContainer();
     const matches = Deduplicator.runCheck(allBeers, true);
     if (!matches || matches.length === 0) {
         showToast(i18n.t('toast_nothing_found') || 'Aucun doublon trouvé.');
@@ -5589,9 +3458,11 @@ export function renderDeduplicationWizard(allBeers) {
             document.removeEventListener('keydown', handleKeyDown);
             handleKeyDown = null;
         }
-        modalContainer.style.display = '';
-        modalContainer.classList.add('hidden');
-        modalContainer.innerHTML = '';
+        if (modalContainer) {
+            modalContainer.style.display = '';
+            modalContainer?.classList.add('hidden');
+            if (modalContainer) modalContainer.innerHTML = '';
+        }
     };
 
     const showNext = () => {
@@ -5636,7 +3507,7 @@ export function renderDeduplicationWizard(allBeers) {
 
         const warningActionText = `⚠️ <strong>Action définitive :</strong> La bière personnalisée sera <u>définitivement supprimée</u> de votre collection après la fusion complète de vos consommations, notes et historique vers la bière officielle.`;
 
-        modalContainer.innerHTML = `
+        if (modalContainer) modalContainer.innerHTML = `
             <div class="modal-overlay active" id="migration-overlay">
                 <div class="modal-content" style="max-width: 440px; border: 1px solid rgba(255,192,0,0.3); background: var(--bg-card); max-height: 90vh; overflow-y: auto; position: relative;">
                     <button id="btn-wiz-top-close" aria-label="Fermer l'assistant" title="Fermer l'assistant" style="position: absolute; top: 12px; right: 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; transition: all 0.2s; z-index: 10;">✕</button>
@@ -5737,7 +3608,7 @@ export function renderDeduplicationWizard(allBeers) {
             </div>
         `;
 
-        modalContainer.classList.remove('hidden');
+        if (modalContainer) modalContainer?.classList.remove('hidden');
 
         if (!handleKeyDown) {
             handleKeyDown = (e) => {
@@ -5779,7 +3650,7 @@ export function renderDeduplicationWizard(allBeers) {
     showNext();
 }
 
-function renderRequestBeerForm(allBeers = []) {
+export function renderRequestBeerForm(allBeers = []) {
     const wrapper = document.createElement('div');
     wrapper.className = 'modal-content';
     wrapper.style.maxHeight = '85vh';
@@ -5914,7 +3785,7 @@ function renderRequestBeerForm(allBeers = []) {
         e.preventDefault();
 
         // --- Rate limiting (60s cooldown) ---
-        const lastSent = parseInt(localStorage.getItem('beerdex_req_ts') || '0', 10);
+        const lastSent = parseInt(Storage.getRawItem('beerdex_req_ts', '0'), 10);
         const cooldown = 60000;
         if (Date.now() - lastSent < cooldown) {
             const secs = Math.ceil((cooldown - (Date.now() - lastSent)) / 1000);
@@ -6024,7 +3895,7 @@ function renderRequestBeerForm(allBeers = []) {
             const result = await response.json();
 
             if (result.success) {
-                localStorage.setItem('beerdex_req_ts', Date.now().toString());
+                Storage.setRawItem('beerdex_req_ts', Date.now().toString());
                 closeModal();
                 showToast(i18n.t('toast_request_beer_success'));
             } else {
@@ -6039,167 +3910,6 @@ function renderRequestBeerForm(allBeers = []) {
     };
 }
 
-function renderTemplateEditor() {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'modal-content';
-    let template = Storage.getRatingTemplate();
-
-    const refreshList = () => {
-        const listHtml = template.map((field, index) => `
-        <div style="background:rgba(0,0,0,0.3); padding:10px; margin-bottom:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:10px; flex:1;">
-                        <div style="display:flex; flex-direction:column; gap:2px;">
-                            ${index > 0 ? `<button type="button" data-idx="${index}" class="icon-btn mv-up" style="font-size:0.8rem; padding:0;">⬆️</button>` : '<div style="height:15px; width:15px;"></div>'}
-                            ${index < template.length - 1 ? `<button type="button" data-idx="${index}" class="icon-btn mv-down" style="font-size:0.8rem; padding:0;">⬇️</button>` : '<div style="height:15px; width:15px;"></div>'}
-                        </div>
-                        <div>
-                            <strong>${field.label}</strong> <span style="font-size:0.8rem; color:#888;">(${field.type})</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:10px;">
-                        <button type="button" data-idx="${index}" class="icon-btn edit-field">✏️</button>
-                        ${field.id === 'score' || field.id === 'comment' ? '' : `<button type="button" data-idx="${index}" class="icon-btn delete-field" style="color:red;">🗑️</button>`}
-                    </div>
-                </div>
-        `).join('');
-
-        wrapper.querySelector('#field-list').innerHTML = listHtml;
-
-        // Attach Handlers
-        wrapper.querySelectorAll('.delete-field').forEach(btn => {
-            btn.onclick = async (e) => {
-                if (await showConfirmModal(i18n.t('modal_confirm_delete_field'))) {
-                    template.splice(e.target.dataset.idx, 1);
-                    refreshList();
-                }
-            };
-        });
-
-        wrapper.querySelectorAll('.mv-up').forEach(btn => {
-            btn.onclick = (e) => {
-                // target might be inner element if not careful, but button has no children here
-                const idx = parseInt(e.target.dataset.idx);
-                if (idx > 0) {
-                    [template[idx], template[idx - 1]] = [template[idx - 1], template[idx]];
-                    refreshList();
-                }
-            };
-        });
-
-        wrapper.querySelectorAll('.mv-down').forEach(btn => {
-            btn.onclick = (e) => {
-                const idx = parseInt(e.target.dataset.idx);
-                if (idx < template.length - 1) {
-                    [template[idx], template[idx + 1]] = [template[idx + 1], template[idx]];
-                    refreshList();
-                }
-            };
-        });
-
-        wrapper.querySelectorAll('.edit-field').forEach(btn => {
-            btn.onclick = async (e) => {
-                const idx = parseInt(e.target.dataset.idx);
-                const field = template[idx];
-
-                const newLabel = await showPromptModal(i18n.t('prompt_new_name'), field.label);
-                if (newLabel !== null && newLabel.trim() !== "") {
-                    field.label = newLabel.trim();
-                    const newType = await showPromptModal(i18n.t('prompt_new_type'), field.type);
-                    if (['range', 'checkbox', 'textarea', 'number'].includes(newType)) {
-                        field.type = newType;
-                        if (newType === 'range') { field.min = 0; field.max = 10; field.step = 1; }
-                    }
-                    refreshList();
-                }
-            };
-        });
-    };
-
-    wrapper.innerHTML = `
-        <h2>${i18n.t('settings_btn_configure_rating')}</h2>
-                <div id="field-list" style="margin: 20px 0;"></div>
-
-                <div style="border-top:1px solid #333; padding-top:20px;">
-                    <h3>${i18n.t('settings_add_field')}</h3>
-                    <div class="form-group">
-                        <input type="text" id="new-label" class="form-input" placeholder="${i18n.t('settings_field_name')}">
-                    </div>
-                    <div class="form-group">
-                        <select id="new-type" class="form-select">
-                            <option value="range">${i18n.t('settings_type_range')}</option>
-                            <option value="checkbox">${i18n.t('settings_type_checkbox')}</option>
-                            <option value="textarea">${i18n.t('settings_type_textarea')}</option>
-                        </select>
-                    </div>
-                    <button id="add-field" class="btn-primary" style="background:var(--bg-card); border:1px solid var(--accent-gold); color:var(--accent-gold);">+ ${i18n.t('settings_btn_add')}</button>
-                </div>
-
-                <button id="save-template" class="btn-primary" style="margin-top:20px;">${i18n.t('btn_save')}</button>
-                <button id="reset-template" class="form-input" style="margin-top:10px; background:none; border:none; color:red;">${i18n.t('btn_reset_default')}</button>
-    `;
-
-    setTimeout(refreshList, 0);
-
-    // Add Field
-    wrapper.querySelector('#add-field').onclick = () => {
-        const label = wrapper.querySelector('#new-label').value;
-        const type = wrapper.querySelector('#new-type').value;
-        if (label) {
-            const id = label.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            let field = { id, label, type };
-            if (type === 'range') { field.min = 0; field.max = 10; field.step = 1; }
-            template.push(field);
-            refreshList();
-            wrapper.querySelector('#new-label').value = '';
-        }
-    };
-
-    // Save
-    wrapper.querySelector('#save-template').onclick = () => {
-        Storage.saveRatingTemplate(template);
-        closeModal();
-        showToast(i18n.t('toast_config_saved'));
-    };
-
-    // Reset
-    wrapper.querySelector('#reset-template').onclick = async () => {
-        if (await showConfirmModal(i18n.t('modal_confirm_default_fields'), { danger: false })) {
-            Storage.resetRatingTemplate();
-            closeModal();
-            showToast(i18n.t('toast_reset_success'));
-        }
-    };
-
-    openModal(wrapper);
-}
-
-function renderLegalPage(type) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'modal-dialog legal-dialog';
-    wrapper.style.maxWidth = '520px';
-
-    const title = i18n.t(`legal_${type}_title`);
-    const content = i18n.t(`legal_${type}_content`);
-
-    wrapper.innerHTML = `
-        <div class="legal-header">
-            <h2>${title}</h2>
-            <div class="legal-title-underline"></div>
-        </div>
-        <div class="legal-body" style="text-align:left; font-size:0.86rem; line-height:1.55; color:#ccc; max-height:65vh; overflow-y:auto; padding:4px 2px;">
-            <div>${content}</div>
-        </div>
-        <div class="legal-actions" style="margin-top:16px;">
-            <button id="btn-close-legal" class="btn-outline">${i18n.t('btn_close') || 'Fermer'}</button>
-        </div>
-    `;
-
-    wrapper.querySelector('#btn-close-legal').onclick = () => closeModal();
-
-    openModal(wrapper);
-}
-
-// Helper to resize image
 export function resizeImage(file, maxWidth, maxHeight, callback) {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -6907,7 +4617,7 @@ const TutorialSystem = {
             window.removeEventListener('scroll', this.boundUpdateObj, true);
         }, 300);
 
-        localStorage.setItem('beerdex_welcome_seen_v3', 'true');
+        Storage.setRawItem('beerdex_welcome_seen_v3', 'true');
         showToast(i18n.t('toast_tuto_finished'));
     }
 };
@@ -6916,89 +4626,6 @@ const TutorialSystem = {
 
 window.restartTutorial = () => TutorialSystem.start();
 window.TutorialSystem = TutorialSystem;
-
-const PRESET_TRISTAN = [
-    { id: 'score', label: 'preset_global_score', type: 'number', min: 0, max: 20, step: 0.1 },
-    { id: 'comment', label: 'preset_comment', type: 'textarea' },
-
-    // Visuel
-    { id: 'apparence', label: 'preset_tristan_apparence', type: 'textarea' },
-    { id: 'couleur', label: 'preset_tristan_couleur', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'transparence', label: 'preset_tristan_transparence', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'mousse', label: 'preset_tristan_mousse', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'mousse_tenue', label: 'preset_tristan_mousse_tenue', type: 'range', min: 1, max: 10, step: 1 },
-
-    // Olfactif
-    { id: 'aromes_txt', label: 'preset_tristan_aromes', type: 'textarea' },
-    { id: 'cafe', label: 'preset_tristan_cafe', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'caramel', label: 'preset_tristan_caramel', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'cereales', label: 'preset_tristan_cereales', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'chocolat', label: 'preset_tristan_chocolat', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'sucre', label: 'preset_tristan_sucre', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'noisette', label: 'preset_tristan_noisette', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'pain', label: 'preset_tristan_pain', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'agrumes', label: 'preset_tristan_agrumes', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'epices', label: 'preset_tristan_epices', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'fleurs', label: 'preset_tristan_fleurs', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'herbes', label: 'preset_tristan_herbes', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'poivre', label: 'preset_tristan_poivre', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'resine', label: 'preset_tristan_resine', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'fruit', label: 'preset_tristan_fruit', type: 'range', min: 0, max: 10, step: 1 },
-    { id: 'mais', label: 'preset_tristan_mais', type: 'range', min: 0, max: 10, step: 1 },
-
-    // Goût
-    { id: 'intensite', label: 'preset_tristan_intensite', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'equilibre', label: 'preset_tristan_equilibre', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'impression', label: 'preset_tristan_impression', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'corps', label: 'preset_tristan_corps', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'carbonation', label: 'preset_tristan_carbonation', type: 'range', min: 1, max: 10, step: 1 },
-
-    // Conclusion
-    { id: 'synthese', label: 'preset_tristan_synthese', type: 'textarea' },
-    { id: 'duree', label: 'preset_tristan_duree', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'intensite_globale', label: 'preset_tristan_intensite_globale', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'ensemble_equilibre', label: 'preset_tristan_qualite', type: 'range', min: 1, max: 10, step: 1 }
-];
-
-function applyTristanPreset() {
-    Storage.saveRatingTemplate(PRESET_TRISTAN);
-    Storage.savePreference('activePreset', 'tristan'); // Persist selection
-}
-
-const PRESET_NOAH = [
-    { id: 'score', label: 'preset_global_score', type: 'number', min: 0, max: 20, step: 0.1 },
-    { id: 'comment', label: 'preset_comment', type: 'textarea' },
-
-    // Visuel (Expert)
-    { id: 'robe', label: 'preset_noah_robe', type: 'textarea' },
-    { id: 'mousse_aspect', label: 'preset_noah_mousse', type: 'textarea' },
-
-    // Olfactif (Nez)
-    { id: 'nez_intensite', label: 'preset_noah_nez_intensite', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'nez_notes', label: 'preset_noah_nez_notes', type: 'textarea' },
-
-    // Gustatif (Bouche)
-    { id: 'attaque', label: 'preset_noah_attaque', type: 'textarea' },
-    { id: 'milieu_bouche', label: 'preset_noah_milieu', type: 'textarea' },
-    { id: 'finale', label: 'preset_noah_finale', type: 'textarea' },
-
-    // Sensations
-    { id: 'corpulence', label: 'preset_noah_corpulence', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'petillance', label: 'preset_noah_petillance', type: 'range', min: 1, max: 10, step: 1 },
-    { id: 'amertume', label: 'preset_noah_amertume', type: 'range', min: 1, max: 10, step: 1 },
-
-    // Accord
-    { id: 'accord_mets', label: 'preset_noah_accord', type: 'textarea' },
-
-    // Conclusion
-    { id: 'potentiel_garde', label: 'preset_noah_garde', type: 'textarea' },
-    { id: 'verdict', label: 'preset_noah_verdict', type: 'textarea' }
-];
-
-function applyNoahPreset() {
-    Storage.saveRatingTemplate(PRESET_NOAH);
-    Storage.savePreference('activePreset', 'noah');
-}
 
 export function showAchievementDetails(title, desc, icon, isUnlocked, rarity) {
     const wrapper = document.createElement('div');
@@ -7595,6 +5222,9 @@ export function renderAdvancedShareModal(beer, userRating) {
         <button id="btn-gen-link" class="btn-primary" style="margin-top:20px; background:var(--accent-gold); color:black;">
             ${i18n.t('share_btn_gen')}
         </button>
+        <button id="btn-gen-tcg" class="btn-primary" style="margin-top:10px; border:1px solid var(--accent-gold); color:var(--accent-gold); background:transparent;">
+            🃏 Carte TCG (Image PNG)
+        </button>
     `;
 
     wrapper.querySelector('#btn-gen-link').onclick = () => {
@@ -7608,438 +5238,35 @@ export function renderAdvancedShareModal(beer, userRating) {
         renderShareLink(link);
     };
 
+    wrapper.querySelector('#btn-gen-tcg').onclick = async () => {
+        const btn = wrapper.querySelector('#btn-gen-tcg');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = i18n.t('reveal_creating');
+        try {
+            const score = parseFloat(wrapper.querySelector('#share-score').value);
+            const comment = wrapper.querySelector('#share-comment').value;
+            const customRating = {
+                ...userRating,
+                score: isNaN(score) ? userRating?.score : score,
+                comment
+            };
+            const blob = await Share.generateTCGCard(beer, customRating);
+            await Share.shareImage(blob, `${beer.title} — TCG`);
+        } catch (err) {
+            console.error(err);
+            showToast(i18n.t('toast_share_error'));
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    };
+
     openModal(wrapper);
 }
-// --- Rarity Animation Helper (replaces global MutationObserver) ---
-// Called directly after rendering cards instead of watching the entire DOM tree.
-export function applyRarityAnimations(container) {
-    if (!container) return;
-    const badges = container.querySelectorAll('.rarity-badge');
-    badges.forEach(badge => {
-        if (badge.dataset.animInit) return;
-        badge.dataset.animInit = 'true';
-
-        if (badge.classList.contains('rarity-mythique')) {
-            badge.classList.add('anim-mythique', 'rarity-frame-mythique');
-        }
-        if (badge.classList.contains('rarity-legendaire')) {
-            badge.classList.add('anim-legendaire');
-        }
-        if (badge.classList.contains('rarity-ultra_legendary')) {
-            badge.classList.add('card-anim-ultra_legendary', 'rarity-frame-ultra_legendary');
-        }
-        if (badge.classList.contains('rarity-epique')) {
-            badge.classList.add('anim-epique');
-        }
-        if (badge.classList.contains('rarity-rare')) {
-            badge.classList.add('anim-rare');
-        }
-        if (badge.classList.contains('rarity-commun')) {
-            badge.classList.add('anim-commun');
-        }
-        if (badge.classList.contains('rarity-super_rare')) {
-            badge.classList.add('anim-super_rare');
-        }
-    });
-}
-
-// ======================================= //
-// Patchnotes System                        //
-// ======================================= //
-
-const CURRENT_VERSION = '5.2.0';
-
-
-export function checkPatchnotes() {
-    const lastSeen = localStorage.getItem('beerdex_last_seen_version');
-    if (lastSeen !== CURRENT_VERSION) {
-        // Show notification dot on settings
-        const settingsNav = document.querySelector('.nav-item[data-view="settings"]');
-        if (settingsNav && !settingsNav.querySelector('.notification-dot')) {
-            const dot = document.createElement('span');
-            dot.className = 'notification-dot';
-            settingsNav.appendChild(dot);
-        }
-    }
-}
-
-export function markPatchnotesSeen() {
-    localStorage.setItem('beerdex_last_seen_version', CURRENT_VERSION);
-    const dot = document.querySelector('.nav-item[data-view="settings"] .notification-dot');
-    if (dot) dot.remove();
-}
-
-export function renderPatchnotesSection() {
-    const lastSeen = localStorage.getItem('beerdex_last_seen_version');
-    const isNew = lastSeen !== CURRENT_VERSION;
-
-    const versionList = i18n.t('patchnote_versions').split(',');
-
-    let html = '';
-    versionList.forEach(version => {
-        const isCurrentNew = (version === CURRENT_VERSION && isNew);
-        const date = i18n.t(`patchnote_${version}_date`);
-        const title = i18n.t(`patchnote_${version}_title`);
-
-        // Items are stored as item_1, item_2... until not found
-        let items = [];
-        let i = 1;
-        while (true) {
-            const itemKey = `patchnote_${version}_item_${i}`;
-            const translated = i18n.t(itemKey);
-            if (translated === itemKey) break;
-            items.push(translated);
-            i++;
-        }
-
-        html += `
-            <div class="patchnote-section" id="patchnote-${version}" ${isCurrentNew ? 'data-new="true"' : ''}>
-                <div class="version-badge">
-                    ${isCurrentNew ? '🆕 ' : ''}v${version} — ${date}
-                </div>
-                <h4 style="color:var(--text-primary); margin-bottom:10px; font-size:0.95rem;">${title}</h4>
-                ${items.map(item => {
-            const chars = Array.from(item.trim());
-            const isEmoji = chars[0] && chars[0].match(/[^a-zA-Z0-9\s]/);
-            const icon = isEmoji ? chars[0] : '✨';
-            const text = isEmoji ? chars.slice(1).join('').trim() : item.trim();
-            return `
-                        <div class="patchnote-item">
-                            <span class="pn-icon">${icon}</span>
-                            <span>${text}</span>
-                        </div>
-                    `;
-        }).join('')}
-            </div>
-        `;
-    });
-
-    return html;
-}
-
-// ======================================= //
-// Star Rating HTML Generator               //
-// ======================================= //
-
-export function generateStarRatingHTML(currentValue = 0, beerId = '', maxStars = 5) {
-    // Each star can be empty, half, or full
-    // Value is /10 (0-10), each star = 2 units
-    const value = Math.min(maxStars * 2, Math.max(0, currentValue));
-
-    let starsHtml = '';
-    for (let i = 1; i <= maxStars; i++) {
-        const starValue = i * 2;
-        const halfValue = starValue - 1;
-
-        let cls = '';
-        if (value >= starValue) cls = 'full';
-        else if (value >= halfValue) cls = 'half';
-
-        starsHtml += `
-            <div class="star ${cls}" data-beer="${beerId}" data-half="${halfValue}" data-full="${starValue}">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <clipPath id="star-left-${beerId}-${i}">
-                            <rect x="0" y="0" width="12" height="24"/>
-                        </clipPath>
-                        <clipPath id="star-right-${beerId}-${i}">
-                            <rect x="12" y="0" width="12" height="24"/>
-                        </clipPath>
-                    </defs>
-                    <path class="star-bg" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    <path class="star-fill-left" clip-path="url(#star-left-${beerId}-${i})" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    <path class="star-fill-right" clip-path="url(#star-right-${beerId}-${i})" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-            </div>
-        `;
-    }
-
-    const displayValue = value > 0 ? `${value}/10` : '';
-
-    return `
-        <div class="star-rating" data-beer="${beerId}" data-value="${value}">
-            ${starsHtml}
-        </div>
-        <span class="star-label" data-beer="${beerId}">${displayValue}</span>
-    `;
-}
-
-// ======================================= //
-// Unrated Beer Banner/Carousel             //
-// ======================================= //
-
-export function renderUnratedBanner(allBeers, container, migrationPrompts = []) {
-    const userData = Storage.getAllUserData();
-    const consumedIds = Storage.getAllConsumedBeerIds();
-
-    // Find beers that are consumed but not rated
-    const unratedBeers = [];
-    consumedIds.forEach(id => {
-        const user = userData[id];
-        const beer = allBeers.find(b => String(b.id) === String(id));
-        if (beer && user && (user.count || 0) > 0 && (!user.score && user.score !== 0)) {
-            unratedBeers.push({ beer, user });
-        }
-    });
-
-    const hasMigrations = migrationPrompts && migrationPrompts.length > 0;
-    if (unratedBeers.length === 0 && !hasMigrations) return ''; // Nothing to show
-
-    // --- Migration chips (transfer suggestions) ---
-    const migrationChipsHtml = hasMigrations ? migrationPrompts.map(m => {
-        return `
-            <div class="migration-chip" data-custom-id="${m.customBeer.id}" data-official-id="${m.officialBeer.id}" 
-                 style="display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, rgba(255,192,0,0.12), rgba(255,153,0,0.08)); border: 1px solid rgba(255,192,0,0.3); padding: 5px 12px 5px 5px; border-radius: 24px; flex: 0 0 auto; cursor: pointer; backdrop-filter: blur(5px); box-shadow: 0 4px 10px rgba(255,192,0,0.1);">
-                <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,192,0,0.2); display: flex; align-items: center; justify-content: center; font-size: 14px;">🔄</div>
-                <span style="font-size: 0.75rem; font-weight: 600; color: var(--accent-gold); max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.customBeer.title}</span>
-                <span style="font-size: 0.6rem; color: #888; padding: 1px 5px; background: rgba(255,255,255,0.05); border-radius: 8px;">${m.score}%</span>
-            </div>
-        `;
-    }).join('') : '';
-
-    // --- Unrated chips ---
-    const slidesHtml = unratedBeers.slice(0, 15).map(({ beer }) => {
-        const fallbackImg = 'images/beer/default.png';
-        const img = beer.image || fallbackImg;
-
-        return `
-            <div class="unrated-chip" data-beer-id="${beer.id}" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 5px 12px 5px 5px; border-radius: 24px; flex: 0 0 auto; cursor: pointer; backdrop-filter: blur(5px); box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-                <img src="${img}" alt="" onerror="this.src='${fallbackImg}'" style="width: 28px; height: 28px; border-radius: 50%; object-fit: contain; background: #222;">
-                <span style="font-size: 0.8rem; font-weight: 500; color: #fff; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${beer.title}</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="2.5" style="margin-left: 2px;"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"></path></svg>
-            </div>
-        `;
-    }).join('');
-
-    const totalCount = unratedBeers.length + (migrationPrompts ? migrationPrompts.length : 0);
-
-    const bannerHtml = `
-        <div class="unrated-banner-modern" style="margin: 10px 15px 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <h4 style="font-size: 0.8rem; color: var(--accent-gold); margin: 0; display: flex; align-items: center; gap: 6px;">${hasMigrations ? (i18n.t('banner_actions_title') || '⚡ Actions') : i18n.t('unrated_banner_title')}</h4>
-                <span style="font-size: 0.7rem; color: #888; background: rgba(255, 255, 255, 0.06); padding: 2px 8px; border-radius: 10px;">${totalCount}</span>
-            </div>
-            <div style="display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">
-                ${migrationChipsHtml}${slidesHtml}
-            </div>
-        </div>
-    `;
-
-    // Insert at beginning of container
-    container.insertAdjacentHTML('afterbegin', bannerHtml);
-
-    // Bind clicks for unrated chips (open beer detail)
-    const banner = container.querySelector('.unrated-banner-modern');
-    if (banner) {
-        banner.querySelectorAll('.unrated-chip').forEach(chip => {
-            chip.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const beerId = chip.dataset.beerId;
-                const beer = allBeers.find(b => String(b.id) === String(beerId));
-                if (beer) {
-                    renderBeerDetail(beer, (ratingData) => _saveRatingFromDetail(beer, ratingData, () => window.renderCurrentView?.()));
-                }
-            });
-        });
-
-        // Bind clicks for migration chips (open migration modal)
-        banner.querySelectorAll('.migration-chip').forEach(chip => {
-            chip.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const customId = chip.dataset.customId;
-                const officialId = chip.dataset.officialId;
-                const match = migrationPrompts.find(m => 
-                    m.customBeer.id === customId && m.officialBeer.id === officialId
-                );
-                if (match) {
-                    _renderMigrationModal(match, allBeers, container, migrationPrompts);
-                }
-            });
-        });
-    }
-
-    return bannerHtml;
-}
-
-// ======================================= //
-// Migration Modal                         //
-// ======================================= //
-
-function _renderMigrationModal(match, allBeers, parentContainer, migrationPrompts) {
-    const { customBeer, officialBeer, score } = match;
-    const userData = Storage.getAllUserData();
-    const customData = userData[customBeer.id] || {};
-    
-    const customImg = customBeer.image || 'images/beer/default.png';
-    const officialImg = officialBeer.image || 'images/beer/default.png';
-    const drinkCount = customData.count || 0;
-    const historyCount = (customData.history || []).length;
-    const hasRating = customData.score !== undefined;
-
-    const migrationTitleText = i18n.t('migration_title') || 'Transfert disponible';
-    const migrationSubtitleText = i18n.t('migration_subtitle') || 'Votre bière personnalisée correspond à une bière officielle.';
-    const migrationCustomLabel = i18n.t('migration_label_custom') || 'Personnalisée';
-    const migrationOfficialLabel = i18n.t('migration_label_official') || 'Officielle';
-    const migrationSimilarityText = i18n.t('migration_similarity') || 'Similarité';
-    const migrationDrinksText = i18n.t('migration_drinks') || 'Consommations';
-    const migrationHistoryText = i18n.t('migration_history') || 'Historique';
-    const migrationEntriesText = i18n.t('migration_entries') || 'entrées';
-    const migrationRatingText = i18n.t('migration_rating') || 'Note';
-    const migrationDismissText = i18n.t('migration_btn_dismiss') || 'Ignorer';
-    const migrationTransferText = i18n.t('migration_btn_reconcile') || 'Fusionner et remplacer';
-
-    const hasComment = !!customData.comment;
-    const isFav = !!customData.favorite;
-
-    modalContainer.innerHTML = `
-        <div class="modal-overlay active" id="migration-overlay">
-            <div class="modal-content" style="max-width: 440px; border: 1px solid rgba(255,192,0,0.3); background: var(--bg-card); max-height: 90vh; overflow-y: auto;">
-                <div style="text-align: center; padding: 20px 20px 10px;">
-                    <div style="font-size: 2rem; margin-bottom: 8px;">🔄</div>
-                    <h3 style="color: var(--accent-gold); font-family: 'Russo One', sans-serif; margin-bottom: 5px;">
-                        ${migrationTitleText}
-                    </h3>
-                    <p style="font-size: 0.8rem; color: #888; margin-bottom: 12px;">
-                        ${migrationSubtitleText}
-                    </p>
-                </div>
-
-                <div style="display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; margin: 0 15px 12px;">
-                    <div style="text-align: center; flex: 1;">
-                        <img src="${customImg}" alt="" onerror="this.src='images/beer/default.png'" 
-                             style="width: 55px; height: 55px; object-fit: contain; border-radius: 8px; background: #222; margin-bottom: 6px;">
-                        <div style="font-size: 0.8rem; font-weight: bold; color: #aaa; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 auto;">${customBeer.title}</div>
-                        <div style="font-size: 0.7rem; color: #777;">${customBeer.brewery || 'Brasserie inconnue'}</div>
-                        <div style="font-size: 0.65rem; color: #888; margin-top: 2px;">${customBeer.alcohol || '?'}% • ${customBeer.volume || '33cl'}</div>
-                        <div style="font-size: 0.65rem; color: #e67e22; font-weight: bold; margin-top: 2px;">${migrationCustomLabel}</div>
-                    </div>
-
-                    <div style="font-size: 1.5rem; color: var(--accent-gold); flex-shrink: 0;">→</div>
-
-                    <div style="text-align: center; flex: 1;">
-                        <img src="${officialImg}" alt="" onerror="this.src='images/beer/default.png'" 
-                             style="width: 55px; height: 55px; object-fit: contain; border-radius: 8px; background: #222; margin-bottom: 6px;">
-                        <div style="font-size: 0.8rem; font-weight: bold; color: #fff; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 auto;">${officialBeer.title}</div>
-                        <div style="font-size: 0.7rem; color: var(--accent-gold);">${officialBeer.brewery || ''}</div>
-                        <div style="font-size: 0.65rem; color: #aaa; margin-top: 2px;">${officialBeer.type || ''} • ${officialBeer.alcohol || ''}</div>
-                        <div style="font-size: 0.65rem; color: var(--accent-gold); font-weight: bold; margin-top: 2px;">${migrationOfficialLabel}</div>
-                    </div>
-                </div>
-
-                <div style="padding: 0 15px 12px; font-size: 0.8rem; color: #aaa;">
-                    <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                        <div style="font-weight: bold; color: #ddd; margin-bottom: 6px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">📋 Données à transférer</div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>${migrationSimilarityText}</span>
-                            <span style="color: var(--accent-gold); font-weight: bold;">${score}%</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>${migrationDrinksText}</span>
-                            <span style="color: #fff; font-weight: bold;">${drinkCount} conso(s)</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>${migrationHistoryText}</span>
-                            <span style="color: #fff;">${historyCount} ${migrationEntriesText}</span>
-                        </div>
-                        ${hasRating ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>${migrationRatingText}</span>
-                            <span style="color: #fff; font-weight: bold;">${customData.score}/20</span>
-                        </div>` : ''}
-                        ${hasComment ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>Commentaire</span>
-                            <span style="color: #aaa; font-style: italic; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">"${customData.comment}"</span>
-                        </div>` : ''}
-                        ${isFav ? `<div style="display: flex; justify-content: space-between;">
-                            <span>Statut</span>
-                            <span style="color: var(--accent-gold);">⭐ Favori</span>
-                        </div>` : ''}
-                    </div>
-                </div>
-
-                <div style="margin: 0 15px 15px; padding: 10px 12px; background: rgba(244,67,54,0.12); border: 1px solid rgba(244,67,54,0.35); border-radius: 8px; color: #ff8a80; font-size: 0.75rem; line-height: 1.4; text-align: center;">
-                    ⚠️ <strong>Action définitive :</strong> La bière personnalisée sera <u>définitivement supprimée</u> de votre collection après la fusion complète de vos consommations, notes et historique vers la bière officielle.
-                </div>
-
-                <div style="display: flex; gap: 10px; padding: 0 15px 20px;">
-                    <button id="btn-migration-dismiss" class="btn-primary" style="flex: 1; background: #222; border: 1px solid #444; color: #aaa; margin: 0; padding: 10px;">
-                        ${migrationDismissText}
-                    </button>
-                    <button id="btn-migration-confirm" class="btn-primary" style="flex: 1; background: var(--accent-gold); color: #000; font-weight: bold; margin: 0; padding: 10px;">
-                        ${migrationTransferText}
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    modalContainer.style.display = '';
-    modalContainer.classList.remove('hidden');
-
-    // Close overlay
-    const overlay = document.getElementById('migration-overlay');
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            modalContainer.style.display = '';
-            modalContainer.classList.add('hidden');
-            modalContainer.innerHTML = '';
-        }
-    });
-
-    // Dismiss (never show again)
-    document.getElementById('btn-migration-dismiss').addEventListener('click', () => {
-        Deduplicator.dismissMatch(customBeer.id, officialBeer.id);
-        const idx = migrationPrompts.findIndex(m => m.customBeer.id === customBeer.id && m.officialBeer.id === officialBeer.id);
-        if (idx !== -1) migrationPrompts.splice(idx, 1);
-        modalContainer.style.display = '';
-        modalContainer.classList.add('hidden');
-        modalContainer.innerHTML = '';
-        showToast(i18n.t('migration_dismissed') || 'Suggestion ignorée', 'info');
-        // Re-render banner
-        const existingBanner = parentContainer.querySelector('.unrated-banner-modern');
-        if (existingBanner) existingBanner.remove();
-        renderUnratedBanner(allBeers, parentContainer, migrationPrompts);
-    });
-
-    // Confirm transfer
-    document.getElementById('btn-migration-confirm').addEventListener('click', () => {
-        const result = Storage.migrateBeerData(customBeer.id, officialBeer.id);
-        if (result.success) {
-            Storage.savePreference('dedup_manually_triggered', true);
-            window.dispatchEvent(new Event('beerdex-action'));
-            
-            // Remove from in-memory allBeers
-            const bIdx = allBeers.findIndex(b => b.id === customBeer.id);
-            if (bIdx !== -1) allBeers.splice(bIdx, 1);
-
-            const idx = migrationPrompts.findIndex(m => m.customBeer.id === customBeer.id && m.officialBeer.id === officialBeer.id);
-            if (idx !== -1) migrationPrompts.splice(idx, 1);
-            
-            modalContainer.style.display = '';
-            modalContainer.classList.add('hidden');
-            modalContainer.innerHTML = '';
-            showToast(i18n.t('migration_success') || `Transféré ! ${result.transferred.count} conso(s) et ${result.transferred.history} entrée(s) d'historique.`, 'success');
-            Feedback.playSuccess();
-            
-            // Re-render banner with remaining prompts so user can continue
-            const existingBanner = parentContainer.querySelector('.unrated-banner-modern');
-            if (existingBanner) existingBanner.remove();
-            renderUnratedBanner(allBeers, parentContainer, migrationPrompts);
-            
-            // Only reload if no more migration prompts remain
-            if (migrationPrompts.length === 0) {
-                setTimeout(() => window.location.reload(), 1200);
-            }
-        } else {
-            showToast(i18n.t('migration_error') || 'Erreur lors du transfert.', 'error');
-        }
-    });
-}
-
-// ======================================= //
-// Debug / Crash Report Modal              //
-// ======================================= //
-
 export function renderDebugModal() {
+    const modalContainer = getModalContainer();
+    if (!modalContainer) return;
     const report = CrashLogger.generateReport();
     const device = CrashLogger.getDeviceInfo();
     const logs = CrashLogger.getLogs();
@@ -8136,18 +5363,18 @@ export function renderDebugModal() {
         </div>
     `;
 
-    modalContainer.classList.remove('hidden');
+    modalContainer?.classList.remove('hidden');
 
     // Close overlay
     const overlay = document.getElementById('debug-overlay');
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
-            modalContainer.classList.add('hidden');
+            modalContainer?.classList.add('hidden');
         }
     });
 
     document.getElementById('btn-debug-close').addEventListener('click', () => {
-        modalContainer.classList.add('hidden');
+        modalContainer?.classList.add('hidden');
     });
 
     document.getElementById('toggle-debug-dedup').addEventListener('change', (e) => {
@@ -8197,78 +5424,6 @@ export function renderDebugModal() {
         }
     });
 }
-export function filterSettings(query) {
-    const container = document.getElementById('settings-container');
-    if (!container) return;
-
-    const rawQuery = query || '';
-    const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    const q = norm(rawQuery);
-
-    const inputEl = container.querySelector('#settings-search-input');
-    if (inputEl && inputEl.value !== rawQuery) inputEl.value = rawQuery;
-    const clearBtn = container.querySelector('#settings-search-clear');
-    if (clearBtn) clearBtn.classList.toggle('hidden', q.length === 0);
-    const countEl = container.querySelector('#settings-search-count');
-    const emptyEl = container.querySelector('#settings-search-empty');
-
-    const accordions = container.querySelectorAll('.settings-accordion');
-
-    if (!q) {
-        accordions.forEach(acc => {
-            acc.style.display = '';
-            acc.querySelectorAll('.setting-row').forEach(row => { row.style.display = ''; });
-            const header = acc.querySelector('.settings-accordion-header');
-            const isOpen = _activeSettingsGroup !== null && acc.dataset.group === _activeSettingsGroup;
-            acc.classList.toggle('is-open', isOpen);
-            if (header) header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        });
-        _restoreSettingsConditionalVisibility(container);
-        if (countEl) countEl.classList.add('hidden');
-        if (emptyEl) emptyEl.classList.add('hidden');
-        return;
-    }
-
-    let totalMatches = 0;
-    accordions.forEach(acc => {
-        let groupMatches = 0;
-        const headerText = norm(acc.querySelector('.settings-accordion-header')?.textContent);
-        const rows = acc.querySelectorAll('.setting-row');
-        const bacSub = acc.querySelector('#bac-settings-group');
-        let bacSubMatches = 0;
-
-        rows.forEach(row => {
-            const keywords = norm(row.dataset.keywords);
-            const text = norm(row.textContent);
-            const matched = keywords.includes(q) || text.includes(q) || headerText.includes(q);
-            row.style.display = matched ? '' : 'none';
-            if (matched) {
-                groupMatches++;
-                totalMatches++;
-                if (bacSub && bacSub.contains(row)) bacSubMatches++;
-            }
-        });
-
-        if (bacSub) {
-            bacSub.style.display = bacSubMatches > 0 ? 'block' : 'none';
-        }
-
-        const hasMatch = groupMatches > 0;
-        acc.style.display = hasMatch ? '' : 'none';
-        acc.classList.toggle('is-open', hasMatch);
-        const header = acc.querySelector('.settings-accordion-header');
-        if (header) header.setAttribute('aria-expanded', hasMatch ? 'true' : 'false');
-    });
-
-    if (countEl) {
-        countEl.textContent = totalMatches > 0
-            ? `${totalMatches} réglage${totalMatches > 1 ? 's' : ''} trouvé${totalMatches > 1 ? 's' : ''}`
-            : '';
-        countEl.classList.toggle('hidden', totalMatches === 0);
-    }
-    if (emptyEl) emptyEl.classList.toggle('hidden', totalMatches > 0);
-}
-
 export function renderBreweryView(breweryName, breweryBeers, container, activeFilters, onBack) {
     container.innerHTML = '';
     
@@ -8398,190 +5553,6 @@ export function renderBreweryView(breweryName, breweryBeers, container, activeFi
     renderBeerList(breweryBeers, beersContainer, activeFilters, false, null, false);
 }
 
-
-window.UI = window.UI || {};
-window.UI.openUniversalScanner = openUniversalScanner;
-
-export async function openUniversalScanner() {
-    // html5-qrcode is lazy-loaded on first use (~375 KB) to keep boot light.
-    try { await loadQrScanner(); } catch (e) { /* handled below */ }
-    if (!window.Html5Qrcode) return showAlertModal("Scanner non disponible", { icon: '❌' });
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'modal-content';
-    wrapper.style.cssText = 'width: min(92%, 420px); padding: 22px; text-align: center; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255, 215, 0, 0.25); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);';
-    wrapper.innerHTML = `
-        <h2 style="color:var(--accent-gold); margin-bottom:8px; font-family:'Russo One'; font-size:1.35rem; display:flex; align-items:center; justify-content:center; gap:8px;">
-            <span>📷</span> Scanner Universel
-        </h2>
-        <p style="color:#aaa; font-size:0.82rem; margin-bottom:14px; line-height:1.4;">
-            ${i18n.t('uni_scanner_desc')}
-        </p>
-        <div id="universal-reader" style="width: 100%; max-width: 280px; margin: 0 auto 15px auto; border-radius: 12px; overflow: hidden; background: #000; border: 2px solid rgba(255, 215, 0, 0.3); aspect-ratio: 1/1;"></div>
-
-        <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; margin-bottom: 15px; text-align: left;">
-            <div style="font-size:0.8rem; color:#ddd; font-weight:700; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
-                <span>⌨️ ${i18n.t('uni_scanner_code_prompt')}</span>
-            </div>
-            <div style="margin-bottom:10px;">
-                <input type="text" id="universal-manual-code" placeholder="EX: A1B2C3" maxlength="15" style="width:100%; box-sizing:border-box; text-align:center; font-family:monospace; font-size:1.2rem; font-weight:bold; letter-spacing:3px; text-transform:uppercase; background:rgba(0,0,0,0.6); border:1px solid rgba(255,215,0,0.4); border-radius:10px; color:#fff; padding:10px;">
-            </div>
-            <div style="display:flex; gap:8px;">
-                <button type="button" id="btn-uni-join-party" class="btn-primary" style="flex:1; padding:10px 8px; font-size:0.82rem; background:linear-gradient(135deg, var(--accent-gold), var(--accent-amber)); color:#000; font-weight:bold; border:none; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 3px 10px rgba(255,215,0,0.2);">
-                    🍻 ${i18n.t('uni_btn_beerparty')}
-                </button>
-                <button type="button" id="btn-uni-join-draftsync" class="btn-primary" style="flex:1; padding:10px 8px; font-size:0.82rem; background:linear-gradient(135deg, #3b82f6, #1d4ed8); color:#fff; font-weight:bold; border:none; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 3px 10px rgba(59,130,246,0.3);">
-                    📡 ${i18n.t('uni_btn_draftsync')}
-                </button>
-            </div>
-        </div>
-
-        <button id="btn-close-scanner" class="btn-cancel" style="width:100%; padding:10px; border-radius:20px; font-weight:bold; cursor:pointer;">${i18n.t('ota_btn_close')}</button>
-    `;
-
-    openModal(wrapper);
-
-    const manualInput = wrapper.querySelector('#universal-manual-code');
-    if (manualInput) {
-        manualInput.addEventListener('input', () => {
-            manualInput.value = manualInput.value.toUpperCase();
-        });
-    }
-
-    const html5QrCode = new window.Html5Qrcode("universal-reader");
-    
-    const stopScanner = () => {
-        if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => {
-                html5QrCode.clear();
-            }).catch(e => console.warn(e));
-        }
-        closeModal();
-    };
-
-    wrapper.querySelector('#btn-close-scanner').onclick = stopScanner;
-
-    const extractCleanCode = (inputVal) => {
-        if (!inputVal) return '';
-        return inputVal.trim()
-            .replace(/^(DRAFTSYNC:|BEERDEX-OTA:|BEERDEX-PARTY:|PARTY:)/i, '')
-            .trim()
-            .toUpperCase();
-    };
-
-    const handleJoinParty = (codeToUse) => {
-        const cleanCode = extractCleanCode(codeToUse);
-        if (!cleanCode || cleanCode.length !== 6) {
-            showToast(i18n.t('ota_code_length_error'), "error");
-            return;
-        }
-        stopScanner();
-        renderMatchModal(window.allBeers || [], cleanCode);
-    };
-
-    const handleJoinDraftSync = (codeToUse) => {
-        const cleanCode = extractCleanCode(codeToUse);
-        if (!cleanCode || cleanCode.length !== 6) {
-            showToast(i18n.t('ota_code_length_error'), "error");
-            return;
-        }
-        stopScanner();
-        renderOtaSyncModal(null, 'join', cleanCode);
-    };
-
-    wrapper.querySelector('#btn-uni-join-party').onclick = () => {
-        handleJoinParty(manualInput ? manualInput.value : '');
-    };
-
-    wrapper.querySelector('#btn-uni-join-draftsync').onclick = () => {
-        handleJoinDraftSync(manualInput ? manualInput.value : '');
-    };
-
-    const showCodeChoiceModal = (detectedCode) => {
-        const choiceWrapper = document.createElement('div');
-        choiceWrapper.className = 'modal-dialog';
-        choiceWrapper.style.maxWidth = '360px';
-        choiceWrapper.style.textAlign = 'center';
-        choiceWrapper.innerHTML = `
-            <div class="dialog-icon">⚡</div>
-            <h3 style="color:var(--accent-gold); font-family:'Russo One'; margin-bottom:8px;">${i18n.t('uni_room_detected', { code: detectedCode })}</h3>
-            <p style="color:#ccc; font-size:0.85rem; margin-bottom:18px;">
-                ${i18n.t('uni_room_choice_desc')}
-            </p>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-                <button id="choice-btn-party" class="btn-confirm" style="padding:12px; font-weight:bold; background:linear-gradient(135deg, var(--accent-gold), var(--accent-amber)); color:#000; border:none; border-radius:12px; cursor:pointer;">
-                    ${i18n.t('uni_btn_join_beerparty')}
-                </button>
-                <button id="choice-btn-draftsync" class="btn-confirm" style="padding:12px; font-weight:bold; background:linear-gradient(135deg, #3b82f6, #1d4ed8); color:#fff; border:none; border-radius:12px; cursor:pointer;">
-                    ${i18n.t('uni_btn_join_draftsync')}
-                </button>
-                <button id="choice-btn-cancel" class="btn-cancel" style="padding:10px; border-radius:12px; margin-top:5px; cursor:pointer;">
-                    ${i18n.t('ota_btn_close')}
-                </button>
-            </div>
-        `;
-        openModal(choiceWrapper);
-        choiceWrapper.querySelector('#choice-btn-party').onclick = () => {
-            closeModal();
-            renderMatchModal(window.allBeers || [], detectedCode);
-        };
-        choiceWrapper.querySelector('#choice-btn-draftsync').onclick = () => {
-            closeModal();
-            renderOtaSyncModal(null, 'join', detectedCode);
-        };
-        choiceWrapper.querySelector('#choice-btn-cancel').onclick = () => {
-            closeModal();
-        };
-    };
-
-    html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (text) => {
-            const trimmed = text.trim();
-            
-            if (trimmed.startsWith('DRAFTSYNC:') || trimmed.startsWith('BEERDEX-OTA:')) {
-                const code = extractCleanCode(trimmed);
-                stopScanner();
-                renderOtaSyncModal(null, 'join', code);
-            } else if (trimmed.startsWith('BEERDEX-PARTY:') || trimmed.startsWith('PARTY:')) {
-                const code = extractCleanCode(trimmed);
-                stopScanner();
-                renderMatchModal(window.allBeers || [], code);
-            } else if (trimmed.startsWith('BEERDEX:')) {
-                stopScanner();
-                try {
-                    const beerData = JSON.parse(trimmed.replace('BEERDEX:', ''));
-                    if (Array.isArray(beerData)) {
-                        beerData.forEach(b => {
-                            if (!String(b.id).startsWith('CUSTOM_')) b.id = 'CUSTOM_' + b.id;
-                            Storage.saveCustomBeer(b);
-                        });
-                        if (window.addImportedCustomBeers) window.addImportedCustomBeers(beerData);
-                        showAlertModal(`${beerData.length} bières importées avec succès !`, { icon: '✅' });
-                    } else {
-                        window.UI.renderSharedBeerModal(beerData, "Scan QR");
-                    }
-                } catch(e) {
-                    showAlertModal("Code QR invalide ou corrompu.", { icon: '❌' });
-                }
-            } else if (extractCleanCode(trimmed).length === 6) {
-                const code = extractCleanCode(trimmed);
-                stopScanner();
-                showCodeChoiceModal(code);
-            } else {
-                stopScanner();
-                showAlertModal("QR Code non reconnu par Beerdex.", { icon: '❓' });
-            }
-        },
-        (errorMessage) => {
-            // ignore scan errors
-        }
-    ).catch(err => {
-        showAlertModal("Impossible d'accéder à la caméra", { icon: '❌' });
-        stopScanner();
-    });
-}
 
 window.Storage = Storage;
 window.Match = Match;
@@ -8962,3 +5933,13 @@ export function renderSharedBeerModal(beerData, sender) {
     openModal(wrapper);
 }
 window.UI.renderSharedBeerModal = renderSharedBeerModal;
+
+Object.assign(window.UI, {
+    renderBeerDetail,
+    renderAddBeerForm,
+    renderStats,
+    renderMatchModal,
+    renderRequestBeerForm,
+    renderDeduplicationWizard,
+    renderDebugModal
+});

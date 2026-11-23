@@ -6,7 +6,7 @@ let breweryData = null;
 let mapCaches = {}; // cache for svg contents
 
 // Map detection initialization
-let currentMapScope = localStorage.getItem('defaultMapScope');
+let currentMapScope = Storage.getDefaultMapScope();
 if (!currentMapScope) {
     try {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

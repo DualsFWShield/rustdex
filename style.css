@@ -5035,3 +5035,679 @@ body.perf-low-end .settings-accordion-body {
     }
 }
 
+/* ==========================================================================
+   v5.3: Virtualized Grid Chunks, Food Pairing, Compare, Passport & Scanner
+   ========================================================================== */
+.beer-grid.is-chunked {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md, 15px);
+}
+
+.beer-grid-chunk {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--spacing-md, 15px);
+    contain: layout style;
+}
+
+.beer-grid.view-list.is-chunked .beer-grid-chunk {
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+/* Food Pairing Card in Beer Detail */
+.food-pairing-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+.food-pairing-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+    color: var(--accent-gold);
+}
+
+.food-pairing-meta {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.food-pairing-body {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.food-pairing-tip {
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    background: var(--accent-soft, rgba(255, 192, 0, 0.08));
+    border-left: 3px solid var(--accent-gold);
+    padding: 8px 10px;
+    border-radius: 6px;
+    line-height: 1.4;
+}
+
+.food-pairing-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.food-pairing-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pairing-chip {
+    background: var(--surface-subtle, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    padding: 4px 9px;
+    border-radius: 14px;
+}
+
+.food-pairing-service {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 8px;
+}
+
+/* Quick Feature Cards in Stats */
+.stats-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.stats-tool-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    border-radius: 14px;
+    padding: 12px 14px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.stats-tool-btn:hover {
+    border-color: var(--accent-gold);
+    transform: translateY(-1px);
+}
+
+.stats-tool-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.stats-tool-text strong {
+    display: block;
+    font-size: 0.92rem;
+    color: var(--accent-gold);
+}
+
+.stats-tool-text span {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Comparator Modal */
+.compare-modal {
+    max-height: 88vh;
+    overflow-y: auto;
+}
+
+.compare-header,
+.passport-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+.compare-header h2,
+.passport-header h2 {
+    margin: 0 0 4px 0;
+    color: var(--accent-gold);
+    font-size: 1.25rem;
+}
+
+.compare-header p,
+.passport-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.compare-count-pill {
+    font-size: 0.75rem;
+    background: var(--accent-soft, rgba(255, 192, 0, 0.15));
+    color: var(--accent-gold);
+    padding: 2px 8px;
+    border-radius: 10px;
+    vertical-align: middle;
+}
+
+.compare-picker {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.compare-search-results {
+    position: relative;
+    margin-top: 6px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+    border-radius: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.compare-search-hit {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    padding: 9px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.84rem;
+}
+
+.compare-search-hit:hover {
+    background: var(--accent-soft, rgba(255, 192, 0, 0.1));
+}
+
+.compare-search-hit small {
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.compare-hit-meta {
+    color: var(--accent-gold);
+    font-size: 0.74rem;
+    white-space: nowrap;
+}
+
+.compare-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    text-align: left;
+}
+
+.compare-suggestions-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.compare-chip-add {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    padding: 4px 10px;
+    border-radius: 14px;
+    font-size: 0.76rem;
+    cursor: pointer;
+}
+
+.compare-chip-add:hover {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+}
+
+.compare-empty {
+    padding: 28px 14px;
+    text-align: center;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+}
+
+.compare-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 10px;
+}
+
+.compare-col {
+    position: relative;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    border-radius: 12px;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.compare-remove-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.compare-col-hero {
+    text-align: center;
+    cursor: pointer;
+    padding-top: 8px;
+}
+
+.compare-col-hero img {
+    height: 92px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    margin-bottom: 6px;
+}
+
+.compare-col-title {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.compare-col-brewery {
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+}
+
+.compare-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.compare-cell {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 7px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 0.76rem;
+}
+
+.compare-cell.compare-winner {
+    background: rgba(255, 192, 0, 0.14);
+    border: 1px solid rgba(255, 192, 0, 0.4);
+}
+
+.compare-cell--aromas {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.compare-k {
+    color: var(--text-secondary);
+}
+
+.compare-v {
+    color: var(--text-primary);
+    font-weight: 600;
+    text-align: right;
+}
+
+.compare-cell.compare-winner .compare-v {
+    color: var(--accent-gold);
+}
+
+/* Passport Modal */
+.passport-modal {
+    max-height: 88vh;
+    overflow-y: auto;
+}
+
+.passport-summary-pill {
+    background: var(--accent-soft, rgba(255, 192, 0, 0.12));
+    border: 1px solid var(--accent-gold);
+    color: var(--accent-gold);
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.passport-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.passport-card {
+    background: var(--bg-dark);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.passport-card.is-stamped {
+    border-color: rgba(255, 192, 0, 0.35);
+}
+
+.passport-card.is-unvisited {
+    opacity: 0.7;
+}
+
+.passport-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.passport-flag {
+    font-size: 1.9rem;
+    flex-shrink: 0;
+}
+
+.passport-meta {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+
+.passport-country-name {
+    font-weight: 700;
+    font-size: 0.94rem;
+    color: var(--text-primary);
+}
+
+.passport-country-stats {
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    margin: 2px 0 5px;
+}
+
+.passport-progress-track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.passport-progress-fill {
+    height: 100%;
+    background: var(--accent-gold);
+}
+
+.passport-stamp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 5px 8px;
+    border: 2px dashed rgba(255, 192, 0, 0.45);
+    border-radius: 10px;
+    transform: rotate(-4deg);
+    min-width: 74px;
+}
+
+.passport-stamp-icon {
+    font-size: 1.15rem;
+}
+
+.passport-stamp-label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    text-transform: uppercase;
+}
+
+.passport-regions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px;
+    padding: 0 12px 12px;
+}
+
+.passport-region-pill {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-secondary);
+}
+
+.passport-region-pill.passport-reg-hit {
+    background: rgba(46, 204, 113, 0.14);
+    border: 1px solid rgba(46, 204, 113, 0.35);
+    color: var(--text-primary);
+}
+
+/* Scanner Tabs & OCR / Tap Finder */
+.scanner-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.scanner-tab-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-secondary);
+    padding: 9px 10px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.scanner-tab-btn.is-active {
+    background: var(--accent-gold);
+    color: #000;
+    border-color: var(--accent-gold);
+}
+
+.label-tap-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 58vh;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.label-ocr-box,
+.tap-finder-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.label-ocr-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    margin-bottom: 8px;
+}
+
+.label-ocr-upload-btn {
+    display: block;
+    text-align: center;
+    background: linear-gradient(135deg, var(--accent-gold), var(--accent-amber, #f59e0b));
+    color: #000;
+    font-weight: 700;
+    font-size: 0.86rem;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.label-ocr-preview-wrap {
+    margin-top: 8px;
+    text-align: center;
+}
+
+.label-ocr-preview-wrap img {
+    max-height: 110px;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+.label-ocr-status {
+    margin-top: 8px;
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+}
+
+.label-ocr-tokens code {
+    background: rgba(255, 192, 0, 0.16);
+    color: var(--accent-gold);
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 0.74rem;
+}
+
+.tap-finder-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.tap-pill {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    padding: 5px 9px;
+    border-radius: 14px;
+    cursor: pointer;
+}
+
+.tap-pill.is-active {
+    background: var(--accent-gold);
+    border-color: var(--accent-gold);
+    color: #000;
+    font-weight: 700;
+}
+
+.tap-finder-results {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 210px;
+    overflow-y: auto;
+}
+
+.tap-result-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 9px;
+    padding: 7px 9px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+}
+
+.tap-result-item:hover {
+    border-color: var(--accent-gold);
+}
+
+.tap-result-item img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #1a1a1a;
+    flex-shrink: 0;
+}
+
+.tap-result-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.tap-result-info strong {
+    display: block;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tap-result-info span {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.tap-result-badge {
+    font-size: 0.7rem;
+    color: var(--accent-gold);
+    white-space: nowrap;
+}
+
+.tap-finder-empty {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 12px;
+    text-align: center;
+}
+
+

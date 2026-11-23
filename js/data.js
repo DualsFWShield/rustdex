@@ -24,6 +24,27 @@ const EMPTY_BREWERY_DATA = {};
 // on the beer itself, the shared brewery table and the active locale (which
 // triggers a full reload when changed), so memoising it is safe.
 const _enrichCache = new WeakMap();
+let _missingImagesSet = new Set();
+let _missingImagesPromise = null;
+
+export function loadMissingImagesManifest() {
+    if (!_missingImagesPromise) {
+        _missingImagesPromise = fetch('data/missing-images.json')
+            .then(res => (res.ok ? res.json() : null))
+            .then(data => {
+                if (data && Array.isArray(data.missing)) {
+                    _missingImagesSet = new Set(data.missing);
+                }
+                return _missingImagesSet;
+            })
+            .catch(() => _missingImagesSet);
+    }
+    return _missingImagesPromise;
+}
+
+export function isMissingImage(path) {
+    return Boolean(path && _missingImagesSet.has(path));
+}
 
 export function enrichBeerMetadata(beer, breweryData = EMPTY_BREWERY_DATA) {
     const cached = _enrichCache.get(beer);
@@ -124,10 +145,12 @@ export async function fetchAllBeers(files = ALL_DATA_FILES) {
             })
     );
 
-    // We also fetch breweries.json to attach country/region metadata for searching
+    // We also fetch breweries.json and missing-images manifest
+    const missingPromise = loadMissingImagesManifest();
     promises.push(getBreweryData());
 
     const results = await Promise.all(promises);
+    await missingPromise;
     const breweryData = results.pop() || {}; // last promise is breweries.json
 
     results.forEach(data => {
@@ -152,7 +175,7 @@ export async function fetchAllBeers(files = ALL_DATA_FILES) {
     };
 
     // Detect user country for dynamic rarity
-    const userMapScope = localStorage.getItem('defaultMapScope') || '';
+    const userMapScope = Storage.getDefaultMapScope() || '';
     const bacCountry = Storage.getPreference('bac_country', '');
     // Resolve user country code from map scope or BAC country
     const scopeToCountry = { 'be': 'BE', 'fr': 'FR', 'de': 'DE', 'nl': 'NL', 'us': 'US', 'co': 'CO', 'kr': 'KR', 'jp': 'JP', 'cn': 'CN', 'it': 'IT' };

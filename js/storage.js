@@ -1,7 +1,10 @@
 import * as Utils from './utils.js';
+import * as IDB from './idb-store.js';
 
 const STORAGE_KEY_RATINGS = 'beerdex_ratings';
 const STORAGE_KEY_CUSTOM = 'beerdex_custom_beers';
+const STORAGE_KEY_AUTO_BACKUP = 'beerdex_auto_backup';
+const STORAGE_KEY_IDB_MIGRATED = 'beerdex_idb_migrated_v1';
 
 let _ratingsCache = null;
 let _ratingsCacheDirty = true;
@@ -13,6 +16,150 @@ const _prefCache = new Map();
 // Custom beers are re-parsed by several modules during boot; cache the parsed array.
 let _customBeersCache = null;
 let _customBeersCacheDirty = true;
+let _storageInitPromise = null;
+
+// --- Centralized Raw & Safe Storage Helpers ---
+
+export function getRawItem(key, defaultValue = null) {
+    try {
+        const val = localStorage.getItem(key);
+        return val !== null ? val : defaultValue;
+    } catch {
+        return defaultValue;
+    }
+}
+
+export function setRawItem(key, value) {
+    try {
+        localStorage.setItem(key, String(value));
+        return true;
+    } catch (e) {
+        console.warn(`[Storage] Failed to write key "${key}":`, e);
+        return false;
+    }
+}
+
+export function removeRawItem(key) {
+    try {
+        localStorage.removeItem(key);
+    } catch {}
+}
+
+export function getJsonItem(key, defaultValue = null) {
+    try {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return defaultValue;
+        return JSON.parse(raw);
+    } catch {
+        return defaultValue;
+    }
+}
+
+export function setJsonItem(key, value) {
+    return setRawItem(key, JSON.stringify(value));
+}
+
+export function getStorageUsageBytes() {
+    try {
+        let total = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            total += key.length + (localStorage.getItem(key) || '').length;
+        }
+        return total;
+    } catch {
+        return null;
+    }
+}
+
+export function getDefaultMapScope() {
+    return getRawItem('defaultMapScope', null);
+}
+
+export function setDefaultMapScope(scope) {
+    if (scope) return setRawItem('defaultMapScope', scope);
+    removeRawItem('defaultMapScope');
+    return true;
+}
+
+export function getUnlockedAchievementsRaw() {
+    const primary = getJsonItem('beerdex_achievements', null);
+    if (Array.isArray(primary)) return primary;
+    const legacy = getJsonItem('unlockedAchievements', null);
+    return Array.isArray(legacy) ? legacy : [];
+}
+
+export function saveUnlockedAchievementsRaw(list) {
+    return setJsonItem('beerdex_achievements', Array.isArray(list) ? list : []);
+}
+
+function _persistRatings(data) {
+    _ratingsCache = data;
+    _ratingsCacheDirty = false;
+    IDB.idbSet(STORAGE_KEY_RATINGS, data).catch(() => {});
+    setJsonItem(STORAGE_KEY_RATINGS, data);
+}
+
+function _persistCustomBeers(beers) {
+    _customBeersCache = beers;
+    _customBeersCacheDirty = false;
+    IDB.idbSet(STORAGE_KEY_CUSTOM, beers).catch(() => {});
+    setJsonItem(STORAGE_KEY_CUSTOM, beers);
+}
+
+/**
+ * Hydrate heavy data stores from IndexedDB into the synchronous in-memory caches
+ * and migrate legacy localStorage data on first boot.
+ */
+export function initStorage() {
+    if (_storageInitPromise) return _storageInitPromise;
+    _storageInitPromise = (async () => {
+        if (!IDB.isIdbAvailable()) return false;
+        try {
+            const stored = await IDB.idbGetMany([STORAGE_KEY_RATINGS, STORAGE_KEY_CUSTOM]);
+
+            if (stored[STORAGE_KEY_RATINGS] && typeof stored[STORAGE_KEY_RATINGS] === 'object') {
+                _ratingsCache = stored[STORAGE_KEY_RATINGS];
+                _ratingsCacheDirty = false;
+            } else {
+                const legacyRatings = getJsonItem(STORAGE_KEY_RATINGS, null);
+                if (legacyRatings && typeof legacyRatings === 'object') {
+                    _ratingsCache = legacyRatings;
+                    _ratingsCacheDirty = false;
+                    await IDB.idbSet(STORAGE_KEY_RATINGS, legacyRatings);
+                }
+            }
+
+            if (Array.isArray(stored[STORAGE_KEY_CUSTOM])) {
+                _customBeersCache = stored[STORAGE_KEY_CUSTOM];
+                _customBeersCacheDirty = false;
+            } else {
+                const legacyCustom = getJsonItem(STORAGE_KEY_CUSTOM, null);
+                if (Array.isArray(legacyCustom)) {
+                    _customBeersCache = legacyCustom;
+                    _customBeersCacheDirty = false;
+                    await IDB.idbSet(STORAGE_KEY_CUSTOM, legacyCustom);
+                }
+            }
+
+            const existingBackup = await IDB.idbGet(STORAGE_KEY_AUTO_BACKUP);
+            if (!existingBackup) {
+                const legacyBackup = getRawItem(STORAGE_KEY_AUTO_BACKUP, null);
+                if (legacyBackup) {
+                    await IDB.idbSet(STORAGE_KEY_AUTO_BACKUP, legacyBackup);
+                }
+            }
+
+            setRawItem(STORAGE_KEY_IDB_MIGRATED, 'true');
+            return true;
+        } catch (e) {
+            console.warn('[Storage] IDB init fallback to localStorage:', e);
+            return false;
+        }
+    })();
+    return _storageInitPromise;
+}
 
 function _invalidateCache() {
     _ratingsCacheDirty = true;
@@ -59,8 +206,7 @@ export function saveBeerRating(id, ratingData) {
         data[id].count = 1;
     }
 
-    localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-    _invalidateCache();
+    _persistRatings(data);
     autoBackup();
 }
 
@@ -93,8 +239,7 @@ export function toggleFavorite(id) {
     if (!data[id]) data[id] = { count: 0, history: [] }; // Init if empty
 
     data[id].favorite = !data[id].favorite;
-    localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-    _invalidateCache();
+    _persistRatings(data);
     autoBackup();
     return data[id].favorite;
 }
@@ -126,16 +271,14 @@ export function getCustomBeers() {
 export function saveCustomBeer(beer) {
     const beers = getCustomBeers();
     beers.unshift(beer); // Add to top
-    localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(beers));
-    _invalidateCustomCache();
+    _persistCustomBeers(beers);
     autoBackup();
 }
 
 export function deleteCustomBeer(id) {
     let beers = getCustomBeers();
     beers = beers.filter(b => b.id !== id);
-    localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(beers));
-    _invalidateCustomCache();
+    _persistCustomBeers(beers);
     autoBackup();
 }
 
@@ -203,8 +346,7 @@ export function migrateBeerData(oldId, newId) {
 
     // Remove old entry from ratings
     delete data[oldId];
-    localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-    _invalidateCache();
+    _persistRatings(data);
 
     // Remove from custom beers list
     deleteCustomBeer(oldId);
@@ -349,8 +491,7 @@ export function cleanupOrphanedUserData(allBeers) {
     }
 
     if (changed) {
-        localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-        _invalidateCache();
+        _persistRatings(data);
     }
 
     // Archive orphans for potential recovery
@@ -446,8 +587,7 @@ export function restoreOrphanedData() {
         }
 
         if (restored > 0) {
-            localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-            _invalidateCache();
+            _persistRatings(data);
             console.log(`[Storage] Restored ${restored} orphaned entries.`);
         }
 
@@ -485,8 +625,7 @@ export function addConsumption(id, volumeStr, customDate = null) {
         volume: volMl
     });
 
-    localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-    _invalidateCache();
+    _persistRatings(data);
     window.dispatchEvent(new Event('beerdex-data-updated'));
     autoBackup();
     return data[id];
@@ -506,8 +645,7 @@ export function removeConsumption(id) {
             // If count is 0, we treat it as not drunk.
             data[id].count = 0;
         }
-        localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-        _invalidateCache();
+        _persistRatings(data);
         window.dispatchEvent(new Event('beerdex-data-updated'));
         autoBackup();
         return data[id];
@@ -547,8 +685,7 @@ export function resetRatingsOnly() {
             delete data[id];
         }
     });
-    localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-    _invalidateCache();
+    _persistRatings(data);
 }
 
 export function resetFavoritesOnly() {
@@ -558,8 +695,7 @@ export function resetFavoritesOnly() {
             data[id].favorite = false;
         }
     });
-    localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-    _invalidateCache();
+    _persistRatings(data);
 }
 
 export function resetConsumptionHistoryOnly() {
@@ -572,12 +708,12 @@ export function resetConsumptionHistoryOnly() {
             delete data[id];
         }
     });
-    localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(data));
-    _invalidateCache();
+    _persistRatings(data);
 }
 
 export function resetCustomBeersOnly() {
-    localStorage.removeItem(STORAGE_KEY_CUSTOM);
+    removeRawItem(STORAGE_KEY_CUSTOM);
+    IDB.idbDelete(STORAGE_KEY_CUSTOM).catch(() => {});
     _invalidateCustomCache();
 }
 
@@ -587,8 +723,13 @@ export function resetAllData() {
             localStorage.removeItem(key);
         }
     });
-    _invalidateCache();
-    _invalidateCustomCache();
+    IDB.idbDelete(STORAGE_KEY_RATINGS).catch(() => {});
+    IDB.idbDelete(STORAGE_KEY_CUSTOM).catch(() => {});
+    IDB.idbDelete(STORAGE_KEY_AUTO_BACKUP).catch(() => {});
+    _ratingsCache = {};
+    _ratingsCacheDirty = true;
+    _customBeersCache = [];
+    _customBeersCacheDirty = true;
     _invalidatePrefCache();
 }
 
@@ -634,8 +775,9 @@ function _runAutoBackup() {
     _autoBackupPending = false;
     try {
         const data = getExportDataString(true);
-        localStorage.setItem('beerdex_auto_backup', data);
-        localStorage.setItem('beerdex_auto_backup_date', Date.now().toString());
+        IDB.idbSet(STORAGE_KEY_AUTO_BACKUP, data).catch(() => {});
+        setRawItem('beerdex_auto_backup', data);
+        setRawItem('beerdex_auto_backup_date', Date.now().toString());
     } catch (e) {
         console.warn("Auto-backup failed:", e);
     }
@@ -1153,8 +1295,7 @@ export function mergeUserData(importedData, options = {}) {
                 newCustoms[existingIndex] = importedBeer;
             }
         });
-        localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(newCustoms));
-        _invalidateCustomCache();
+        _persistCustomBeers(newCustoms);
     }
 
     // 2. Merge Ratings / Consumptions
@@ -1259,8 +1400,7 @@ export function mergeUserData(importedData, options = {}) {
                 delete localRatings[beerId];
             }
         });
-        localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(localRatings));
-        _invalidateCache();
+        _persistRatings(localRatings);
     }
 
     // 3. Template
@@ -1329,8 +1469,7 @@ export function importData(jsonString, options = {}) {
                 } else if (options.overwriteMode) {
                     const idx = customs.findIndex(b => b.id === sharedBeer.id);
                     customs[idx] = sharedBeer;
-                    localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(customs));
-                    _invalidateCustomCache();
+                    _persistCustomBeers(customs);
                 }
             }
 

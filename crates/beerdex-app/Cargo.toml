@@ -29,36 +29,4 @@ jni = "0.21"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-web-sys = { version = "0.3", features = [
-    "Window",
-    "Document",
-    "Element",
-    "HtmlElement",
-    "HtmlInputElement",
-    "HtmlLinkElement",
-    "DomTokenList",
-    "DomStringMap",
-    "CssStyleDeclaration",
-    "NodeList",
-    "Event",
-    "EventTarget",
-    "CustomEvent",
-    "KeyboardEvent",
-    "MouseEvent",
-    "History",
-    "Location",
-    "Navigator",
-    "MediaQueryList",
-    "Storage",
-    "VisibilityState",
-    "IntersectionObserver",
-    "IntersectionObserverEntry",
-    "IntersectionObserverInit",
-    "ServiceWorkerContainer",
-    "ServiceWorkerRegistration",
-    "ServiceWorker",
-    "ServiceWorkerState",
-    "console",
-] }
+web-sys = { version = "0.3", features = ["console"] }
