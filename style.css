@@ -5669,185 +5669,6 @@ body.perf-low-end .settings-accordion-body {
     color: var(--text-primary);
 }
 
-/* Scanner Tabs & OCR / Tap Finder */
-.scanner-tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 14px;
-}
-
-.scanner-tab-btn {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--text-secondary);
-    padding: 9px 10px;
-    border-radius: 10px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-}
-
-.scanner-tab-btn.is-active {
-    background: var(--accent-gold);
-    color: #000;
-    border-color: var(--accent-gold);
-}
-
-.label-tap-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: 58vh;
-    overflow-y: auto;
-    padding-right: 2px;
-}
-
-.label-ocr-box,
-.tap-finder-box {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    padding: 12px;
-}
-
-.label-ocr-title {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--accent-gold);
-    margin-bottom: 8px;
-}
-
-.label-ocr-upload-btn {
-    display: block;
-    text-align: center;
-    background: linear-gradient(135deg, var(--accent-gold), var(--accent-amber, #f59e0b));
-    color: #000;
-    font-weight: 700;
-    font-size: 0.86rem;
-    padding: 10px 12px;
-    border-radius: 10px;
-    cursor: pointer;
-}
-
-.label-ocr-preview-wrap {
-    margin-top: 8px;
-    text-align: center;
-}
-
-.label-ocr-preview-wrap img {
-    max-height: 110px;
-    border-radius: 8px;
-    object-fit: contain;
-}
-
-.label-ocr-status {
-    margin-top: 8px;
-    font-size: 0.76rem;
-    color: var(--text-secondary);
-}
-
-.label-ocr-tokens code {
-    background: rgba(255, 192, 0, 0.16);
-    color: var(--accent-gold);
-    padding: 1px 6px;
-    border-radius: 6px;
-    font-size: 0.74rem;
-}
-
-.tap-finder-pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
-}
-
-.tap-pill {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--text-secondary);
-    font-size: 0.74rem;
-    padding: 5px 9px;
-    border-radius: 14px;
-    cursor: pointer;
-}
-
-.tap-pill.is-active {
-    background: var(--accent-gold);
-    border-color: var(--accent-gold);
-    color: #000;
-    font-weight: 700;
-}
-
-.tap-finder-results {
-    margin-top: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 210px;
-    overflow-y: auto;
-}
-
-.tap-result-item {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 9px;
-    padding: 7px 9px;
-    color: var(--text-primary);
-    cursor: pointer;
-    text-align: left;
-    font-family: inherit;
-}
-
-.tap-result-item:hover {
-    border-color: var(--accent-gold);
-}
-
-.tap-result-item img {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-    border-radius: 6px;
-    background: #1a1a1a;
-    flex-shrink: 0;
-}
-
-.tap-result-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.tap-result-info strong {
-    display: block;
-    font-size: 0.82rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.tap-result-info span {
-    display: block;
-    font-size: 0.72rem;
-    color: var(--text-secondary);
-}
-
-.tap-result-badge {
-    font-size: 0.7rem;
-    color: var(--accent-gold);
-    white-space: nowrap;
-}
-
-.tap-finder-empty {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    padding: 12px;
-    text-align: center;
-}
-
 .modal-content .btn-cancel {
     display: inline-flex;
     align-items: center;
@@ -6352,7 +6173,6 @@ body.card-style-glass #consumption-date,
 body.card-style-glass #btn-undrink,
 body.card-style-glass .modal-dialog .btn-cancel,
 body.card-style-glass .compare-chip-add,
-body.card-style-glass .scanner-tab-btn,
 body.card-style-glass .modal-content .rarity-hidden {
     background: var(--lg-surface-control) !important;
     border: 1px solid var(--lg-border) !important;
@@ -6527,539 +6347,7 @@ body.card-style-neon .setting-btn.primary {
     box-shadow: 0 0 18px color-mix(in srgb, var(--accent-gold) 55%, transparent);
 }
 
-/* 4. Material 3 Expressive (Google / Android 16) — Multi-tonal surfaces without borders, variable editorial type, shape morphing & spring physics */
-body.card-style-m3e {
-    --m3-surface: color-mix(in srgb, var(--bg-dark) 95%, var(--accent-gold) 5%);
-    --m3-surface-container-low: color-mix(in srgb, var(--bg-card) 92%, var(--accent-gold) 8%);
-    --m3-surface-container: color-mix(in srgb, var(--bg-card) 84%, var(--accent-gold) 16%);
-    --m3-surface-container-high: color-mix(in srgb, var(--bg-card-hover) 78%, var(--accent-gold) 22%);
-    --m3-surface-container-highest: color-mix(in srgb, var(--bg-card-hover) 68%, var(--accent-gold) 32%);
-    --m3-primary: var(--accent-gold);
-    --m3-on-primary: #240f47;
-    --m3-primary-container: color-mix(in srgb, var(--accent-gold) 34%, var(--bg-card));
-    --m3-on-primary-container: color-mix(in srgb, var(--accent-gold) 22%, #ffffff);
-    --m3-secondary-container: color-mix(in srgb, var(--accent-gold) 20%, var(--bg-card-hover));
-    --m3-tertiary-container: color-mix(in srgb, var(--accent-amber) 30%, var(--bg-card));
-    --m3-on-tertiary-container: color-mix(in srgb, var(--accent-amber) 24%, #ffffff);
-    --m3-outline: color-mix(in srgb, var(--text-secondary) 55%, var(--accent-gold) 45%);
-    --m3-spring-fast: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --m3-spring-spatial: cubic-bezier(0.22, 1.4, 0.36, 1);
-    font-family: "Roboto Flex", "Plus Jakarta Sans", var(--font-family-primary, "Outfit", sans-serif);
-    background-color: var(--m3-surface) !important;
-    background-image: radial-gradient(ellipse 95% 40% at 50% -10%, color-mix(in srgb, var(--accent-gold) 18%, transparent), transparent 70%);
-    background-attachment: fixed;
-}
-
-[data-color-scheme="light"] body.card-style-m3e {
-    --m3-surface: color-mix(in srgb, #fef7ff 92%, var(--bg-dark) 8%);
-    --m3-surface-container-low: #f7f2fa;
-    --m3-surface-container: color-mix(in srgb, #f3edf7 88%, var(--accent-gold) 12%);
-    --m3-surface-container-high: color-mix(in srgb, #ece6f0 80%, var(--accent-gold) 20%);
-    --m3-surface-container-highest: color-mix(in srgb, #e6e0e9 72%, var(--accent-gold) 28%);
-    --m3-primary: color-mix(in srgb, var(--accent-gold) 85%, #4f378b);
-    --m3-on-primary: #ffffff;
-    --m3-primary-container: color-mix(in srgb, var(--accent-gold) 26%, #ffffff);
-    --m3-on-primary-container: #21005d;
-    --m3-secondary-container: color-mix(in srgb, var(--accent-gold) 18%, #f3edf7);
-    --m3-tertiary-container: color-mix(in srgb, var(--accent-amber) 24%, #fff0f4);
-    --m3-on-tertiary-container: #31111d;
-    --m3-outline: #79747e;
-}
-
-body.card-style-m3e #app {
-    background: transparent;
-}
-
-body.card-style-m3e h1,
-body.card-style-m3e h2,
-body.card-style-m3e h3,
-body.card-style-m3e .beer-title,
-body.card-style-m3e .beer-grid.view-list .beer-title,
-body.card-style-m3e .modal-dialog h3,
-body.card-style-m3e .legal-header h2,
-body.card-style-m3e .gamer-hud-title,
-body.card-style-m3e .gamer-rank-name,
-body.card-style-m3e .streak-section h4,
-body.card-style-m3e .streak-number,
-body.card-style-m3e .history-section h4,
-body.card-style-m3e .cal-month-name,
-body.card-style-m3e .beerparty-title,
-body.card-style-m3e .settings-main-title,
-body.card-style-m3e .stat-value,
-body.card-style-m3e .modal-title,
-body.card-style-m3e .passport-title,
-body.card-style-m3e .compare-title {
-    font-family: "Roboto Flex", "Plus Jakarta Sans", sans-serif !important;
-    font-weight: 800;
-    font-variation-settings: "wght" 820, "wdth" 108;
-    letter-spacing: -0.025em;
-}
-
-body.card-style-m3e .app-header {
-    position: fixed;
-    top: calc(10px + env(safe-area-inset-top));
-    left: 12px;
-    right: 12px;
-    width: auto;
-    max-width: calc(100vw - 24px);
-    min-height: 60px;
-    padding: 6px 14px 6px 18px;
-    border-radius: 999px;
-    background: var(--m3-surface-container-high);
-    border: none !important;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    z-index: 120;
-    overflow: visible;
-}
-
-body.card-style-m3e .app-header h1 {
-    font-variation-settings: "wght" 900, "wdth" 112;
-    font-size: 1.45rem;
-    color: var(--m3-on-primary-container);
-}
-
-body.card-style-m3e .app-header .icon-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 999px;
-    background: var(--m3-secondary-container);
-    color: var(--m3-on-primary-container);
-    border: none;
-    transition: transform 0.3s var(--m3-spring-fast), border-radius 0.25s var(--m3-spring-fast), background-color 0.2s ease;
-}
-
-body.card-style-m3e .app-header .icon-btn:hover {
-    background: var(--m3-primary-container);
-    border-radius: 14px;
-    transform: scale(1.06);
-}
-
-@media (max-width: 480px) {
-    body.card-style-m3e .app-header {
-        padding: 6px 10px 6px 12px;
-    }
-
-    body.card-style-m3e .app-header .logo {
-        gap: 6px;
-    }
-
-    body.card-style-m3e .app-header h1 {
-        font-size: 1.12rem;
-        font-variation-settings: "wght" 850, "wdth" 98;
-        flex-shrink: 0;
-    }
-
-    body.card-style-m3e .app-header .icon-btn {
-        width: 32px;
-        height: 32px;
-        padding: 0;
-    }
-
-    body.card-style-m3e .app-header .header-toolbar {
-        gap: 4px !important;
-    }
-
-    body.card-style-m3e #rust-wasm-indicator {
-        margin-left: 2px !important;
-        width: 19px !important;
-        height: 19px !important;
-    }
-
-    body.card-style-nothing .app-header .header-toolbar {
-        gap: 5px !important;
-    }
-
-    body.card-style-nothing .app-header .icon-btn {
-        width: 34px;
-        height: 34px;
-    }
-
-    body.card-style-nothing #rust-wasm-indicator {
-        margin-left: 2px !important;
-    }
-}
-
-body.card-style-m3e #main-content {
-    padding-top: calc(var(--header-height) + env(safe-area-inset-top) + 26px);
-}
-
-body.card-style-m3e .search-bar {
-    top: calc(var(--header-height) + env(safe-area-inset-top) + 18px);
-    left: 12px;
-    right: 12px;
-    transform: none;
-    width: auto;
-    max-width: none;
-    border-radius: 28px;
-    background: var(--m3-surface-container-highest);
-    border: none;
-    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
-    z-index: 115;
-}
-
-body.card-style-m3e .bac-widget-home {
-    background: var(--m3-tertiary-container) !important;
-    background-image: none !important;
-    border: none !important;
-    border-left: none !important;
-    border-radius: 32px;
-    padding: 18px 22px;
-    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
-}
-
-body.card-style-m3e .bac-widget-home-eyebrow {
-    color: var(--m3-on-tertiary-container);
-    opacity: 0.85;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-}
-
-body.card-style-m3e .bac-widget-home-title {
-    font-family: "Roboto Flex", "Plus Jakarta Sans", sans-serif;
-    font-size: 1.35rem;
-    font-weight: 900;
-    font-variation-settings: "wght" 900, "wdth" 114;
-}
-
-body.card-style-m3e .bac-widget-home-icon {
-    width: 52px;
-    height: 52px;
-    background: var(--m3-primary-container);
-    border: none;
-    border-radius: 38% 62% 56% 44% / 44% 38% 62% 56%;
-    transition: border-radius 0.4s var(--m3-spring-fast), transform 0.35s var(--m3-spring-fast);
-}
-
-body.card-style-m3e .bac-widget-home-icon:hover {
-    border-radius: 56% 44% 38% 62% / 62% 56% 44% 38%;
-    transform: rotate(8deg) scale(1.06);
-}
-
-body.card-style-m3e .bottom-nav {
-    position: fixed;
-    bottom: calc(12px + min(env(safe-area-inset-bottom), 34px));
-    left: 12px;
-    right: 12px;
-    width: auto;
-    max-width: calc(100vw - 24px);
-    height: auto;
-    min-height: 66px;
-    padding: 6px;
-    gap: 4px;
-    border-radius: 999px;
-    background: var(--m3-surface-container-highest);
-    border: none !important;
-    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    z-index: 120;
-}
-
-body.card-style-m3e .bottom-nav .nav-item {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 8px 6px;
-    border-radius: 999px;
-    color: var(--text-secondary);
-    font-weight: 600;
-    transition: transform 0.32s var(--m3-spring-fast), border-radius 0.28s var(--m3-spring-fast), background-color 0.22s ease, color 0.22s ease;
-}
-
-@media (min-width: 768px) {
-    body.card-style-m3e .app-header {
-        left: 32px;
-        right: 32px;
-        max-width: calc(100vw - 64px);
-        padding: 8px 18px 8px 22px;
-    }
-
-    body.card-style-m3e .search-bar {
-        left: 32px;
-        right: 32px;
-    }
-
-    body.card-style-m3e .bottom-nav {
-        bottom: 20px;
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%);
-        width: auto;
-        min-width: 420px;
-        max-width: calc(100vw - 32px);
-        padding: 6px 10px;
-        gap: 6px;
-    }
-
-    body.card-style-m3e .bottom-nav .nav-item {
-        flex: 0 0 auto;
-        min-width: 68px;
-        padding: 8px 18px;
-    }
-}
-
-body.card-style-m3e .nav-item.active {
-    background: var(--m3-primary) !important;
-    color: var(--m3-on-primary) !important;
-    font-weight: 800;
-    border-radius: 999px;
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--m3-primary) 40%, transparent);
-}
-
-body.card-style-m3e .nav-item.active::after {
-    display: none;
-}
-
-body.card-style-m3e .nav-item:active {
-    transform: scale(0.92);
-    border-radius: 16px;
-}
-
-body.card-style-m3e .beer-card {
-    background: var(--m3-surface-container) !important;
-    border: none !important;
-    border-radius: 28px;
-    padding: 12px 12px 14px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
-    transition: transform 0.38s var(--m3-spring-spatial), border-radius 0.32s var(--m3-spring-fast), background-color 0.22s ease, box-shadow 0.25s ease;
-}
-
-body.card-style-m3e .beer-card .beer-image-container {
-    width: 100%;
-    background: var(--m3-surface-container-low);
-    border-radius: 22px;
-    padding: 12px 8px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: border-radius 0.32s var(--m3-spring-fast), background-color 0.22s ease;
-}
-
-body.card-style-m3e .beer-card:hover {
-    transform: translateY(-5px) scale(1.018);
-    border-radius: 34px;
-    background: var(--m3-surface-container-high) !important;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
-}
-
-body.card-style-m3e .beer-card:hover .beer-image-container {
-    border-radius: 28px;
-    background: var(--m3-surface-container);
-}
-
-body.card-style-m3e .beer-card:active {
-    transform: scale(0.96);
-    border-radius: 18px;
-}
-
-body.card-style-m3e .beer-card.drunk {
-    background: var(--m3-primary-container) !important;
-}
-
-body.card-style-m3e .beer-card.drunk .beer-image-container {
-    background: color-mix(in srgb, var(--m3-primary-container) 65%, var(--m3-surface));
-}
-
-body.card-style-m3e .beer-title {
-    font-size: 0.98rem;
-    line-height: 1.22;
-    color: var(--text-primary);
-}
-
-body.card-style-m3e .beer-brewery {
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--text-secondary);
-}
-
-body.card-style-m3e .beer-grid.view-list .beer-card {
-    background: var(--m3-surface-container) !important;
-    border: none !important;
-    border-radius: 24px;
-}
-
-body.card-style-m3e .beer-grid.view-list .beer-image-container {
-    width: 58px;
-    height: 68px;
-    border-radius: 16px;
-    margin-bottom: 0;
-    padding: 4px;
-}
-
-body.card-style-m3e .brewbrother-active-banner,
-body.card-style-m3e .active-filters-bar,
-body.card-style-m3e .unrated-banner-modern,
-body.card-style-m3e .settings-accordion,
-body.card-style-m3e .stat-card,
-body.card-style-m3e .stats-tool-btn,
-body.card-style-m3e .comp-item,
-body.card-style-m3e .food-pairing-card,
-body.card-style-m3e .beerparty-hero-card,
-body.card-style-m3e .bb-mini-pick,
-body.card-style-m3e .compare-col,
-body.card-style-m3e .passport-card,
-body.card-style-m3e .patchnote-section {
-    background: var(--m3-surface-container) !important;
-    border: none !important;
-    border-radius: 28px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
-    transition: transform 0.35s var(--m3-spring-spatial), border-radius 0.3s var(--m3-spring-fast), background-color 0.22s ease;
-}
-
-body.card-style-m3e .settings-accordion.is-open {
-    background: var(--m3-surface-container-high) !important;
-    border-radius: 32px;
-}
-
-body.card-style-m3e .modal-content,
-body.card-style-m3e .modal-dialog {
-    background: var(--m3-surface-container-low) !important;
-    border: none !important;
-    border-radius: 36px;
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.50);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
-body.card-style-m3e .btn-primary,
-body.card-style-m3e .setting-btn,
-body.card-style-m3e .bb-banner-btn,
-body.card-style-m3e .bb-mood-chip,
-body.card-style-m3e .bb-vote-btn,
-body.card-style-m3e .theme-preset-btn,
-body.card-style-m3e .icon-btn,
-body.card-style-m3e .vol-btn {
-    border-radius: 999px;
-    border: none;
-    transition: transform 0.3s var(--m3-spring-fast), border-radius 0.25s var(--m3-spring-fast), background-color 0.2s ease, color 0.2s ease;
-}
-
-body.card-style-m3e .setting-btn:not(.primary):not(.danger),
-body.card-style-m3e .bb-banner-btn,
-body.card-style-m3e .bb-mood-chip,
-body.card-style-m3e .bb-vote-btn,
-body.card-style-m3e .theme-preset-btn,
-body.card-style-m3e .vol-btn {
-    background: var(--m3-secondary-container);
-    color: var(--m3-on-primary-container);
-    font-weight: 700;
-}
-
-/* M3 Expressive Connected Button Groups */
-body.card-style-m3e .settings-btn-row .setting-btn {
-    border-radius: 10px;
-}
-
-body.card-style-m3e .settings-btn-row .setting-btn:first-child {
-    border-radius: 999px 10px 10px 999px;
-}
-
-body.card-style-m3e .settings-btn-row .setting-btn:last-child {
-    border-radius: 10px 999px 999px 10px;
-}
-
-body.card-style-m3e .btn-primary:active,
-body.card-style-m3e .setting-btn:active,
-body.card-style-m3e .bb-banner-btn:active,
-body.card-style-m3e .bb-mood-chip:active,
-body.card-style-m3e .bb-vote-btn:active,
-body.card-style-m3e .theme-preset-btn:active,
-body.card-style-m3e .icon-btn:active,
-body.card-style-m3e .vol-btn:active,
-body.card-style-m3e .bb-mood-chip.is-active,
-body.card-style-m3e .vol-btn.active,
-body.card-style-m3e .theme-preset-btn.is-active {
-    border-radius: 14px;
-    transform: scale(0.96);
-}
-
-body.card-style-m3e .btn-primary:not(#btn-drink):not(#btn-undrink),
-body.card-style-m3e .setting-btn.primary,
-body.card-style-m3e .bb-mood-chip.is-active,
-body.card-style-m3e .vol-btn.active,
-body.card-style-m3e .theme-preset-btn.is-active,
-body.card-style-m3e .modal-dialog .btn-confirm,
-body.card-style-m3e .modal-dialog .btn-ok {
-    background: var(--m3-primary) !important;
-    color: var(--m3-on-primary) !important;
-    font-weight: 800;
-    border: none !important;
-}
-
-/* Material 3 Expressive Switches */
-body.card-style-m3e input[type="checkbox"].toggle-switch {
-    width: 52px;
-    height: 32px;
-    border-radius: 999px;
-    background: var(--m3-surface-container-highest);
-    border: 2px solid var(--m3-outline);
-    transition: background-color 0.22s ease, border-color 0.22s ease;
-}
-
-body.card-style-m3e input[type="checkbox"].toggle-switch::after {
-    top: 50%;
-    left: 6px;
-    width: 16px;
-    height: 16px;
-    transform: translateY(-50%);
-    background: var(--m3-outline);
-    box-shadow: none;
-    transition: transform 0.32s var(--m3-spring-fast), width 0.25s var(--m3-spring-fast), height 0.25s var(--m3-spring-fast), background-color 0.2s ease;
-}
-
-body.card-style-m3e input[type="checkbox"].toggle-switch:checked {
-    background: var(--m3-primary);
-    border-color: var(--m3-primary);
-}
-
-body.card-style-m3e input[type="checkbox"].toggle-switch:checked::after {
-    width: 24px;
-    height: 24px;
-    transform: translate(18px, -50%);
-    background: var(--m3-on-primary);
-}
-
-body.card-style-m3e .form-input,
-body.card-style-m3e .form-select,
-body.card-style-m3e .form-textarea {
-    background: var(--m3-surface-container-highest);
-    color: var(--text-primary);
-    border: none;
-    border-radius: 18px;
-}
-
-body.card-style-m3e select option,
-body.card-style-m3e select optgroup {
-    background-color: var(--bg-card);
-    color: var(--text-primary);
-}
-
-body.card-style-m3e .beer-meta-pill,
-body.card-style-m3e .tag-chip {
-    border-radius: 999px;
-    border: none;
-    padding: 3px 9px;
-    font-weight: 700;
-    background: var(--m3-secondary-container);
-    color: var(--m3-on-primary-container);
-}
-
-body.card-style-m3e .beer-card-stats-row .beer-meta-pill:nth-child(3n) {
-    background: var(--m3-tertiary-container);
-    color: var(--m3-on-tertiary-container);
-}
-
-body.card-style-m3e .bac-speculative-badge {
-    border-radius: 999px;
-    border: none !important;
-    background: var(--m3-surface-container-highest);
-    padding: 3px 10px;
-    font-weight: 700;
-}
-
-/* 5. Nothing OS — Radical Reduction, Dot-Matrix (Doto / NDot), Pure Black #000000 & Signal Red #FF3030 */
+/* 4. Nothing OS — Radical Reduction, Dot-Matrix (Doto / NDot), Pure Black #000000 & Signal Red #FF3030 */
 @keyframes glyph-pulse {
     0%, 100% {
         opacity: 1;
@@ -7145,7 +6433,22 @@ body.card-style-nothing .app-header {
     background-image: radial-gradient(circle, rgba(0, 0, 0, 0.14) 1px, transparent 1px) !important;
 }
 
-/* Display Dot-Matrix (>= 24px, left-aligned) */
+@media (max-width: 480px) {
+    body.card-style-nothing .app-header .header-toolbar {
+        gap: 5px !important;
+    }
+
+    body.card-style-nothing .app-header .icon-btn {
+        width: 34px;
+        height: 34px;
+    }
+
+    body.card-style-nothing #rust-wasm-indicator {
+        margin-left: 2px !important;
+    }
+}
+
+/* Display Dot-Matrix (>= 24px) */
 body.card-style-nothing .app-header h1,
 body.card-style-nothing .modal-title,
 body.card-style-nothing .settings-main-title,
@@ -7159,9 +6462,8 @@ body.card-style-nothing .view-title,
 body.card-style-nothing h2 {
     font-family: "NDot 55", "NDot 57", "Doto", monospace !important;
     font-weight: 700;
-    font-size: max(1.5rem, 24px);
+    font-size: max(1.45rem, 23px);
     letter-spacing: 0.04em;
-    text-align: left !important;
     text-transform: uppercase;
     color: var(--no-text-primary) !important;
 }
@@ -7183,12 +6485,17 @@ body.card-style-nothing .app-header h1::after {
     animation: glyph-pulse 2s linear infinite;
 }
 
+body.card-style-nothing .modal-content h2,
+body.card-style-nothing .modal-title {
+    text-align: center !important;
+}
+
 body.card-style-nothing #rust-wasm-indicator {
     filter: grayscale(1) contrast(1.25);
     opacity: 0.75;
 }
 
-/* Card & Subheading Typography (Clean Industrial Sans — No Russo One) */
+/* Card & Subheading Typography (Clean Industrial Sans — Centered on Cards) */
 body.card-style-nothing .beer-title,
 body.card-style-nothing .beer-grid.view-list .beer-title,
 body.card-style-nothing h3,
@@ -7202,8 +6509,16 @@ body.card-style-nothing .cal-month-name {
     font-family: "NType 82", "Inter", sans-serif !important;
     font-weight: 600;
     letter-spacing: -0.01em;
-    text-align: left !important;
     color: var(--no-text-primary) !important;
+}
+
+body.card-style-nothing .beer-title {
+    text-align: center !important;
+}
+
+body.card-style-nothing .beer-grid.view-list .beer-title,
+body.card-style-nothing .beer-grid.view-list .beer-info {
+    text-align: left !important;
 }
 
 /* Monospace Specs, Labels & Navigation */
@@ -7235,7 +6550,7 @@ body.card-style-nothing .bac-widget-home {
     background-image: none !important;
     border: 1px solid var(--no-border) !important;
     border-left: 1px solid var(--no-border) !important;
-    border-radius: 0px !important;
+    border-radius: 18px !important;
     box-shadow: none !important;
     padding: 16px 18px;
 }
@@ -7252,7 +6567,7 @@ body.card-style-nothing .bac-widget-home-icon {
     filter: grayscale(1) contrast(1.5);
 }
 
-/* Surfaces, Modals & Cards (Sharp 0px, 1px solid border, zero shadows) */
+/* Softened Modular Surfaces, Modals & Containers (1px solid border, zero shadows) */
 body.card-style-nothing .beer-grid.view-list .beer-card,
 body.card-style-nothing .skeleton-card,
 body.card-style-nothing .brewbrother-active-banner,
@@ -7270,24 +6585,36 @@ body.card-style-nothing .compare-col,
 body.card-style-nothing .passport-card,
 body.card-style-nothing .patchnote-section,
 body.card-style-nothing .info-panel,
-body.card-style-nothing .beer-meta-pill,
-body.card-style-nothing .tag-chip {
+body.card-style-nothing .beer-consumption-card,
+body.card-style-nothing .beer-tasting-details,
+body.card-style-nothing .bb-detail-card {
     background: var(--no-surface-1) !important;
     background-image: none !important;
     border: 1px solid var(--no-border) !important;
-    border-radius: 0px !important;
+    border-radius: 18px !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     transition: opacity 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Beer Card Anatomy: Pure Black Stage + Left-Aligned Technical Spec Block */
+body.card-style-nothing .beer-meta-pill,
+body.card-style-nothing .tag-chip {
+    background: var(--no-bg) !important;
+    background-image: none !important;
+    border: 1px solid var(--no-border) !important;
+    border-radius: 999px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Beer Card Anatomy: Softened Pure Black Stage + Centered Names */
 body.card-style-nothing .beer-card {
     background: var(--no-surface-1) !important;
     background-image: none !important;
     border: 1px solid var(--no-border) !important;
-    border-radius: 0px !important;
+    border-radius: 18px !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -7298,10 +6625,12 @@ body.card-style-nothing .beer-card {
 }
 
 body.card-style-nothing .beer-card .beer-image-container {
-    width: 100%;
+    width: calc(100% - 12px);
+    margin: 6px 6px 0;
+    border-radius: 13px;
     background: var(--no-bg);
-    border-bottom: 1px solid var(--no-border-subtle);
-    padding: 16px 10px;
+    border: 1px solid var(--no-border-subtle);
+    padding: 14px 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -7317,38 +6646,34 @@ body.card-style-nothing .beer-card:hover .beer-image {
 }
 
 body.card-style-nothing .beer-card .beer-info {
-    padding: 12px;
-    text-align: left !important;
+    padding: 10px 12px 12px;
+    text-align: center !important;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 4px;
 }
 
-body.card-style-nothing .beer-card .beer-card-stats-row {
-    justify-content: flex-start !important;
+body.card-style-nothing .beer-card .beer-card-stats-row,
+body.card-style-nothing .beer-card .beer-card-bac-row {
+    justify-content: center !important;
     gap: 4px;
     margin-top: 4px;
 }
 
-body.card-style-nothing .beer-card .beer-card-bac-row {
-    justify-content: flex-start !important;
-    margin-top: 6px !important;
-}
-
 body.card-style-nothing .beer-meta-pill {
-    background: var(--no-bg) !important;
     color: var(--no-text-secondary) !important;
     font-size: 0.64rem;
-    padding: 2px 6px;
+    padding: 2px 7px;
 }
 
 body.card-style-nothing .bac-speculative-badge {
     color: var(--no-text-secondary) !important;
     border: 1px solid var(--no-border) !important;
     background: var(--no-bg) !important;
-    border-radius: 0px !important;
+    border-radius: 999px !important;
     font-size: 0.64rem;
-    padding: 2px 7px;
+    padding: 2px 8px;
     gap: 6px;
 }
 
@@ -7381,8 +6706,9 @@ body.card-style-nothing .beer-grid.view-list .beer-card {
 body.card-style-nothing .beer-grid.view-list .beer-image-container {
     width: 52px;
     height: 62px;
+    margin: 0;
     padding: 4px;
-    border-bottom: none;
+    border-radius: 12px;
     border: 1px solid var(--no-border-subtle);
 }
 
@@ -7393,7 +6719,7 @@ body.card-style-nothing .achievement-toast {
     background: var(--no-surface-2) !important;
     background-image: none !important;
     border: 1px solid var(--no-border) !important;
-    border-radius: 0px !important;
+    border-radius: 24px !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -7435,7 +6761,7 @@ body.card-style-nothing .modal-beer-img {
 }
 
 /* Nothing OS Pill Buttons */
-body.card-style-nothing .btn-primary,
+body.card-style-nothing .btn-primary:not(#btn-drink):not(#btn-undrink),
 body.card-style-nothing .setting-btn.primary,
 body.card-style-nothing .modal-dialog .btn-confirm,
 body.card-style-nothing .modal-dialog .btn-ok {
@@ -7449,7 +6775,7 @@ body.card-style-nothing .modal-dialog .btn-ok {
     transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1);
 }
 
-body.card-style-nothing .btn-primary:hover,
+body.card-style-nothing .btn-primary:not(#btn-drink):not(#btn-undrink):hover,
 body.card-style-nothing .setting-btn.primary:hover {
     opacity: 0.82;
     transform: none !important;
@@ -7466,6 +6792,7 @@ body.card-style-nothing .btn-danger {
     box-shadow: none !important;
 }
 
+body.card-style-nothing #btn-undrink,
 body.card-style-nothing .setting-btn:not(.primary):not(.danger),
 body.card-style-nothing .bb-banner-btn,
 body.card-style-nothing .bb-mood-chip,
@@ -7482,6 +6809,11 @@ body.card-style-nothing .icon-btn {
     transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1), border-color 0.18s cubic-bezier(0.2, 0, 0, 1);
 }
 
+body.card-style-nothing #btn-undrink {
+    white-space: nowrap;
+}
+
+body.card-style-nothing #btn-undrink:hover,
 body.card-style-nothing .setting-btn:not(.primary):not(.danger):hover,
 body.card-style-nothing .bb-banner-btn:hover,
 body.card-style-nothing .bb-mood-chip:hover,
@@ -7495,6 +6827,7 @@ body.card-style-nothing .icon-btn:hover {
 
 body.card-style-nothing .bb-mood-chip.is-active,
 body.card-style-nothing .theme-preset-btn.is-active,
+body.card-style-nothing .vol-btn.is-active,
 body.card-style-nothing .vol-btn.active {
     background: var(--no-text-primary) !important;
     color: var(--no-bg) !important;
@@ -7527,7 +6860,7 @@ body.card-style-nothing .bottom-nav {
     background: var(--no-bg) !important;
     background-image: none !important;
     border: 1px solid var(--no-border) !important;
-    border-radius: 0px !important;
+    border-radius: 999px !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -7535,6 +6868,7 @@ body.card-style-nothing .bottom-nav {
 
 @media (max-width: 767px) {
     body.card-style-nothing .bottom-nav {
+        border-radius: 20px 20px 0 0 !important;
         border-left: none !important;
         border-right: none !important;
         border-bottom: none !important;
@@ -7542,7 +6876,7 @@ body.card-style-nothing .bottom-nav {
 }
 
 body.card-style-nothing .nav-item {
-    border-radius: 0px !important;
+    border-radius: 999px !important;
     color: var(--no-text-secondary);
     letter-spacing: 0.07em;
     font-size: 0.62rem;
@@ -7586,12 +6920,13 @@ body.card-style-nothing svg * {
 body.card-style-nothing .form-input,
 body.card-style-nothing .form-select,
 body.card-style-nothing .form-textarea,
+body.card-style-nothing #consumption-date,
 body.card-style-nothing select option,
 body.card-style-nothing select optgroup {
     background-color: var(--no-surface-1) !important;
     color: var(--no-text-primary) !important;
     border: 1px solid var(--no-border) !important;
-    border-radius: 0px !important;
+    border-radius: 12px !important;
     box-shadow: none !important;
 }
 

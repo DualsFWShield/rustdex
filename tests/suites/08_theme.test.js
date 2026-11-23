@@ -101,16 +101,17 @@ describe('🎨 Moteur de Thèmes', () => {
         });
     });
 
-    // ── Styles & Nouveaux Design Systems (M3 Expressive & Nothing OS) ──
-    it('CARD_STYLES contient glass, m3e et nothing', () => {
+    // ── Styles & Design Systems (Standard, Liquid Glass, Nothing OS) ──
+    it('CARD_STYLES démarre sur default et contient glass et nothing (sans m3e)', () => {
+        expect(Theme.CARD_STYLES[0]).toBe('default');
         expect(Theme.CARD_STYLES).toContain('glass');
-        expect(Theme.CARD_STYLES).toContain('m3e');
         expect(Theme.CARD_STYLES).toContain('nothing');
+        expect(Theme.CARD_STYLES).not.toContain('m3e');
     });
 
-    it('THEME_PRESETS contient Material Expressive (m3e) et Nothing OS (nothing)', () => {
-        expect(Theme.THEME_PRESETS).toHaveProperty('m3e');
+    it('THEME_PRESETS contient Nothing OS (nothing) et pas Material Expressive (m3e)', () => {
         expect(Theme.THEME_PRESETS).toHaveProperty('nothing');
+        expect('m3e' in Theme.THEME_PRESETS).toBe(false);
         expect(Theme.THEME_PRESETS.nothing.colors['--bg-dark']).toBe('#000000');
         expect(Theme.THEME_PRESETS.nothing.colors['--accent-gold']).toBe('#ff3030');
     });

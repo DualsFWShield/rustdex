@@ -378,7 +378,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             </div>
         </div>
 
-        <div class="setting-row setting-row--stack" data-keywords="thème theme couleurs color preset custom palette dark gold cyberpunk forest ocean sunset material expressive m3e nothing os dot matrix monochrome">
+        <div class="setting-row setting-row--stack" data-keywords="thème theme couleurs color preset custom palette dark gold cyberpunk forest ocean sunset nothing os dot matrix monochrome">
             <div class="setting-info">
                 <span class="setting-title">${i18n.t('settings_theme_preset') || 'Thème & Couleurs'}</span>
                 <span class="setting-desc" data-i18n="settings_theme_desc">Personnalisez l'apparence de l'application</span>
@@ -454,7 +454,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             </div>
         </div>
 
-        <div class="setting-row setting-row--split" data-keywords="style cartes arrondi radius glass m3e material expressive nothing os dot matrix neon flat minimal">
+        <div class="setting-row setting-row--split" data-keywords="style cartes arrondi radius glass nothing os dot matrix neon flat minimal">
             <div class="setting-split-col">
                 <span class="setting-desc">Arrondi des cartes</span>
                 <select id="select-card-radius" class="form-select">
@@ -466,7 +466,6 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                 <select id="select-card-style" class="form-select">
                     <option value="default" ${Storage.getPreference('pref_card_style', 'default') === 'default' ? 'selected' : ''}>Standard</option>
                     <option value="glass" ${Storage.getPreference('pref_card_style', 'default') === 'glass' ? 'selected' : ''}>Liquid Glass (Apple)</option>
-                    <option value="m3e" ${Storage.getPreference('pref_card_style', 'default') === 'm3e' ? 'selected' : ''}>Material 3 Expressive (Google)</option>
                     <option value="nothing" ${Storage.getPreference('pref_card_style', 'default') === 'nothing' ? 'selected' : ''}>Nothing OS (Dot-Matrix)</option>
                     <option value="flat" ${Storage.getPreference('pref_card_style', 'default') === 'flat' ? 'selected' : ''}>Plat (Flat)</option>
                     <option value="neon" ${Storage.getPreference('pref_card_style', 'default') === 'neon' ? 'selected' : ''}>Néon</option>
@@ -1425,10 +1424,10 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                 Theme.applyColors(Theme.getActiveColors());
             } else {
                 Theme.applyPreset(preset);
-                if (preset === 'm3e' || preset === 'nothing') {
-                    Theme.applyCardStyle(preset);
+                if (preset === 'nothing') {
+                    Theme.applyCardStyle('nothing');
                     const styleSel = container.querySelector('#select-card-style');
-                    if (styleSel) styleSel.value = preset;
+                    if (styleSel) styleSel.value = 'nothing';
                     const glassQualRow = container.querySelector('#row-glass-quality');
                     if (glassQualRow) glassQualRow.style.display = 'none';
                 }

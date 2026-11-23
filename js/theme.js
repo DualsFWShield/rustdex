@@ -50,7 +50,6 @@ export const FONTS = {
     'space_grotesk': { label: 'Space Grotesk', css: '"Space Grotesk", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap' },
     'montserrat': { label: 'Montserrat', css: '"Montserrat", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap' },
     'jetbrains': { label: 'JetBrains Mono', css: '"JetBrains Mono", monospace', url: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap' },
-    'roboto_flex': { label: 'Roboto Flex / Plus Jakarta (M3 Expressive)', css: '"Roboto Flex", "Plus Jakarta Sans", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..900&display=swap' },
     'dotgothic': { label: 'Doto / Inter / JetBrains (Nothing OS)', css: '"NType 82", "Inter", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Doto:wght@500;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap' }
 };
 
@@ -72,7 +71,7 @@ export const CARD_RADII = {
     round: { label: 'Arrondi (24px)', radius: '24px' }
 };
 
-export const CARD_STYLES = ['default', 'glass', 'm3e', 'nothing', 'flat', 'neon'];
+export const CARD_STYLES = ['default', 'glass', 'nothing', 'flat', 'neon'];
 
 export const GLASS_QUALITIES = {
     full: { label: 'Complet (Réfraction SVG)' },
@@ -289,23 +288,6 @@ export const THEME_PRESETS = {
             '--danger': '#e63946',
         }
     },
-    m3e: {
-        name: 'Material Expressive',
-        emoji: '🎨',
-        colors: {
-            '--bg-dark': '#15121c',
-            '--bg-card': '#231e2e',
-            '--bg-card-hover': '#302940',
-            '--text-primary': '#f3ecf9',
-            '--text-secondary': '#cbc2d9',
-            '--accent-gold': '#d5baff',
-            '--accent-amber': '#ffb0c8',
-            '--accent-foam': '#efe3ff',
-            '--border-color': '#4c435c',
-            '--success': '#98f0b6',
-            '--danger': '#ffb4ab',
-        }
-    },
     nothing: {
         name: 'Nothing OS',
         emoji: '●',
@@ -493,9 +475,7 @@ export function applyCardStyle(styleKey = Storage.getPreference('pref_card_style
     if (document.body) {
         CARD_STYLES.forEach(s => document.body.classList.remove(`card-style-${s}`));
         if (valid !== 'default') document.body.classList.add(`card-style-${valid}`);
-        if (valid === 'm3e') {
-            _ensureStylesheetLink('font-style-m3e', FONTS.roboto_flex.url);
-        } else if (valid === 'nothing') {
+        if (valid === 'nothing') {
             _ensureStylesheetLink('font-style-nothing', FONTS.dotgothic.url);
         }
         if (valid === 'glass' && !document.body.classList.contains('perf-low-end')) {
@@ -645,6 +625,9 @@ export function init() {
         const preset = THEME_PRESETS[presetName];
         if (preset) {
             applyColors(preset.colors, preset.scheme);
+        } else {
+            Storage.savePreference('theme_preset', 'default');
+            applyColors(THEME_PRESETS.default.colors, THEME_PRESETS.default.scheme);
         }
     }
 

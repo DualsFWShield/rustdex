@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Beerdex-v5.3.11'; // v5.3.11: M3 Expressive & Nothing OS mobile header fit
+const CACHE_NAME = 'Beerdex-v5.3.12'; // v5.3.12: Remove M3 Expressive & OCR/Pression, soften Nothing OS
 // App shell only. Multi-megabyte media (foam.png ~85 MB, logo-bnr.png ~16 MB,
 // easter-egg mp3/mp4) is intentionally NOT precached: downloading it on install
 // delayed first-run/offline availability dramatically. It is cached lazily by
@@ -27,7 +27,6 @@ const ASSETS = [
     './js/i18n.js',
     './js/idb-store.js',
     './js/import-export.js',
-    './js/label-scanner.js',
     './js/liquid-glass.js',
     './js/map.js',
     './js/match.js',
