@@ -30,6 +30,47 @@ let _bgQueueRunning = false;
 const CHUNK_SIZE = 24;
 const VIRTUALIZE_AFTER_CHUNKS = 6; // >= 144 cartes : recyclage DOM hors écran
 let _chunkObserver = null;
+let _gridResizeHandler = null;
+let _gridResizeTimer = null;
+
+function _readCssPx(varName, fallback) {
+    try {
+        const raw = getComputedStyle(document.documentElement).getPropertyValue(varName);
+        const val = parseFloat(raw);
+        return (!isNaN(val) && val > 0) ? val : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+export function computeGridColumnCount(container, viewMode = Storage.getPreference('viewMode', 'grid')) {
+    const winW = typeof window !== 'undefined' ? window.innerWidth : 375;
+    const isDesktop = winW >= 768;
+    const rectW = container && typeof container.getBoundingClientRect === 'function'
+        ? container.getBoundingClientRect().width
+        : 0;
+    const rawW = (container && container.clientWidth) || rectW || winW;
+    // Subtract main-content padding (16px*2) + desktop grid padding (32px*2)
+    const gridPad = isDesktop ? 64 : 0;
+    const contentPad = container && container.id === 'main-content' ? 32 : 0;
+    const availW = Math.max(240, rawW - contentPad - gridPad);
+
+    if (viewMode === 'list') {
+        if (!isDesktop) return 1;
+        return Math.max(1, Math.floor((availW + 12) / (340 + 12)));
+    }
+    if (winW < 640) return 2;
+
+    const minW = _readCssPx('--grid-card-min', 175);
+    const gap = _readCssPx('--grid-gap', 14);
+    return Math.max(2, Math.floor((availW + gap) / (minW + gap)));
+}
+
+export function computeOptimalBatchSize(container, viewMode = Storage.getPreference('viewMode', 'grid')) {
+    const cols = computeGridColumnCount(container, viewMode);
+    const rows = Math.max(3, Math.ceil(28 / cols));
+    return cols * rows;
+}
 
 function _bgCacheSet(rawSrc, dataUrl) {
     if (!rawSrc || dataUrl.length > BG_CACHE_MAX_CHARS) return;
@@ -267,6 +308,12 @@ function _buildCardElement(beer, index, ctx) {
         prefCardVolume,
         prefCardCountOrVolume,
         prefShowBBPct,
+        prefShowAbv,
+        prefShowBrewery,
+        prefShowUserRating,
+        prefShowCommRating,
+        prefShowTrappist,
+        prefReducedMotion,
         getBacBadge,
         isLowEndPerf
     } = ctx;
@@ -283,14 +330,14 @@ function _buildCardElement(beer, index, ctx) {
     if (revealRarity && beer.rarity && beer.rarity !== 'base') {
         card.classList.add(`card-rarity-${beer.rarity}`);
 
-        if (isDrunk && (!prefAnimOnce || !hasPlayed)) {
+        if (isDrunk && !prefReducedMotion && (!prefAnimOnce || !hasPlayed)) {
             if (beer.rarity === 'ultra_legendaire') {
                 card.classList.add('card-anim-ultra_legendary');
             }
             if (window.__playedAnims) window.__playedAnims.add(beer.id);
             if (window.savePlayedAnims) window.savePlayedAnims();
-        } else if (prefAnimOnce && hasPlayed) {
-            if (beer.rarity === 'ultra_legendaire') {
+        } else if (prefReducedMotion || (prefAnimOnce && hasPlayed)) {
+            if (beer.rarity === 'ultra_legendaire' && !prefReducedMotion) {
                 card.classList.add('card-anim-ultra_legendary');
             } else {
                 card.classList.add('stop-animations');
@@ -300,7 +347,7 @@ function _buildCardElement(beer, index, ctx) {
         card.style.borderColor = 'var(--border-color)';
     }
 
-    if (!isDrunk) {
+    if (!isDrunk || prefReducedMotion) {
         card.removeAttribute('data-tilt');
         if (card.vanillaTilt) card.vanillaTilt.destroy();
     }
@@ -309,9 +356,15 @@ function _buildCardElement(beer, index, ctx) {
         card.style.borderColor = 'var(--rarity-seasonal)';
     }
 
-    const abv = beer.alcohol ? `<span class="beer-meta-pill">${beer.alcohol}</span>` : '';
-    const vol = beer.volume ? `<span class="beer-meta-pill">${Utils.formatVolume(beer.volume)}</span>` : '';
-    const typeBadge = beer.type ? `<span class="beer-meta-pill beer-meta-pill--type">${beer.type}</span>` : '';
+    const abv = (prefShowAbv && beer.alcohol) ? `<span class="beer-meta-pill">${beer.alcohol}</span>` : '';
+    const vol = (prefShowAbv && beer.volume) ? `<span class="beer-meta-pill">${Utils.formatVolume(beer.volume)}</span>` : '';
+    const typeBadge = (prefShowAbv && beer.type) ? `<span class="beer-meta-pill beer-meta-pill--type">${beer.type}</span>` : '';
+    const userScorePill = (prefShowUserRating && u && u.score !== undefined && u.score !== '')
+        ? `<span class="beer-meta-pill beer-meta-pill--rating">★ ${u.score}/20</span>`
+        : '';
+    const commScorePill = (prefShowCommRating && beer.community_rating)
+        ? `<span class="beer-meta-pill beer-meta-pill--comm">⭐ ${beer.community_rating}</span>`
+        : '';
 
     const fallbackImage = _isKeg(beer.volume) ? 'images/beer/FUT.jpg' : 'images/beer/default.png';
     let displayImage = beer.image;
@@ -361,7 +414,7 @@ function _buildCardElement(beer, index, ctx) {
         </div>`;
     }
 
-    const trappistBadgeHtml = Utils.getTrappistBadgeHtml(beer);
+    const trappistBadgeHtml = prefShowTrappist ? Utils.getTrappistBadgeHtml(beer) : '';
     const badgesContainerHtml = cardStatsHtml
         ? `<div class="card-badges-left" style="position:absolute; top:6px; left:6px; z-index:3; display:flex; flex-direction:column; gap:5px; font-size:0.75rem;">${cardStatsHtml}</div>`
         : '';
@@ -369,6 +422,18 @@ function _buildCardElement(beer, index, ctx) {
     const bgAttr = (beer.removeBackground && !isLowEndPerf && displayImage !== fallbackImage)
         ? 'onload="removeImageBackground(this)"'
         : '';
+
+    const cardVoteBarHtml = beer._brewBrotherMatch ? (() => {
+        const curVote = typeof Storage.getBrewBrotherBeerFeedback === 'function'
+            ? Storage.getBrewBrotherBeerFeedback(beer.id)
+            : null;
+        return `
+            <div class="bb-card-vote-row">
+                <button type="button" class="bb-vote-btn ${curVote === 'like' ? 'is-liked' : ''}" data-bb-vote="like" data-beer-id="${beer.id}" title="Bonne recommandation">👍</button>
+                <button type="button" class="bb-vote-btn ${curVote === 'dislike' ? 'is-disliked' : ''}" data-bb-vote="dislike" data-beer-id="${beer.id}" title="Pas pour moi">👎</button>
+            </div>
+        `;
+    })() : '';
 
     card.innerHTML = `
         ${badgesContainerHtml}
@@ -386,12 +451,13 @@ function _buildCardElement(beer, index, ctx) {
         </div>
         <div class="beer-info">
             <h3 class="beer-title">${beer.title}</h3>
-            <p class="beer-brewery">${beer.brewery}</p>
+            ${prefShowBrewery ? `<p class="beer-brewery">${beer.brewery}</p>` : ''}
             <div class="beer-card-stats-row">
                 ${beer._brewBrotherMatch ? `<span class="beer-meta-pill beer-meta-pill--match">🤖 ${beer._brewBrotherMatch.percentage}%</span>` : ''}
-                ${abv} ${vol} ${typeBadge}
+                ${userScorePill} ${commScorePill} ${abv} ${vol} ${typeBadge}
             </div>
             ${bacBadgeHtml}
+            ${cardVoteBarHtml}
         </div>
     `;
 
@@ -470,12 +536,17 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
             _chunkObserver.disconnect();
             _chunkObserver = null;
         }
+        if (_gridResizeHandler) {
+            window.removeEventListener('resize', _gridResizeHandler);
+            _gridResizeHandler = null;
+        }
         container.innerHTML = '';
     }
     const userData = Storage.getAllUserData();
     const filteredBeers = beers;
 
     if (filteredBeers.length === 0) {
+        if (isAppend) return;
         if (showCreatePrompt && isDiscoveryCallback) {
             container.innerHTML = `
                 <div style="text-align:center; padding: 40px 20px;">
@@ -532,13 +603,19 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
 
     const prefRevealRarity = Storage.getPreference('revealRarity', false);
     const prefAnimOnce = Storage.getPreference('anim_only_once', false);
-    const prefBacEnabled = Storage.getPreference('bac_enabled', true);
+    const prefBacEnabled = Storage.getPreference('bac_enabled', true) && Storage.getPreference('card_show_bac', true);
     const prefCardCount = Storage.getPreference('card_stat_count', false);
     const prefCardVolume = Storage.getPreference('card_stat_volume', false);
     const prefShowBBPct = Storage.getPreference('card_brewbrother_pct', false)
         && Storage.getPreference('feat_brewbrother_enabled', true);
+    const prefShowAbv = Storage.getPreference('card_show_abv', true);
+    const prefShowBrewery = Storage.getPreference('card_show_brewery', true);
+    const prefShowUserRating = Storage.getPreference('card_show_user_rating', false);
+    const prefShowCommRating = Storage.getPreference('card_show_community_rating', false);
+    const prefShowTrappist = Storage.getPreference('card_show_trappist', true);
+    const prefReducedMotion = Storage.getPreference('pref_reduced_motion', false);
     const prefCardCountOrVolume = prefCardCount || prefCardVolume;
-    const isLowEndPerf = document.body.classList.contains('perf-low-end');
+    const isLowEndPerf = document.body.classList.contains('perf-low-end') || prefReducedMotion;
     const isTouchPrimary = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
     const bacBadgeCache = new NativeMap();
@@ -578,31 +655,115 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
         prefCardVolume,
         prefCardCountOrVolume,
         prefShowBBPct,
+        prefShowAbv,
+        prefShowBrewery,
+        prefShowUserRating,
+        prefShowCommRating,
+        prefShowTrappist,
+        prefReducedMotion,
         getBacBadge,
         isLowEndPerf
     };
 
-    const existingOffset = isAppend ? grid.querySelectorAll('.beer-card').length : 0;
+    const cols = computeGridColumnCount(container, viewMode);
+    const chunkSize = Math.max(CHUNK_SIZE, computeOptimalBatchSize(container, viewMode));
+    grid._cols = cols;
+    grid._chunkSize = chunkSize;
+    grid._viewMode = viewMode;
+    grid._renderCtx = renderCtx;
+    grid._allBeers = (isAppend && Array.isArray(grid._allBeers))
+        ? grid._allBeers.concat(filteredBeers)
+        : [...filteredBeers];
+
+    let existingOffset = isAppend ? grid.querySelectorAll('.beer-card').length : 0;
     const observer = _ensureChunkObserver(grid, isLowEndPerf, isTouchPrimary);
 
-    for (let start = 0; start < filteredBeers.length; start += CHUNK_SIZE) {
-        const slice = filteredBeers.slice(start, start + CHUNK_SIZE);
+    const buildChunkNode = (slice, baseIndex) => {
         const chunk = document.createElement('div');
         chunk.className = 'beer-grid-chunk';
         chunk.dataset.virtualized = '0';
         chunk._beers = slice;
-        chunk._baseIndex = existingOffset + start;
+        chunk._baseIndex = baseIndex;
         chunk._renderCtx = renderCtx;
 
         const frag = document.createDocumentFragment();
         slice.forEach((beer, offset) => {
-            frag.appendChild(_buildCardElement(beer, existingOffset + start + offset, renderCtx));
+            frag.appendChild(_buildCardElement(beer, baseIndex + offset, renderCtx));
         });
         chunk.appendChild(frag);
         grid.appendChild(chunk);
         applyRarityAnimations(chunk);
-
         if (observer) observer.observe(chunk);
+    };
+
+    let remaining = filteredBeers;
+    if (isAppend && grid.lastElementChild && grid.lastElementChild.classList.contains('beer-grid-chunk')) {
+        const lastChunk = grid.lastElementChild;
+        const currentLen = Array.isArray(lastChunk._beers) ? lastChunk._beers.length : 0;
+        if (currentLen > 0 && currentLen < chunkSize) {
+            const need = chunkSize - currentLen;
+            const fillSlice = remaining.slice(0, need);
+            remaining = remaining.slice(need);
+            if (fillSlice.length > 0) {
+                if (lastChunk.dataset.virtualized === '1') {
+                    _hydrateChunk(lastChunk, isLowEndPerf, isTouchPrimary);
+                }
+                const frag = document.createDocumentFragment();
+                fillSlice.forEach((beer, i) => {
+                    frag.appendChild(_buildCardElement(beer, existingOffset + i, renderCtx));
+                });
+                lastChunk._beers = lastChunk._beers.concat(fillSlice);
+                lastChunk.appendChild(frag);
+                applyRarityAnimations(lastChunk);
+                existingOffset += fillSlice.length;
+            }
+        }
+    }
+
+    for (let start = 0; start < remaining.length; start += chunkSize) {
+        const slice = remaining.slice(start, start + chunkSize);
+        buildChunkNode(slice, existingOffset + start);
+    }
+
+    if (!_gridResizeHandler) {
+        _gridResizeHandler = () => {
+            clearTimeout(_gridResizeTimer);
+            _gridResizeTimer = setTimeout(() => {
+                if (!grid.isConnected) return;
+                const newCols = computeGridColumnCount(container, grid._viewMode);
+                if (newCols === grid._cols) return;
+                const newChunkSize = Math.max(CHUNK_SIZE, computeOptimalBatchSize(container, grid._viewMode));
+                grid._cols = newCols;
+                grid._chunkSize = newChunkSize;
+
+                const allBeersList = Array.isArray(grid._allBeers) ? grid._allBeers : [];
+                if (!allBeersList.length) return;
+                const prevScrollTop = container.scrollTop;
+                if (_chunkObserver) _chunkObserver.disconnect();
+                grid.innerHTML = '';
+                const freshObs = _ensureChunkObserver(grid, isLowEndPerf, isTouchPrimary);
+                for (let s = 0; s < allBeersList.length; s += newChunkSize) {
+                    const sl = allBeersList.slice(s, s + newChunkSize);
+                    const ch = document.createElement('div');
+                    ch.className = 'beer-grid-chunk';
+                    ch.dataset.virtualized = '0';
+                    ch._beers = sl;
+                    ch._baseIndex = s;
+                    ch._renderCtx = grid._renderCtx;
+                    const f = document.createDocumentFragment();
+                    sl.forEach((b, off) => f.appendChild(_buildCardElement(b, s + off, grid._renderCtx)));
+                    ch.appendChild(f);
+                    grid.appendChild(ch);
+                    applyRarityAnimations(ch);
+                    if (freshObs) freshObs.observe(ch);
+                }
+                if (!isTouchPrimary && !isLowEndPerf) {
+                    _initTiltOnContainer(grid);
+                }
+                container.scrollTop = prevScrollTop;
+            }, 180);
+        };
+        window.addEventListener('resize', _gridResizeHandler);
     }
 
     if (!isTouchPrimary && !isLowEndPerf) {

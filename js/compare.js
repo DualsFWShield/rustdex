@@ -130,7 +130,6 @@ export function openCompareModal(initialBeer = null) {
 
     const wrapper = document.createElement('div');
     wrapper.className = 'modal-content compare-modal';
-    wrapper.style.maxWidth = '760px';
 
     const renderBody = () => {
         const allBeers = _getAllBeers();
@@ -198,7 +197,7 @@ export function openCompareModal(initialBeer = null) {
                     <h2>⚖️ ${L.title} <span class="compare-count-pill">${selectedBeers.length}/${MAX_COMPARE}</span></h2>
                     <p>${L.subtitle}</p>
                 </div>
-                <div style="display:flex; gap:8px;">
+                <div class="compare-header-actions">
                     ${selectedBeers.length > 0 ? `<button type="button" id="btn-compare-clear" class="setting-btn danger">${L.clear}</button>` : ''}
                     <button type="button" id="btn-compare-close" class="setting-btn">✕</button>
                 </div>

@@ -1,7 +1,7 @@
 {
     "meta": { "conjunction": "and", "locale": "en-US" },
     "flavorNames": {
-        "fruity": "fruity", "hoppy": "hoppy", "roasted": "roasted", "spicy": "spicy", "sour": "sour", "bitter": "bitter", "sweet": "sweet", "caramel": "caramel", "citrus": "citrusy", "coffee": "coffee", "chocolate": "chocolate", "floral": "floral", "malty": "malty", "herbal": "herbal", "smoky": "smoky", "woody": "oaky", "vanilla": "vanilla", "coriander": "coriander", "honey": "honey", "dry": "dry", "yeasty": "yeasty", "wheat": "wheat", "resinous": "resinous", "tropical": "tropical", "redFruits": "red fruit"
+        "fruity": "fruity", "hoppy": "hoppy", "roasted": "roasted", "spicy": "spicy", "sour": "sour", "bitter": "bitter", "sweet": "sweet", "caramel": "caramel", "citrus": "citrusy", "coffee": "coffee", "chocolate": "chocolate", "floral": "floral", "malty": "malty", "herbal": "herbal", "smoky": "smoky", "woody": "oaky", "vanilla": "vanilla", "coriander": "coriander", "honey": "honey", "dry": "dry", "yeasty": "yeasty", "wheat": "wheat", "resinous": "resinous", "tropical": "tropical", "redFruits": "red fruit", "banana": "banana", "clove": "clove", "plum": "stone fruit", "biscuit": "biscuity", "peach": "peach", "oat": "oat"
     },
     "brewbrother": {
         "openers": {
@@ -401,6 +401,206 @@
         "alreadyTasted": {
             "once": ["Note: reference already recorded in the user's BeerDex."],
             "multiple": ["Note: {count} consumptions of this reference already recorded. User expertise on this product exceeds model confidence."]
+        }
+    },
+    "zythologue": {
+        "openers": {
+            "excellent": {
+                "withStats": ["Sensory audit across your {total_drinks} tastings: {title} ({brewery}) achieves rare harmony with your palate."],
+                "standard": ["Standout cellar pick for your profile: {title} by {brewery} ({abv})."]
+            },
+            "positive": {
+                "withStats": ["Guided by your {total_drinks} tasting notes, {title} presents a well-calibrated stylistic balance."],
+                "standard": ["Crafted with poise: {title} ({abv}) rewards an attentive pour."]
+            },
+            "mixed": {
+                "withStats": ["Exploratory pour: {title} steps beyond the markers of your {total_drinks} logged beers."],
+                "standard": ["An intriguing study in contrast: {title} nudges your usual balance."]
+            },
+            "negative": {
+                "withStats": ["Cellar verdict across {total_drinks} tastings: {title} clashes with your core sensory markers."],
+                "standard": ["Unlikely pairing: {title} sits well outside your preferred tasting spectrum."]
+            }
+        },
+        "excellent": {
+            "scenarios": ["{prestige_desc} On the palate, {brewery}'s {type} at {abv} hits the exact malt-to-hop equilibrium you prize. {reason_clause} {outro}"],
+            "prestige_desc": {
+                "industrial": { "positive": ["Clean, disciplined brewing."] },
+                "standard": { "positive": ["Crisp aromatic architecture."] },
+                "craft": { "positive": ["Expressive independent fermentation."] },
+                "prestige": { "positive": ["A benchmark reference in its style."] }
+            },
+            "reason_clauses": {
+                "similar": ["Echoes the backbone of {loved_ref} ({loved_ref_drinks}) with impressive finish."],
+                "type": ["Your {type_drinks} {type} logs confirm strong fluency with this style."],
+                "brewery": ["{brewery}'s house character ({brewery_drinks} pours) consistently delights you."],
+                "flavor": ["The {flavors} bouquet aligns directly with your aroma wheel."],
+                "abv": ["Its {abv} delivers the exact body around {abv_pref} you favor."],
+                "community": ["Well-regarded by tasters at {community_rating}/5."]
+            },
+            "outros": ["Serve in a tulip glass at cellar temperature to unlock the full bouquet.", "A textbook sensory match."]
+        },
+        "positive": {
+            "scenarios": ["{prestige_desc} This {type} from {brewery} ({abv}) carries a very pleasant aromatic continuity for you. {reason_clause} {outro}"],
+            "prestige_desc": {
+                "industrial": { "positive": ["Sound technical execution."] },
+                "standard": { "positive": ["Balanced drinkability and structure."] },
+                "craft": { "positive": ["Thoughtful hop and malt expression."] },
+                "prestige": { "positive": ["Widely respected by beer sommeliers."] }
+            },
+            "reason_clauses": {
+                "type": ["Your {type_drinks} experiences with {type} bode well here."],
+                "flavor": ["The {flavors} notes match your taste markers."],
+                "abv": ["Controlled strength at {abv}, close to your {abv_pref} anchor."],
+                "community": ["Rated {community_rating}/5 by the community."]
+            },
+            "outros": ["Take your time to appreciate the finish."]
+        },
+        "mixed": {
+            "scenarios": ["{prestige_desc} {title} offers a nuanced {abv} profile that broadens your palate. {reason_clause} {outro}"],
+            "prestige_desc": {
+                "industrial": { "positive": ["Accessible commercial pour."] },
+                "standard": { "positive": ["Classic stylistic expression."] },
+                "craft": { "positive": ["Bold craft interpretation."] },
+                "prestige": { "positive": ["Storied house with strong identity."] }
+            },
+            "reason_clauses": {
+                "type": ["A twist on the {type_drinks} {type} pours you know."],
+                "flavor": ["The {flavors} accents bring a curious counterpoint."],
+                "abv": ["Its {abv} body sits slightly apart from {abv_pref}."]
+            },
+            "outros": ["Ideal for a side-by-side tasting flight."]
+        },
+        "negative": {
+            "scenarios": ["{prestige_desc} Organoleptically, {title} ({abv}) runs counter to your favored balance. {reason_clause} {outro}"],
+            "prestige_desc": {
+                "industrial": { "negative": ["Lacks aromatic depth for your standards."] },
+                "standard": { "negative": ["Profile sits far from your taste markers."] },
+                "craft": { "negative": ["Brewing direction clashes with your past ratings."] },
+                "prestige": { "negative": ["Pedigree aside, this register is not yours."] }
+            },
+            "reason_clauses": {
+                "type_mismatch": ["The {type} family rarely wins your favor."],
+                "flavor_mismatch": ["{flavors} notes fall outside your preferred aromas."],
+                "abv_mismatch": ["Its {abv_beer} strength diverges from {abv_pref}."]
+            },
+            "outros": ["Better save your glassware for a closer match."]
+        },
+        "reasons": {
+            "type": { "strong_count": [], "strong": [], "standard_count": [], "standard": [] },
+            "brewery": { "strong_count": [], "strong": [], "standard_count": [], "standard": [] },
+            "flavor": { "strong_count": [], "strong": [], "standard_count": [], "standard": [] },
+            "abv": { "strong": [], "standard": [] },
+            "repeat": { "strong": [], "standard": [] },
+            "community": { "strong_count": [], "strong": [], "standard": [] },
+            "type_mismatch": { "strong_count": [], "strong": [], "standard_count": [], "standard": [] },
+            "brewery_mismatch": { "strong": [], "standard": [] },
+            "flavor_mismatch": { "strong": [], "standard": [] },
+            "abv_mismatch": { "strong": [], "standard": [] }
+        },
+        "alreadyTasted": {
+            "once": ["Already logged in your tasting notebook."],
+            "multiple": ["Tasted {count} times: your palate already knows every nuance."]
+        }
+    },
+    "soutenu": {
+        "openers": {
+            "excellent": {
+                "withStats": ["Upon careful consideration of your {total_drinks} tastings, {title} from {brewery} emerges with remarkable clarity."],
+                "standard": ["Allow me to warmly commend {title} ({abv}) from the house of {brewery}."]
+            },
+            "positive": {
+                "withStats": ["Your {total_drinks} recorded impressions point to {title} as most agreeable company."],
+                "standard": ["{title} ({abv}) represents a particularly discerning choice for your palate."]
+            },
+            "mixed": {
+                "withStats": ["Measured against your {total_drinks} notes, {title} offers a gentle excursion beyond your usual terrain."],
+                "standard": ["A singular suggestion: {title} by {brewery} invites curiosity."]
+            },
+            "negative": {
+                "withStats": ["In all candor, after reviewing your {total_drinks} entries, {title} is unlikely to please you."],
+                "standard": ["I must respectfully advise against {title} ({abv}), quite distant from your inclinations."]
+            }
+        },
+        "excellent": {
+            "scenarios": ["{prestige_desc} {title} unites poise and precision at {abv}. {reason_clause} {outro}"],
+            "prestige_desc": {
+                "industrial": { "positive": ["Executed with admirable consistency."] },
+                "standard": { "positive": ["A most honorable equilibrium."] },
+                "craft": { "positive": ["Craftsmanship worthy of high praise."] },
+                "prestige": { "positive": ["A house whose renown speaks for itself."] }
+            },
+            "reason_clauses": {
+                "similar": ["It shares an unmistakable kinship with {loved_ref}, enjoyed {loved_ref_drinks}."],
+                "type": ["Your fondness for {type} ({type_drinks} tastings) finds an ideal echo here."],
+                "brewery": ["Your {brewery_drinks} encounters with {brewery} reflect lasting esteem."],
+                "flavor": ["Its {flavors} nuances flatter your senses precisely."],
+                "abv": ["Its strength ({abv}) harmonizes gracefully with your preference near {abv_pref}."],
+                "community": ["Connoisseurs award it a flattering {community_rating}/5."]
+            },
+            "outros": ["Savor it with the unhurried calm it deserves.", "A selection of the highest order."]
+        },
+        "positive": {
+            "scenarios": ["{prestige_desc} {title} ({brewery}) should charm you with its composure at {abv}. {reason_clause} {outro}"],
+            "prestige_desc": {
+                "industrial": { "positive": ["Classic and dependable character."] },
+                "standard": { "positive": ["A harmonious composition."] },
+                "craft": { "positive": ["A well-turned independent creation."] },
+                "prestige": { "positive": ["A label held in high regard."] }
+            },
+            "reason_clauses": {
+                "type": ["Your affinity for {type} speaks in its favor."],
+                "flavor": ["The {flavors} accents align with your tastes."],
+                "abv": ["Its strength remains close to your usual measure ({abv_pref})."],
+                "community": ["It enjoys warm acclaim ({community_rating}/5)."]
+            },
+            "outros": ["Wishing you a most pleasant tasting."]
+        },
+        "mixed": {
+            "scenarios": ["{prestige_desc} {title} remains a nuanced discovery at {abv}. {reason_clause} {outro}"],
+            "prestige_desc": {
+                "industrial": { "positive": ["An approachable brew."] },
+                "standard": { "positive": ["A measured recipe."] },
+                "craft": { "positive": ["An original craft proposal."] },
+                "prestige": { "positive": ["An esteemed house."] }
+            },
+            "reason_clauses": {
+                "type": ["It puts a subtle variation on {type}."],
+                "flavor": ["Its {flavors} hints bring intriguing contrast."],
+                "abv": ["Its intensity differs slightly from your mark ({abv_pref})."]
+            },
+            "outros": ["Worth exploring should the mood for a detour arise."]
+        },
+        "negative": {
+            "scenarios": ["{prestige_desc} One must concede that {title} scarcely suits your palate. {reason_clause} {outro}"],
+            "prestige_desc": {
+                "industrial": { "negative": ["Its simplicity may leave you wanting."] },
+                "standard": { "negative": ["Its register departs from your expectations."] },
+                "craft": { "negative": ["Its boldness takes a path you do not favor."] },
+                "prestige": { "negative": ["Despite its reputation, the harmony is absent."] }
+            },
+            "reason_clauses": {
+                "type_mismatch": ["The {type} style has seldom persuaded you."],
+                "flavor_mismatch": ["{flavors} notes run counter to your preferences."],
+                "abv_mismatch": ["Its strength ({abv_beer}) strays from your ideal ({abv_pref})."]
+            },
+            "outros": ["I invite you to turn toward a better-suited bottle."]
+        },
+        "reasons": {
+            "type": { "strong_count": [], "strong": [], "standard_count": [], "standard": [] },
+            "brewery": { "strong_count": [], "strong": [], "standard_count": [], "standard": [] },
+            "flavor": { "strong_count": [], "strong": [], "standard_count": [], "standard": [] },
+            "abv": { "strong": [], "standard": [] },
+            "repeat": { "strong": [], "standard": [] },
+            "community": { "strong_count": [], "strong": [], "standard": [] },
+            "type_mismatch": { "strong_count": [], "strong": [], "standard_count": [], "standard": [] },
+            "brewery_mismatch": { "strong": [], "standard": [] },
+            "flavor_mismatch": { "strong": [], "standard": [] },
+            "abv_mismatch": { "strong": [], "standard": [] }
+        },
+        "alreadyTasted": {
+            "once": ["You have already had occasion to note it in your log."],
+            "multiple": ["Enjoyed on {count} occasions: your own judgment holds final authority."]
         }
     }
 }

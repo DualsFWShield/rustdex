@@ -39,6 +39,8 @@ import {
     _bgCachedSrc,
     removeImageBackground,
     renderBeerList,
+    computeGridColumnCount,
+    computeOptimalBatchSize,
     generateStarRatingHTML,
     renderUnratedBanner
 } from './ui-cards.js';
@@ -65,6 +67,8 @@ export {
     applyRarityAnimations,
     removeImageBackground,
     renderBeerList,
+    computeGridColumnCount,
+    computeOptimalBatchSize,
     generateStarRatingHTML,
     renderUnratedBanner,
     renderSettings,
@@ -535,6 +539,25 @@ export function renderFilterModal(allBeers, activeFilters, onApply) {
                         <input type="checkbox" name="useBrewBrother" id="useBrewBrother" ${activeFilters.useBrewBrother ? 'checked' : ''} style="width:24px; height:24px; accent-color:var(--accent-gold);">
                     </label>
 
+                    <div class="form-group" style="margin-bottom:15px;">
+                        <label class="form-label">${i18n.t('brewbrother_mood_label') || "Ambiance / Mood rapide"}</label>
+                        <input type="hidden" name="recMood" id="rec-mood-input" value="${activeFilters.recMood || 'auto'}">
+                        <div class="bb-mood-chips" id="filter-bb-moods">
+                            ${Object.values(window.Recommendation?.MOOD_PRESETS || {
+                                auto: { id: 'auto', icon: '🎯', labelFr: 'Mon Profil', labelEn: 'My Profile' },
+                                refreshing: { id: 'refreshing', icon: '☀️', labelFr: 'Légère & Fraîche', labelEn: 'Crisp & Light' },
+                                cozy: { id: 'cozy', icon: '🔥', labelFr: 'Costaud', labelEn: 'Rich & Strong' },
+                                fruity: { id: 'fruity', icon: '🍓', labelFr: 'Fruitée', labelEn: 'Fruity' },
+                                hoppy: { id: 'hoppy', icon: '🌿', labelFr: 'Houblon', labelEn: 'Hoppy' },
+                                hidden_gem: { id: 'hidden_gem', icon: '💎', labelFr: 'Pépite', labelEn: 'Hidden Gem' }
+                            }).map(m => {
+                                const isSel = (activeFilters.recMood || 'auto') === m.id;
+                                const lbl = i18n.getLanguage() === 'en' ? m.labelEn : m.labelFr;
+                                return `<button type="button" class="bb-mood-chip ${isSel ? 'is-active' : ''}" data-mood="${m.id}">${m.icon} ${lbl}</button>`;
+                            }).join('')}
+                        </div>
+                    </div>
+
                     <div class="form-group mb-20">
                         <label class="form-label">${i18n.t('brewbrother_mode_label') || "Mode de Profil"}</label>
                         <select name="recMode" id="rec-mode-select" class="form-select">
@@ -542,6 +565,30 @@ export function renderFilterModal(allBeers, activeFilters, onApply) {
                             <option value="manual" ${activeFilters.recMode === 'manual' ? 'selected' : ''}>${i18n.t('brewbrother_mode_manual') || "Manuel (Personnaliser)"}</option>
                         </select>
                     </div>
+
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="form-label" style="display:flex; justify-content:space-between;">
+                            <span>Sûr ↔ Découverte (Exploration)</span>
+                            <span id="rec-exp-val">${activeFilters.recExploration ?? Storage.getPreference('brewbrother_exploration', 35)}%</span>
+                        </label>
+                        <input type="range" name="recExploration" min="0" max="100" step="5" value="${activeFilters.recExploration ?? Storage.getPreference('brewbrother_exploration', 35)}"
+                            oninput="document.getElementById('rec-exp-val').innerText = this.value + '%'" style="width:100%;">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="form-label" style="display:flex; justify-content:space-between;">
+                            <span>Similaire ↔ Varié (Diversité)</span>
+                            <span id="rec-div-val">${activeFilters.recDiversity ?? Storage.getPreference('brewbrother_diversity', 65)}%</span>
+                        </label>
+                        <input type="range" name="recDiversity" min="0" max="100" step="5" value="${activeFilters.recDiversity ?? Storage.getPreference('brewbrother_diversity', 65)}"
+                            oninput="document.getElementById('rec-div-val').innerText = this.value + '%'" style="width:100%;">
+                    </div>
+
+                    ${(() => {
+                        const fb = typeof Storage.getBrewBrotherFeedback === 'function' ? Storage.getBrewBrotherFeedback() : { liked: [], disliked: [] };
+                        if (!fb.liked.length && !fb.disliked.length) return '';
+                        return `<div style="font-size:0.78rem; color:var(--text-secondary); margin-bottom:12px;">👍 ${fb.liked.length} aimée(s) · 👎 ${fb.disliked.length} ignorée(s)</div>`;
+                    })()}
 
                     <div id="rec-manual-options" style="display:${activeFilters.recMode === 'manual' ? 'block' : 'none'}; border-left:2px solid var(--accent-gold); padding-left:12px; margin-bottom:15px;">
                         <label class="form-label">${i18n.t('filter_type_label')}</label>
@@ -691,6 +738,15 @@ export function renderFilterModal(allBeers, activeFilters, onApply) {
                 span.style.fontWeight = 'normal';
             }
             updateTabBadges();
+        };
+    });
+
+    // Mood chips selection
+    const moodInput = wrapper.querySelector('#rec-mood-input');
+    wrapper.querySelectorAll('#filter-bb-moods .bb-mood-chip').forEach(btn => {
+        btn.onclick = () => {
+            if (moodInput) moodInput.value = btn.dataset.mood;
+            wrapper.querySelectorAll('#filter-bb-moods .bb-mood-chip').forEach(b => b.classList.toggle('is-active', b === btn));
         };
     });
 
@@ -1283,18 +1339,53 @@ export function renderBeerDetail(beer, onSave) {
                         }
                     }
 
+                    const curVote = typeof Storage.getBrewBrotherBeerFeedback === 'function'
+                        ? Storage.getBrewBrotherBeerFeedback(beer.id)
+                        : null;
+                    const bd = match.breakdown || {};
+                    const gaugeRow = (label, val) => (val === undefined || val === null) ? '' : `
+                        <div class="bb-gauge-row">
+                            <span class="bb-gauge-label">${label}</span>
+                            <div class="bb-gauge-track"><div class="bb-gauge-fill" style="width:${Math.max(4, Math.min(100, val))}%; background:${matchColor};"></div></div>
+                            <span class="bb-gauge-val">${val}%</span>
+                        </div>`;
+
                     container.innerHTML = `
-                        <div class="stat-card" style="margin-bottom:15px; background:linear-gradient(135deg, rgba(30,30,30,0.8), rgba(15,15,15,0.9)); border:1px solid ${matchColor}; padding:15px; text-align:left;">
+                        <div class="stat-card bb-detail-card" style="margin-bottom:15px; background:linear-gradient(135deg, rgba(30,30,30,0.8), rgba(15,15,15,0.9)); border:1px solid ${matchColor}; padding:15px; text-align:left;">
                             <h4 style="margin-bottom:10px; color:${matchColor}; display:flex; justify-content:space-between; align-items:center;">
                                 <span>🤖 Note BrewBrother</span>
                                 <span style="font-size:1.2rem; font-weight:bold;">${match.score20}/20</span>
                             </h4>
                             <div style="font-size:0.9rem;">
-                                Affinité estimée à <strong style="color:${matchColor};">${match.percentage}%</strong>.
+                                Affinité estimée à <strong style="color:${matchColor};">${match.percentage}%</strong>${match.confidencePct ? ` <span style="font-size:0.75rem; color:var(--text-secondary);">· confiance ${match.confidencePct}%</span>` : ''}.
                                 ${explanationHtml}
+                            </div>
+                            <div class="bb-gauges-list">
+                                ${gaugeRow('Style', bd.type)}
+                                ${gaugeRow('Brasserie', bd.brewery)}
+                                ${gaugeRow('Saveurs', bd.flavor)}
+                                ${gaugeRow('Alcool', bd.abv)}
+                                ${match.community ? gaugeRow('Communauté', bd.community) : ''}
+                            </div>
+                            <div class="bb-feedback-bar">
+                                <button type="button" class="bb-vote-btn ${curVote === 'like' ? 'is-liked' : ''}" data-bb-detail-vote="like">👍 J'aime cette reco</button>
+                                <button type="button" class="bb-vote-btn ${curVote === 'dislike' ? 'is-disliked' : ''}" data-bb-detail-vote="dislike">👎 Pas mon style</button>
                             </div>
                         </div>
                     `;
+
+                    container.querySelectorAll('[data-bb-detail-vote]').forEach(btn => {
+                        btn.onclick = () => {
+                            if (typeof Storage.setBrewBrotherBeerFeedback !== 'function') return;
+                            const nextVote = Storage.setBrewBrotherBeerFeedback(beer.id, btn.dataset.bbDetailVote);
+                            window.Recommendation?.invalidateProfile?.();
+                            container.querySelectorAll('[data-bb-detail-vote]').forEach(b => {
+                                b.classList.toggle('is-liked', b.dataset.bbDetailVote === 'like' && nextVote === 'like');
+                                b.classList.toggle('is-disliked', b.dataset.bbDetailVote === 'dislike' && nextVote === 'dislike');
+                            });
+                            showToast(nextVote === 'like' ? '👍 Préférence BrewBrother enregistrée !' : (nextVote === 'dislike' ? '👎 Bière exclue de vos recommandations' : 'Vote retiré'));
+                        };
+                    });
                 }
             }
         }).catch(err => console.error("BrewBrother error:", err));
@@ -2642,27 +2733,47 @@ export function renderStats(allBeers, userData, container) {
         setTimeout(() => renderBACStatsContent(container.querySelector('#bac-dynamic-content')), 50);
     }
 
-    // Render BrewBrother Taste Profile
+    // Render BrewBrother Taste Profile & Top Picks
     setTimeout(() => {
         if (window.Recommendation) {
             const bbContainer = container.querySelector('#brewbrother-stats-container');
             if (bbContainer) {
-                window.Recommendation.getUserTasteProfile(allBeers).then(res => {
-                    const { archetype, archetypeIcon, topTypes, topBreweries, topFlavors, profile } = res;
-                    const hasData = Object.keys(profile.typeAffinity).length > 0;
-                    
-                    if (hasData) {
-                        const translateKey = (k) => i18n.t(k) || k;
-                        const topTypesHtml = topTypes.map(t => `<span class="stat-badge">${t[0]}</span>`).join(' ');
-                        const topFlavorsHtml = topFlavors.map(f => `<span class="stat-badge" style="background:var(--bg-dark);">${window.BrewBrotherNLP ? window.BrewBrotherNLP.getFlavorName(f[0]) : f[0]}</span>`).join(' ');
-                        
-                        bbContainer.innerHTML = `
-                            <div class="stat-card mt-20 text-center" style="border:1px solid var(--accent-gold); background:linear-gradient(135deg, rgba(30,30,30,0.8), rgba(15,15,15,0.9));">
-                                <h3 style="margin-bottom:15px; color:var(--accent-gold); display:flex; align-items:center; justify-content:center; gap:8px;">
-                                    🤖 ${i18n.t('brewbrother_profile_title') || "Profil BrewBrother"}
-                                </h3>
-                                
-                                <div style="display:flex; justify-content:center; align-items:center; gap:15px; margin-bottom:20px;">
+                Promise.all([
+                    window.Recommendation.getUserTasteProfile(allBeers),
+                    window.Recommendation.getRecommendedBeers(allBeers, { limit: 4 })
+                ]).then(([res, topPicks]) => {
+                    const { archetype, archetypeIcon, confidencePct, topTypes, topBreweries, topFlavors, topCountries, profile } = res;
+                    const hasData = Object.keys(profile.typeAffinity || {}).length > 0;
+                    const translateKey = (k) => i18n.t(k) || k;
+
+                    const topTypesHtml = (topTypes || []).map(t => `<span class="stat-badge">${t[0]}</span>`).join(' ');
+                    const topBreweriesHtml = (topBreweries || []).map(b => `<span class="stat-badge">${b[0]}</span>`).join(' ');
+                    const topCountriesHtml = (topCountries || []).map(c => `<span class="stat-badge">${c[0]}</span>`).join(' ');
+                    const topFlavorsHtml = (topFlavors || []).map(f => `<span class="stat-badge" style="background:var(--bg-dark);">${window.BrewBrotherNLP ? window.BrewBrotherNLP.getFlavorName(f[0]) : f[0]}</span>`).join(' ');
+
+                    const picksHtml = (topPicks || []).map(p => {
+                        const pct = p._brewBrotherMatch ? p._brewBrotherMatch.percentage : 0;
+                        const img = (p.image && !isMissingImage(p.image)) ? p.image : 'images/beer/default.png';
+                        return `
+                            <div class="bb-mini-pick" data-beer-id="${p.id}">
+                                <img src="${img}" alt="${Utils.escapeHtml(p.title)}" onerror="this.src='images/beer/default.png'">
+                                <div class="bb-mini-pick-info">
+                                    <strong>${Utils.escapeHtml(p.title)}</strong>
+                                    <span>${Utils.escapeHtml(p.brewery || '')}</span>
+                                </div>
+                                <span class="bb-mini-pick-pct">${pct}%</span>
+                            </div>
+                        `;
+                    }).join('');
+
+                    bbContainer.innerHTML = `
+                        <div class="stat-card mt-20 text-center" style="border:1px solid var(--accent-gold); background:linear-gradient(135deg, rgba(30,30,30,0.8), rgba(15,15,15,0.9));">
+                            <h3 style="margin-bottom:15px; color:var(--accent-gold); display:flex; align-items:center; justify-content:center; gap:8px;">
+                                🤖 ${i18n.t('brewbrother_profile_title') || "Profil BrewBrother"}
+                            </h3>
+
+                            ${hasData ? `
+                                <div style="display:flex; justify-content:center; align-items:center; gap:15px; margin-bottom:14px;">
                                     <div style="font-size:3rem; filter:drop-shadow(0 0 10px rgba(255,255,255,0.2));">${archetypeIcon}</div>
                                     <div style="text-align:left;">
                                         <div style="font-size:0.75rem; color:#aaa; text-transform:uppercase;">${i18n.t('brewbrother_archetype') || "Votre Archétype"}</div>
@@ -2670,24 +2781,73 @@ export function renderStats(allBeers, userData, container) {
                                         <div style="font-size:0.85rem; color:#ccc; margin-top:4px; font-style:italic;">${translateKey(archetype + '_desc')}</div>
                                     </div>
                                 </div>
-                                
-                                <div style="margin-bottom:15px; text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+
+                                <div style="margin-bottom:14px; text-align:left;">
+                                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#aaa; margin-bottom:4px;">
+                                        <span>Précision du profil IA</span>
+                                        <strong style="color:var(--accent-gold);">${confidencePct || 0}%</strong>
+                                    </div>
+                                    <div class="bb-gauge-track"><div class="bb-gauge-fill" style="width:${Math.max(4, confidencePct || 0)}%; background:var(--accent-gold);"></div></div>
+                                </div>
+
+                                <div style="margin-bottom:10px; text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
                                     <div style="font-size:0.8rem; color:#aaa; margin-bottom:5px;">${i18n.t('brewbrother_top_types') || "Styles Favoris"}</div>
                                     <div>${topTypesHtml || "-"}</div>
                                 </div>
-                                
-                                <div style="margin-bottom:15px; text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+
+                                ${topBreweriesHtml ? `
+                                <div style="margin-bottom:10px; text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+                                    <div style="font-size:0.8rem; color:#aaa; margin-bottom:5px;">Brasseries Favorites</div>
+                                    <div>${topBreweriesHtml}</div>
+                                </div>` : ''}
+
+                                <div style="margin-bottom:10px; text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
                                     <div style="font-size:0.8rem; color:#aaa; margin-bottom:5px;">${i18n.t('brewbrother_top_flavors') || "Saveurs Préférées"}</div>
                                     <div>${topFlavorsHtml || "-"}</div>
                                 </div>
-                                
+
+                                ${topCountriesHtml ? `
+                                <div style="margin-bottom:10px; text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+                                    <div style="font-size:0.8rem; color:#aaa; margin-bottom:5px;">Origines Préférées</div>
+                                    <div>${topCountriesHtml}</div>
+                                </div>` : ''}
+
                                 ${profile.idealAbv ? `
-                                <div style="text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                                <div style="margin-bottom:14px; text-align:left; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                                     <span style="font-size:0.8rem; color:#aaa;">${i18n.t('brewbrother_ideal_abv_stat') || "Degré idéal moyen"}</span>
                                     <span style="font-weight:bold; color:var(--accent-gold);">${profile.idealAbv.toFixed(1)}%</span>
                                 </div>` : ''}
-                            </div>
-                        `;
+                            ` : `
+                                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:14px;">
+                                    Goûtez ou notez quelques bières (ou utilisez 👍/👎) pour que BrewBrother affine votre profil. En attendant, voici ses meilleures suggestions !
+                                </p>
+                            `}
+
+                            ${picksHtml ? `
+                                <div style="text-align:left; margin-top:10px;">
+                                    <div style="font-size:0.8rem; color:var(--accent-gold); font-weight:700; margin-bottom:8px;">✨ Sélection du moment</div>
+                                    <div class="bb-mini-picks-grid">${picksHtml}</div>
+                                </div>
+                            ` : ''}
+
+                            <button type="button" id="btn-stats-explore-bb" class="btn-primary" style="margin-top:14px;">🤖 Explorer mon Top 20 BrewBrother</button>
+                        </div>
+                    `;
+
+                    bbContainer.querySelectorAll('.bb-mini-pick').forEach(el => {
+                        el.onclick = () => {
+                            const b = allBeers.find(x => String(x.id) === String(el.dataset.beerId));
+                            if (b) renderBeerDetail(b, () => window.renderCurrentView?.());
+                        };
+                    });
+
+                    const btnExplore = bbContainer.querySelector('#btn-stats-explore-bb');
+                    if (btnExplore) {
+                        btnExplore.onclick = () => {
+                            if (typeof window.activateBrewBrotherHome === 'function') {
+                                window.activateBrewBrotherHome();
+                            }
+                        };
                     }
                 }).catch(err => console.error("BrewBrother Profil Error:", err));
             }

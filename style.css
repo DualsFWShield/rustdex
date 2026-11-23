@@ -26,6 +26,10 @@
     --spacing-sm: 8px;
     --spacing-md: 16px;
     --spacing-lg: 24px;
+    --grid-card-min: 175px;
+    --grid-gap: 14px;
+    --card-radius: 16px;
+    --ui-font-scale: 1;
 
     /* Surface & Polish Tokens */
     --surface-subtle: rgba(255, 255, 255, 0.035);
@@ -876,7 +880,7 @@ body.is-offline .offline-badge {
     box-sizing: border-box;
     background: var(--bg-card);
     border: var(--glass-border);
-    border-radius: 16px;
+    border-radius: var(--card-radius, 16px);
     padding: 28px 10px 14px;
     display: flex;
     flex-direction: column;
@@ -1186,6 +1190,7 @@ body.keyboard-open #main-content {
     justify-content: center;
     animation: fadeIn 0.3s ease-out;
     padding: 20px;
+    overflow-x: hidden;
 }
 
 .modal-content {
@@ -2154,9 +2159,22 @@ body.modal-open {
         border: none;
         box-shadow: none;
     }
-    .beer-grid {
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
-        padding: 0 40px;
+    .beer-grid:not(.is-chunked) {
+        grid-template-columns: repeat(auto-fill, minmax(var(--grid-card-min, 175px), 1fr)) !important;
+        padding: 0 32px;
+    }
+    .beer-grid.is-chunked {
+        display: flex !important;
+        flex-direction: column;
+        padding: 0 32px;
+        gap: var(--grid-gap, 14px);
+    }
+    .bac-widget-home,
+    .active-filters-bar,
+    .brewbrother-active-banner,
+    .unrated-banner-modern {
+        margin-left: 32px;
+        margin-right: 32px;
     }
     .search-bar {
         max-width: 100% !important;
@@ -5041,19 +5059,33 @@ body.perf-low-end .settings-accordion-body {
 .beer-grid.is-chunked {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md, 15px);
+    gap: var(--grid-gap, 12px);
 }
 
 .beer-grid-chunk {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: var(--spacing-md, 15px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--grid-gap, 12px);
     contain: layout style;
+}
+
+@media (min-width: 640px) {
+    .beer-grid-chunk {
+        grid-template-columns: repeat(auto-fill, minmax(var(--grid-card-min, 175px), 1fr));
+        gap: var(--grid-gap, 14px);
+    }
 }
 
 .beer-grid.view-list.is-chunked .beer-grid-chunk {
     grid-template-columns: 1fr;
     gap: 10px;
+}
+
+@media (min-width: 768px) {
+    .beer-grid.view-list.is-chunked .beer-grid-chunk {
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 12px;
+    }
 }
 
 /* Food Pairing Card in Beer Detail */
@@ -5180,9 +5212,13 @@ body.perf-low-end .settings-accordion-body {
 }
 
 /* Comparator Modal */
-.compare-modal {
-    max-height: 88vh;
+.modal-content.compare-modal {
+    width: min(96vw, 1080px);
+    max-width: min(96vw, 1080px);
+    max-height: 94vh;
+    overflow-x: hidden;
     overflow-y: auto;
+    padding: 18px 20px;
 }
 
 .compare-header,
@@ -5191,8 +5227,22 @@ body.perf-low-end .settings-accordion-body {
     justify-content: space-between;
     align-items: flex-start;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     text-align: left;
+    width: 100%;
+}
+
+.compare-header > div:first-child,
+.passport-header > div:first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.compare-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: center;
 }
 
 .compare-header h2,
@@ -5220,7 +5270,7 @@ body.perf-low-end .settings-accordion-body {
 
 .compare-picker {
     position: relative;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .compare-search-results {
@@ -5271,7 +5321,7 @@ body.perf-low-end .settings-accordion-body {
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     text-align: left;
 }
 
@@ -5307,17 +5357,40 @@ body.perf-low-end .settings-accordion-body {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
     gap: 10px;
+    width: 100%;
+    min-width: 0;
+}
+
+.compare-grid.compare-cols-1 {
+    grid-template-columns: minmax(0, 420px);
+    justify-content: center;
+}
+
+.compare-grid.compare-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compare-grid.compare-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+    .compare-grid.compare-cols-2,
+    .compare-grid.compare-cols-3 {
+        grid-template-columns: 1fr;
+    }
 }
 
 .compare-col {
     position: relative;
+    min-width: 0;
     background: var(--bg-dark);
     border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
     border-radius: 12px;
-    padding: 12px 10px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .compare-remove-btn {
@@ -5338,32 +5411,33 @@ body.perf-low-end .settings-accordion-body {
 .compare-col-hero {
     text-align: center;
     cursor: pointer;
-    padding-top: 8px;
+    padding-top: 2px;
 }
 
 .compare-col-hero img {
-    height: 92px;
+    height: 64px;
     width: auto;
     max-width: 100%;
     object-fit: contain;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .compare-col-title {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
+    line-height: 1.15;
     color: var(--text-primary);
 }
 
 .compare-col-brewery {
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     color: var(--text-secondary);
 }
 
 .compare-metrics {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .compare-cell {
@@ -5371,10 +5445,11 @@ body.perf-low-end .settings-accordion-body {
     justify-content: space-between;
     align-items: center;
     gap: 6px;
-    padding: 5px 7px;
+    min-width: 0;
+    padding: 4px 7px;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.03);
-    font-size: 0.76rem;
+    font-size: 0.75rem;
 }
 
 .compare-cell.compare-winner {
@@ -5383,18 +5458,22 @@ body.perf-low-end .settings-accordion-body {
 }
 
 .compare-cell--aromas {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .compare-k {
     color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 .compare-v {
     color: var(--text-primary);
     font-weight: 600;
     text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .compare-cell.compare-winner .compare-v {
@@ -5402,9 +5481,13 @@ body.perf-low-end .settings-accordion-body {
 }
 
 /* Passport Modal */
-.passport-modal {
-    max-height: 88vh;
+.modal-content.passport-modal {
+    width: min(96vw, 1060px);
+    max-width: min(96vw, 1060px);
+    max-height: 94vh;
+    overflow-x: hidden;
     overflow-y: auto;
+    padding: 18px 20px;
 }
 
 .passport-summary-pill {
@@ -5420,9 +5503,25 @@ body.perf-low-end .settings-accordion-body {
 }
 
 .passport-grid {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 10px;
+    align-items: start;
+}
+
+@media (min-width: 640px) {
+    .passport-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .passport-done-btn {
+        display: none !important;
+    }
+}
+
+@media (min-width: 960px) {
+    .passport-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 .passport-card {
@@ -5443,14 +5542,14 @@ body.perf-low-end .settings-accordion-body {
 .passport-card-head {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 11px 12px;
+    gap: 10px;
+    padding: 10px 11px;
     cursor: pointer;
     list-style: none;
 }
 
 .passport-flag {
-    font-size: 1.9rem;
+    font-size: 1.55rem;
     flex-shrink: 0;
 }
 
@@ -5488,11 +5587,12 @@ body.perf-low-end .settings-accordion-body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 5px 8px;
+    flex-shrink: 0;
+    padding: 4px 7px;
     border: 2px dashed rgba(255, 192, 0, 0.45);
     border-radius: 10px;
     transform: rotate(-4deg);
-    min-width: 74px;
+    min-width: 70px;
 }
 
 .passport-stamp-icon {
@@ -5734,9 +5834,374 @@ body.perf-low-end .settings-accordion-body {
 
 .passport-header .setting-btn,
 .compare-header .setting-btn {
+    width: auto !important;
+    min-width: 38px;
     flex-shrink: 0;
-    padding: 8px 12px;
+    padding: 7px 12px;
     border-radius: 10px;
+    white-space: nowrap;
+}
+
+/* ==========================================================================
+   v5.4: Light Theme, Card Styles, Reduced Motion & Docked Navigation
+   ========================================================================== */
+[data-color-scheme="light"] {
+    --surface-subtle: rgba(0, 0, 0, 0.045);
+    --surface-elevated: rgba(0, 0, 0, 0.08);
+    --border-subtle: rgba(0, 0, 0, 0.12);
+    --accent-soft: color-mix(in srgb, var(--accent-gold) 15%, transparent);
+    --glass-bg: rgba(255, 252, 245, 0.92);
+    --glass-border: 1px solid rgba(0, 0, 0, 0.1);
+    --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.09);
+}
+
+[data-color-scheme="light"] body {
+    color-scheme: light;
+}
+
+[data-color-scheme="light"] .app-header,
+[data-color-scheme="light"] .bottom-nav {
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+[data-color-scheme="light"] .modal-overlay {
+    background: rgba(20, 16, 12, 0.55);
+}
+
+[data-color-scheme="light"] .modal-content,
+[data-color-scheme="light"] .modal-dialog,
+[data-color-scheme="light"] .stat-card,
+[data-color-scheme="light"] .settings-accordion,
+[data-color-scheme="light"] .compare-col,
+[data-color-scheme="light"] .passport-card,
+[data-color-scheme="light"] .food-pairing-card,
+[data-color-scheme="light"] .info-panel {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+[data-color-scheme="light"] .beer-card {
+    box-shadow: var(--shadow-soft);
+}
+
+[data-color-scheme="light"] .beer-card.drunk {
+    background: linear-gradient(160deg, color-mix(in srgb, var(--accent-gold) 14%, var(--bg-card)) 0%, var(--bg-card) 70%);
+}
+
+[data-color-scheme="light"] .beer-meta-pill {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: var(--text-primary);
+}
+
+[data-color-scheme="light"] .form-input,
+[data-color-scheme="light"] .form-select,
+[data-color-scheme="light"] .form-textarea,
+[data-color-scheme="light"] .setting-btn {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+[data-color-scheme="light"] .setting-btn.primary {
+    background: var(--accent-gold);
+    color: #fff;
+}
+
+[data-color-scheme="light"] .compare-cell,
+[data-color-scheme="light"] .passport-region-pill {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+[data-color-scheme="light"] .compare-remove-btn {
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--text-primary);
+}
+
+[data-color-scheme="light"] .settings-search-box,
+[data-color-scheme="light"] .stats-order-item {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+[data-color-scheme="light"] input[type="checkbox"].toggle-switch {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* Card Styles */
+body.card-style-glass .beer-card {
+    background: color-mix(in srgb, var(--bg-card) 68%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
+}
+
+body.card-style-flat .beer-card {
+    box-shadow: none;
+    background: var(--bg-card);
+    border-width: 1px;
+}
+
+body.card-style-neon .beer-card {
+    border-color: color-mix(in srgb, var(--accent-gold) 45%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--accent-gold) 22%, transparent);
+}
+
+body.card-style-neon .beer-card.drunk {
+    box-shadow: 0 0 20px color-mix(in srgb, var(--accent-gold) 45%, transparent);
+}
+
+/* User Reduced Motion */
+body.reduced-motion *,
+body.reduced-motion *::before,
+body.reduced-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+}
+
+/* Docked Desktop Nav */
+@media (min-width: 768px) {
+    body.nav-style-docked .bottom-nav {
+        position: static;
+        transform: none;
+        left: auto;
+        bottom: auto;
+        width: 100%;
+        border-radius: 0;
+        border: none;
+        border-top: var(--glass-border);
+        box-shadow: none;
+    }
+}
+
+/* Card Rating Pill */
+.beer-meta-pill--rating {
+    background: color-mix(in srgb, var(--accent-gold) 18%, transparent);
+    border-color: color-mix(in srgb, var(--accent-gold) 45%, transparent);
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+
+.beer-meta-pill--comm {
+    background: rgba(52, 152, 219, 0.16);
+    border-color: rgba(52, 152, 219, 0.4);
+    color: #5dade2;
+    font-weight: 600;
+}
+
+/* BrewBrother v3 UI (Banner, Moods, Gauges, Votes, Mini Picks) */
+.brewbrother-active-banner {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent-gold) 15%, var(--bg-card)), var(--bg-card));
+    border: 1px solid var(--accent-gold);
+    padding: 12px 16px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: var(--shadow-soft);
+}
+
+.bb-banner-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.bb-banner-btn {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: 700;
+    font-family: inherit;
+}
+
+.bb-banner-btn:hover {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+}
+
+.bb-mood-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bb-mood-chip {
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    padding: 5px 10px;
+    border-radius: 16px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+
+.bb-mood-chip.is-active {
+    background: var(--accent-gold);
+    border-color: var(--accent-gold);
+    color: #000;
+}
+
+.bb-gauges-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bb-gauge-row {
+    display: grid;
+    grid-template-columns: 82px 1fr 38px;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.76rem;
+}
+
+.bb-gauge-label {
+    color: var(--text-secondary);
+}
+
+.bb-gauge-track {
+    height: 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+[data-color-scheme="light"] .bb-gauge-track {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.bb-gauge-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.bb-gauge-val {
+    text-align: right;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.bb-feedback-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.bb-feedback-bar .bb-vote-btn {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+}
+
+.bb-card-vote-row {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.bb-vote-btn {
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+
+.bb-vote-btn:hover {
+    border-color: var(--accent-gold);
+}
+
+.bb-vote-btn.is-liked {
+    background: rgba(46, 204, 113, 0.22);
+    border-color: #2ecc71;
+    color: #2ecc71;
+}
+
+.bb-vote-btn.is-disliked {
+    background: rgba(231, 76, 60, 0.22);
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+.bb-mini-picks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+}
+
+.bb-mini-pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-subtle);
+    cursor: pointer;
+}
+
+.bb-mini-pick:hover {
+    border-color: var(--accent-gold);
+}
+
+.bb-mini-pick img {
+    width: 32px;
+    height: 40px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.bb-mini-pick-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.bb-mini-pick-info strong {
+    font-size: 0.78rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bb-mini-pick-info span {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bb-mini-pick-pct {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    flex-shrink: 0;
 }
 
 

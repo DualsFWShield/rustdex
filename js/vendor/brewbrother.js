@@ -56,13 +56,23 @@
         scoring: {
             communityPriorRating: 3.5,
             communityPrior: 5,
-            jitter: 0.04,
-            curve: 1.10,
+            jitter: 0,
+            curve: 1.0,
             reasonThreshold: 0.35,
             mismatchThreshold: -0.30
         },
         output: { maxResults: 20, maxReasons: 5 }
     };
+
+    function stableTieHash(str, seed) {
+        const s = String(str || '') + '|' + String(seed || 0);
+        let h = 2166136261;
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return ((h >>> 0) % 1000) / 100000;
+    }
 
     function deepMerge(target, source) {
         const out = Object.assign({}, target);
@@ -138,8 +148,76 @@
         wheat: ['ble', 'wheat', 'froment'],
         resinous: ['resine', 'resinous', 'resin', 'pin'],
         tropical: ['tropical', 'mangue', 'mango', 'ananas', 'pineapple', 'passion', 'litchi', 'lychee', 'guava', 'fruit de la passion'],
-        redFruits: ['fruits rouges', 'framboise', 'raspberry', 'cerise', 'cherry', 'fraise', 'strawberry', 'cassis', 'blackcurrant', 'mure', 'blackberry', 'griotte']
+        redFruits: ['fruits rouges', 'framboise', 'raspberry', 'cerise', 'cherry', 'fraise', 'strawberry', 'cassis', 'blackcurrant', 'mure', 'blackberry', 'griotte'],
+        banana: ['banane', 'banana'],
+        clove: ['girofle', 'clove'],
+        plum: ['prune', 'plum', 'noyau', 'stone fruit'],
+        biscuit: ['biscuit', 'pain', 'bread', 'pate', 'dough', 'toast'],
+        peach: ['peche', 'peach', 'abricot', 'apricot'],
+        oat: ['avoine', 'oat']
     };
+
+    const AROMA_WHEEL_TO_FLAVOR = {
+        'malte': ['malty'],
+        'malte:pain': ['biscuit', 'malty'],
+        'malte:caramel': ['caramel'],
+        'malte:chocolat': ['chocolate'],
+        'malte:cafe': ['coffee'],
+        'houblonne': ['hoppy'],
+        'houblonne:resine': ['resinous', 'hoppy'],
+        'houblonne:agrumes': ['citrus', 'hoppy'],
+        'houblonne:tropical': ['tropical', 'hoppy'],
+        'houblonne:herbe': ['herbal', 'hoppy'],
+        'fruite': ['fruity'],
+        'fruite:fruits rouges': ['redFruits', 'fruity'],
+        'fruite:noyau': ['plum', 'peach', 'fruity'],
+        'fruite:banane': ['banana', 'fruity'],
+        'fruite:pomme': ['fruity'],
+        'epice': ['spicy'],
+        'epice:girofle': ['clove', 'spicy'],
+        'epice:poivre': ['spicy'],
+        'epice:coriandre': ['coriander', 'spicy'],
+        'epice:vanille': ['vanilla'],
+        'torrefie': ['roasted'],
+        'torrefie:fume': ['smoky', 'roasted'],
+        'torrefie:cendre': ['roasted', 'smoky'],
+        'torrefie:reglisse': ['spicy', 'roasted'],
+        'torrefie:grille': ['roasted'],
+        'floral': ['floral'],
+        'floral:rose': ['floral'],
+        'floral:miel': ['honey'],
+        'floral:camomille': ['floral'],
+        'floral:geranium': ['floral'],
+        'herbace': ['herbal'],
+        'herbace:gazon': ['herbal'],
+        'herbace:menthe': ['herbal'],
+        'herbace:the': ['herbal', 'floral'],
+        'herbace:terreux': ['herbal', 'woody'],
+        'levure': ['yeasty'],
+        'levure:pate': ['yeasty', 'biscuit'],
+        'levure:biscuit': ['biscuit'],
+        'levure:cuir': ['yeasty', 'woody'],
+        'levure:rustique': ['yeasty', 'dry']
+    };
+
+    function mapWheelAromasToFlavors(aromas) {
+        if (!Array.isArray(aromas) || aromas.length === 0) return [];
+        const out = new Set();
+        aromas.forEach(raw => {
+            const norm = normalizeText(raw).trim();
+            if (!norm) return;
+            if (AROMA_WHEEL_TO_FLAVOR[norm]) {
+                AROMA_WHEEL_TO_FLAVOR[norm].forEach(f => out.add(f));
+                return;
+            }
+            const cat = norm.split(':')[0];
+            if (AROMA_WHEEL_TO_FLAVOR[cat]) {
+                AROMA_WHEEL_TO_FLAVOR[cat].forEach(f => out.add(f));
+            }
+            if (FLAVOR_LEXICON[norm]) out.add(norm);
+        });
+        return Array.from(out);
+    }
 
     const FLAVOR_MATCHERS = Object.keys(FLAVOR_LEXICON).map(kw => {
         const forms = FLAVOR_LEXICON[kw].map(term => new RegExp('(^|[^a-z0-9])' + escapeRegExp(normalizeText(term)), 'i'));
@@ -161,16 +239,44 @@
     }
 
     // ── Beer-to-beer similarity ──────────────────────────────────
+    const STYLE_FAMILY_SYNONYMS = {
+        triple: 'tripel',
+        double: 'dubbel',
+        quadruple: 'quadrupel',
+        witbier: 'blanche',
+        weizen: 'blanche',
+        weissbier: 'blanche',
+        wheat: 'blanche',
+        pilsner: 'pils',
+        lager: 'pils',
+        helles: 'pils',
+        neipa: 'ipa',
+        dipa: 'ipa',
+        apa: 'ipa',
+        gueuze: 'lambic',
+        kriek: 'lambic',
+        sour: 'lambic',
+        porter: 'stout',
+        abbaye: 'abbey',
+        trappiste: 'trappist'
+    };
+
+    function tokenizeStyleFamily(t) {
+        const raw = normalizeText(t).replace(/[^a-z0-9]+/g, ' ').trim();
+        if (!raw) return [];
+        return raw.split(/\s+/).map(tok => STYLE_FAMILY_SYNONYMS[tok] || tok);
+    }
+
     function typeSimilarity(ta, tb) {
         ta = normalizeType(ta); tb = normalizeType(tb);
         if (!ta || !tb) return 0;
         if (ta === tb) return 1;
-        const setA = new Set(ta.split(/[\s\-\/]+/).filter(Boolean));
-        const setB = new Set(tb.split(/[\s\-\/]+/).filter(Boolean));
+        const setA = new Set(tokenizeStyleFamily(ta));
+        const setB = new Set(tokenizeStyleFamily(tb));
         let shared = 0;
         setA.forEach(tok => { if (setB.has(tok)) shared++; });
         const union = new Set([...setA, ...setB]).size;
-        return union > 0 ? (shared / union) * 0.8 : 0; // partial family match
+        return union > 0 ? (shared / union) * 0.85 : 0; // partial family match
     }
 
     function beerSimilarity(a, b) {
@@ -214,6 +320,10 @@
 
         // Optional authoritative drink counter (beerId -> times drunk)
         const drinkCountMap = (typeof adapter.getDrinkCounts === 'function') ? await adapter.getDrinkCounts() : null;
+        const explicitFeedback = (typeof adapter.getExplicitFeedback === 'function') ? await adapter.getExplicitFeedback() : null;
+        const likedSet = new Set(Array.isArray(explicitFeedback?.liked) ? explicitFeedback.liked.map(String) : []);
+        const dislikedSet = new Set(Array.isArray(explicitFeedback?.disliked) ? explicitFeedback.disliked.map(String) : []);
+
         const getCountFromMap = (id) => {
             if (!drinkCountMap || id == null) return 0;
             if (typeof drinkCountMap.get === 'function') return parseInt(drinkCountMap.get(String(id)) || drinkCountMap.get(id) || 0, 10) || 0;
@@ -226,18 +336,19 @@
             if (!f || !f.beer) return;
             const beer = f.beer;
             const key = beer.id != null ? String(beer.id) : `${beer.title || ''}|${beer.brewery || ''}`;
-            if (!byKey.has(key)) byKey.set(key, { beer, weightSum: 0, entries: 0, explicitCount: 0, lastTs: 0, hasNegative: false });
+            if (!byKey.has(key)) byKey.set(key, { beer, weightSum: 0, entries: 0, explicitCount: 0, lastTs: 0, hasNegative: false, aromas: new Set() });
             const e = byKey.get(key);
             const countProvided = parseInt(f.count || f.drinkCount || 0, 10) || 0;
             e.weightSum += (typeof f.weight === 'number' ? f.weight : w.drunk);
             e.entries++;
             e.explicitCount += countProvided;
             if (f.weight < 0) e.hasNegative = true;
+            if (Array.isArray(f.aromas)) f.aromas.forEach(a => e.aromas.add(a));
             e.lastTs = Math.max(e.lastTs, f.timestamp || 0);
         });
 
-        const typeAffinity = {}, breweryAffinity = {}, flavorAffinity = {};
-        const typeDrinkCount = {}, breweryDrinkCount = {};
+        const typeAffinity = {}, breweryAffinity = {}, flavorAffinity = {}, countryAffinity = {};
+        const typeDrinkCount = {}, breweryDrinkCount = {}, countryDrinkCount = {};
         const anchors = [], negativeAnchors = [];
         let abvSum = 0, abvSq = 0, abvW = 0;
         let distinctBeers = 0, totalDrinks = 0;
@@ -245,15 +356,18 @@
 
         byKey.forEach((e) => {
             const beer = e.beer;
+            const beerIdStr = beer.id != null ? String(beer.id) : '';
             const drinkCount = Math.max(1, e.explicitCount, e.entries, getCountFromMap(beer.id));
             if (drinkCount <= 0) return;
             distinctBeers++;
             totalDrinks += drinkCount;
 
-            const rating = e.weightSum / Math.max(1, e.entries); 
+            let rating = e.weightSum / Math.max(1, e.entries);
+            if (beerIdStr && likedSet.has(beerIdStr)) rating += 2.0;
+            if (beerIdStr && dislikedSet.has(beerIdStr)) rating -= 2.5;
             // Loyalty: coming back to a beer N times strengthens the signal (diminishing returns)
             const repeatFactor = 1 + w.repeatDrinkBonus * Math.log(drinkCount);
-            
+
             let decay = 1.0;
             if (e.lastTs) {
                 const age = now - e.lastTs;
@@ -261,7 +375,7 @@
             }
 
             const strength = rating * repeatFactor * decay;
-            
+
             if (strength > 1.5) anchors.push({ beer, strength, drinkCount });
             else if (strength < -0.5) negativeAnchors.push({ beer, strength, drinkCount });
 
@@ -277,8 +391,16 @@
                 breweryDrinkCount[bKey] = (breweryDrinkCount[bKey] || 0) + drinkCount;
             }
 
-            extractFlavors(beer).forEach(fl => {
-                flavorAffinity[fl] = (flavorAffinity[fl] || 0) + strength;
+            const cKey = (beer.searchCountry || beer.countryCode || '').toString().trim();
+            if (cKey) {
+                countryAffinity[cKey] = (countryAffinity[cKey] || 0) + strength;
+                countryDrinkCount[cKey] = (countryDrinkCount[cKey] || 0) + drinkCount;
+            }
+
+            const wheelFlavors = mapWheelAromasToFlavors(Array.from(e.aromas));
+            const combinedFlavors = new Set([...extractFlavors(beer), ...wheelFlavors]);
+            combinedFlavors.forEach(fl => {
+                flavorAffinity[fl] = (flavorAffinity[fl] || 0) + strength * (wheelFlavors.includes(fl) ? 1.25 : 1.0);
             });
 
             const abv = parseAbv(beer);
@@ -288,6 +410,41 @@
                 abvW += strength;
             }
         });
+
+        // Incorporate explicit Likes/Dislikes on beers not yet drunk
+        if ((likedSet.size > 0 || dislikedSet.size > 0) && typeof adapter.getCandidates === 'function') {
+            const candidates = await adapter.getCandidates();
+            if (Array.isArray(candidates)) {
+                candidates.forEach(beer => {
+                    if (!beer || beer.id == null) return;
+                    const idStr = String(beer.id);
+                    if (byKey.has(idStr)) return;
+                    const isLiked = likedSet.has(idStr);
+                    const isDisliked = dislikedSet.has(idStr);
+                    if (!isLiked && !isDisliked) return;
+
+                    const strength = isLiked ? 2.4 : -2.6;
+                    if (isLiked) anchors.push({ beer, strength, drinkCount: 1 });
+                    else negativeAnchors.push({ beer, strength, drinkCount: 1 });
+
+                    const tKey = beer.type ? String(beer.type).trim() : '';
+                    if (tKey) typeAffinity[tKey] = (typeAffinity[tKey] || 0) + strength * 0.7;
+                    const bKey = beer.brewery ? String(beer.brewery).trim() : '';
+                    if (bKey) breweryAffinity[bKey] = (breweryAffinity[bKey] || 0) + strength * 0.6;
+                    const cKey = (beer.searchCountry || beer.countryCode || '').toString().trim();
+                    if (cKey) countryAffinity[cKey] = (countryAffinity[cKey] || 0) + strength * 0.4;
+                    extractFlavors(beer).forEach(fl => {
+                        flavorAffinity[fl] = (flavorAffinity[fl] || 0) + strength * 0.75;
+                    });
+                    const abv = parseAbv(beer);
+                    if (abv !== null && isLiked) {
+                        abvSum += abv * 1.5;
+                        abvSq += abv * abv * 1.5;
+                        abvW += 1.5;
+                    }
+                });
+            }
+        }
 
         // Favorite type calculation
         let favoriteType = null, favoriteTypeCount = 0, topAff = -Infinity;
@@ -303,6 +460,7 @@
         normalizeSigned(typeAffinity);
         normalizeSigned(breweryAffinity);
         normalizeSigned(flavorAffinity);
+        normalizeSigned(countryAffinity);
 
         anchors.sort((a, b) => b.strength - a.strength);
         negativeAnchors.sort((a, b) => a.strength - b.strength);
@@ -317,17 +475,19 @@
             abvStd = clamp(std, 0.75, 3.5);
         }
 
-        const confidenceVal = clamp(distinctBeers / cfg.blending.confidenceSample, 0, 1);
+        const confidenceVal = clamp((distinctBeers + likedSet.size * 0.5) / cfg.blending.confidenceSample, 0, 1);
 
         this.lastProfile = {
-            typeAffinity, breweryAffinity, flavorAffinity,
-            typeDrinkCount, breweryDrinkCount,
+            typeAffinity, breweryAffinity, flavorAffinity, countryAffinity,
+            typeDrinkCount, breweryDrinkCount, countryDrinkCount,
             idealAbv, abvTolerance: abvStd,
             favoriteType, favoriteTypeCount,
-            anchors: anchors.slice(0, 40), 
-            negativeAnchors: negativeAnchors.slice(0, 15),
+            anchors: anchors.slice(0, 40),
+            negativeAnchors: negativeAnchors.slice(0, 20),
+            likedIds: Array.from(likedSet),
+            dislikedIds: Array.from(dislikedSet),
             confidence: confidenceVal,
-            distinctBeers, 
+            distinctBeers,
             totalDrinks
         };
 
@@ -336,18 +496,34 @@
         return this.lastProfile;
     };
 
-    BrewBrother.prototype.scoreBeer = function (beer, profile) {
+    BrewBrother.prototype.scoreBeer = function (beer, profile, runtimeOpts) {
         const cfg = this.config;
         const inf = cfg.influence;
         const sc = cfg.scoring || DEFAULTS.scoring;
         profile = profile || {};
+        runtimeOpts = runtimeOpts || {};
+
+        const explorationRatio = runtimeOpts.explorationLevel !== undefined
+            ? clamp(Number(runtimeOpts.explorationLevel) / 100, 0, 1)
+            : 0.35;
 
         const isProfileEmpty = (profile.confidence || 0) === 0 &&
             Object.keys(profile.typeAffinity || {}).length === 0 &&
             Object.keys(profile.flavorAffinity || {}).length === 0;
 
-        const typeScore = lookupIgnoreCase(profile.typeAffinity, beer.type);
+        let typeScore = lookupIgnoreCase(profile.typeAffinity, beer.type);
+        if (typeScore === 0 && beer.type && profile.typeAffinity) {
+            // Partial family fallback when exact style name wasn't tasted yet
+            let bestFam = 0, bestAff = 0;
+            for (const [tKey, aff] of Object.entries(profile.typeAffinity)) {
+                const sim = typeSimilarity(beer.type, tKey);
+                if (sim > bestFam) { bestFam = sim; bestAff = aff; }
+            }
+            if (bestFam >= 0.35) typeScore = bestAff * bestFam * 0.8;
+        }
         const breweryScore = lookupIgnoreCase(profile.breweryAffinity, beer.brewery);
+        const countryKey = (beer.searchCountry || beer.countryCode || '').toString().trim();
+        const countryScore = countryKey ? lookupIgnoreCase(profile.countryAffinity, countryKey) : 0;
 
         const flavors = extractFlavors(beer);
         let flavorScore = 0;
@@ -366,7 +542,7 @@
         let abvScore = 0.5;
         const abv = parseAbv(beer);
         if (abv !== null && profile.idealAbv != null) {
-            const sigma = profile.abvTolerance || 2;
+            const sigma = (profile.abvTolerance || 2) * (1 + explorationRatio * 0.4);
             const diff = abv - profile.idealAbv;
             abvScore = Math.exp(-(diff * diff) / (2 * sigma * sigma));
         }
@@ -382,14 +558,14 @@
                 if (s > bestSim) { bestSim = s; lovedRef = a.beer.title; lovedRefDrinks = a.drinkCount; }
             });
             if (wSum > 0) similarityScore = simSum / wSum;
-            
+
             if (profile.negativeAnchors && profile.negativeAnchors.length > 0) {
                 let negSum = 0, negW = 0;
                 profile.negativeAnchors.forEach(a => {
                     negSum += beerSimilarity(beer, a.beer) * Math.abs(a.strength);
                     negW += Math.abs(a.strength);
                 });
-                if (negW > 0) similarityScore -= 0.8 * (negSum / negW);
+                if (negW > 0) similarityScore -= 0.85 * (negSum / negW);
             }
             similarityScore = clamp(similarityScore, -1, 1);
         }
@@ -399,23 +575,30 @@
         const brewery01 = beer.brewery ? (breweryScore + 1) / 2 : 0.5;
         const flavor01 = flavors.length ? (flavorScore + 1) / 2 : 0.5;
         const sim01 = profile.anchors && profile.anchors.length ? (similarityScore + 1) / 2 : 0.5;
+        const country01 = countryKey ? (countryScore + 1) / 2 : 0.5;
 
         let totalScore = 0.5;
         if (!isProfileEmpty) {
             totalScore = (type01 * inf.type) + (brewery01 * inf.brewery) + (flavor01 * inf.flavor) + (abvScore * inf.abv) + (sim01 * inf.similarity);
-            
-            // Exploration nudge
+            totalScore = totalScore * 0.96 + country01 * 0.04;
+
+            // Exploration nudge scaled by explorationRatio
             const typeUntried = !beer.type || !(lookupIgnoreCase(profile.typeDrinkCount, beer.type) > 0);
             const breweryUntried = !beer.brewery || !(lookupIgnoreCase(profile.breweryDrinkCount, beer.brewery) > 0);
-            if (typeUntried || breweryUntried) totalScore += cfg.exploration.bonus;
+            const countryUntried = !countryKey || !(lookupIgnoreCase(profile.countryDrinkCount, countryKey) > 0);
+            const expMultiplier = 0.4 + explorationRatio * 2.2;
+            if (breweryUntried) totalScore += cfg.exploration.bonus * expMultiplier;
+            if (typeUntried) totalScore += cfg.exploration.bonus * 0.7 * expMultiplier;
+            if (countryUntried && explorationRatio >= 0.4) totalScore += cfg.exploration.bonus * 0.5 * explorationRatio;
 
-            // Severe mismatch penalties (preventing completely off-profile beers from staying at 60%)
+            // Severe mismatch penalties
             if (typeScore <= -0.4) totalScore *= 0.85;
             if (breweryScore <= -0.4) totalScore *= 0.85;
             if (abvScore <= 0.15) totalScore *= 0.85;
         }
 
         let community = null;
+        let comm01 = 0.5;
         if (beer.community_rating && String(beer.community_rating) !== '') {
             const rating = parseFloat(beer.community_rating) || 0;
             const countRaw = beer.community_rating_count !== undefined ? beer.community_rating_count : beer.rating_count;
@@ -425,16 +608,28 @@
             const smoothed = count > 0 ? (rating * count + priorRating * prior) / (count + prior) : rating;
             community = { rating, count, smoothed: parseFloat(smoothed.toFixed(2)) };
 
-            const commScore = clamp(smoothed / 5.0, 0, 1);
-            const qualityWeight = isProfileEmpty
+            comm01 = clamp(smoothed / 5.0, 0, 1);
+            const baseQualityWeight = isProfileEmpty
                 ? cfg.blending.communityWeightMin
                 : cfg.blending.communityWeightMin + (cfg.blending.communityWeightMax - cfg.blending.communityWeightMin) * (profile.confidence || 0);
-            totalScore = (totalScore * (1 - qualityWeight)) + (commScore * qualityWeight);
+            const qualityWeight = clamp(baseQualityWeight * (1 - explorationRatio * 0.35), 0.08, 0.65);
+            totalScore = (totalScore * (1 - qualityWeight)) + (comm01 * qualityWeight);
         }
 
-        const jitter = sc.jitter !== undefined ? sc.jitter : 0.04;
-        const curve = sc.curve !== undefined ? sc.curve : 0.70;
-        totalScore = Math.pow(clamp(totalScore + Math.random() * jitter, 0, 1), curve);
+        if (runtimeOpts.preferRare) {
+            const rarityBonus = {
+                ultra_legendaire: 0.12,
+                legendaire: 0.10,
+                mythique: 0.08,
+                epique: 0.06,
+                super_rare: 0.04,
+                rare: 0.02
+            }[beer.rarity] || 0;
+            totalScore = clamp(totalScore + rarityBonus, 0, 1);
+        }
+
+        const curve = sc.curve !== undefined ? sc.curve : 1.0;
+        totalScore = Math.pow(clamp(totalScore, 0, 1), curve);
 
         return {
             score20: parseFloat((totalScore * 20).toFixed(1)),
@@ -442,6 +637,15 @@
             total: totalScore,
             // Legacy / analytical fields
             typeScore: type01, breweryScore: brewery01, flavorScore: flavor01, abvScore, similarityScore: sim01,
+            breakdown: {
+                type: Math.round(type01 * 100),
+                brewery: Math.round(brewery01 * 100),
+                flavor: Math.round(flavor01 * 100),
+                abv: Math.round(abvScore * 100),
+                similarity: Math.round(sim01 * 100),
+                community: Math.round(comm01 * 100)
+            },
+            confidencePct: Math.round((profile.confidence || 0) * 100),
             // For NLP
             abv, flavors, likedFlavors, dislikedFlavors, community,
             dims: { typeSigned: typeScore, brewerySigned: breweryScore, flavorSigned: flavorScore, abvScore, repeatSim: similarityScore },
@@ -490,60 +694,81 @@
         return reasons.slice(0, this.config.output.maxReasons);
     };
 
-    BrewBrother.prototype.recommend = async function (adapter, manualProfile = null) {
+    BrewBrother.prototype.recommend = async function (adapter, manualProfile = null, runtimeOpts = {}) {
         const cfg = this.config;
         const profile = manualProfile || await this.buildProfile(adapter);
         const rawCandidates = await adapter.getCandidates();
         const candidates = Array.isArray(rawCandidates) ? rawCandidates : [];
         const drunkIdsRaw = await adapter.getDrunkIds();
-        const drunkIds = (drunkIdsRaw && typeof drunkIdsRaw.has === 'function') 
-            ? drunkIdsRaw 
+        const drunkIds = (drunkIdsRaw && typeof drunkIdsRaw.has === 'function')
+            ? drunkIdsRaw
             : new Set(Array.isArray(drunkIdsRaw) ? drunkIdsRaw.map(String) : []);
+        const dislikedSet = new Set(Array.isArray(profile.dislikedIds) ? profile.dislikedIds.map(String) : []);
+
+        const seed = runtimeOpts.seed || 0;
+        const diversityRatio = runtimeOpts.diversityLevel !== undefined
+            ? clamp(Number(runtimeOpts.diversityLevel) / 100, 0, 1)
+            : 0.65;
+        const maxResults = runtimeOpts.maxResults || cfg.output.maxResults;
 
         const scored = [];
         candidates.forEach(beer => {
             if (!beer || beer.id === undefined || beer.id === null) return;
-            // NON BUES EVIDEMMENT
-            if (drunkIds.has(String(beer.id))) return;
+            const idStr = String(beer.id);
+            if (drunkIds.has(idStr) || dislikedSet.has(idStr)) return;
 
-            const match = this.scoreBeer(beer, profile);
+            const match = this.scoreBeer(beer, profile, runtimeOpts);
             const reasons = this.buildReasons(beer, match, profile);
             match.reasons = reasons;
             match.reasonCodes = reasons.map(r => 'brewbrother_reason_' + r.code.replace('_mismatch', ''));
-            
-            scored.push(Object.assign({}, beer, { _brewBrotherMatch: match }));
+
+            const sortScore = match.total + (seed ? stableTieHash(idStr, seed) * 0.035 : stableTieHash(idStr, 1) * 0.002);
+            scored.push(Object.assign({}, beer, { _brewBrotherMatch: match, _bbSortScore: sortScore }));
         });
 
-        scored.sort((a, b) => b._brewBrotherMatch.total - a._brewBrotherMatch.total);
+        scored.sort((a, b) => b._bbSortScore - a._bbSortScore);
 
-        // Diversity-aware selection (MMR-lite)
+        // Diversity-aware selection (MMR with inter-beer similarity, style, brewery & country spread)
         const results = [];
-        if (cfg.diversity.enabled) {
+        if (cfg.diversity.enabled && !runtimeOpts.noLimit) {
             const d = cfg.diversity;
-            const typeCount = {}, breweryCount = {};
-            const pool = scored.slice();
+            const typeCount = {}, breweryCount = {}, countryCount = {};
+            const maxBrewery = diversityRatio >= 0.75 ? 1 : (diversityRatio >= 0.35 ? 2 : d.maxPerBrewery);
+            const maxType = diversityRatio >= 0.75 ? 3 : (diversityRatio >= 0.35 ? 4 : d.maxPerType);
+            const mmrPenalty = 0.04 + diversityRatio * 0.16;
+            const pool = scored.slice(0, Math.max(250, maxResults * 12));
 
-            while (results.length < cfg.output.maxResults && pool.length > 0) {
+            while (results.length < maxResults && pool.length > 0) {
                 let bestIdx = -1, bestVal = -Infinity;
                 for (let i = 0; i < pool.length; i++) {
                     const c = pool[i];
-                    const m = c._brewBrotherMatch;
                     const tKey = String(c.type || '').trim().toLowerCase();
                     const bKey = String(c.brewery || '').trim().toLowerCase();
-                    
-                    if (d.maxPerBrewery > 0 && (breweryCount[bKey] || 0) >= d.maxPerBrewery) continue;
-                    if (d.maxPerType > 0 && (typeCount[tKey] || 0) >= d.maxPerType) continue;
-                    
-                    let val = m.total;
-                    val -= d.typePenalty * (typeCount[tKey] || 0);
-                    val -= d.breweryPenalty * (breweryCount[bKey] || 0);
-                    
+                    const cKey = String(c.searchCountry || c.countryCode || '').trim().toLowerCase();
+
+                    if (maxBrewery > 0 && bKey && (breweryCount[bKey] || 0) >= maxBrewery) continue;
+                    if (maxType > 0 && tKey && (typeCount[tKey] || 0) >= maxType) continue;
+
+                    let val = c._bbSortScore;
+                    val -= (d.typePenalty * (0.5 + diversityRatio)) * (typeCount[tKey] || 0);
+                    val -= (d.breweryPenalty * (0.5 + diversityRatio)) * (breweryCount[bKey] || 0);
+                    if (cKey) val -= (0.015 * diversityRatio) * (countryCount[cKey] || 0);
+
+                    if (results.length > 0 && diversityRatio > 0.1) {
+                        let maxSim = 0;
+                        const recentStart = Math.max(0, results.length - 8);
+                        for (let j = recentStart; j < results.length; j++) {
+                            const s = beerSimilarity(c, results[j]);
+                            if (s > maxSim) maxSim = s;
+                        }
+                        val -= mmrPenalty * maxSim;
+                    }
+
                     if (val > bestVal) { bestVal = val; bestIdx = i; }
                 }
 
                 if (bestIdx === -1) {
-                    pool.sort((a, b) => b._brewBrotherMatch.total - a._brewBrotherMatch.total);
-                    while (results.length < cfg.output.maxResults && pool.length > 0) results.push(pool.shift());
+                    while (results.length < maxResults && pool.length > 0) results.push(pool.shift());
                     break;
                 }
 
@@ -551,15 +776,24 @@
                 results.push(chosen);
                 const t = String(chosen.type || '').trim().toLowerCase();
                 const b = String(chosen.brewery || '').trim().toLowerCase();
+                const ct = String(chosen.searchCountry || chosen.countryCode || '').trim().toLowerCase();
                 if (t) typeCount[t] = (typeCount[t] || 0) + 1;
                 if (b) breweryCount[b] = (breweryCount[b] || 0) + 1;
+                if (ct) countryCount[ct] = (countryCount[ct] || 0) + 1;
             }
         } else {
-            results.push(...scored.slice(0, cfg.output.maxResults));
+            results.push(...(runtimeOpts.noLimit ? scored : scored.slice(0, maxResults)));
         }
 
-        results.forEach((item, i) => { item._brewBrotherMatch.rank = i + 1; });
+        results.forEach((item, i) => {
+            delete item._bbSortScore;
+            item._brewBrotherMatch.rank = i + 1;
+        });
         return { results, profile, drinkCounts: this.lastDrinkCounts || this.lastFeedbackCounts };
+    };
+
+    BrewBrother.prototype.invalidateProfile = function () {
+        this.lastProfile = null;
     };
 
     BrewBrother.prototype.getProfile = function () { return this.lastProfile; };
@@ -598,7 +832,7 @@
     BrewBrother.DEFAULTS = DEFAULTS;
     BrewBrother.FLAVOR_LEXICON = FLAVOR_LEXICON;
     BrewBrother.FLAVOR_KEYWORDS = Object.keys(FLAVOR_LEXICON);
-    BrewBrother.utils = { extractFlavors, beerSimilarity, parseAbv, findSimilarBeers };
+    BrewBrother.utils = { extractFlavors, beerSimilarity, parseAbv, findSimilarBeers, mapWheelAromasToFlavors };
 
     if (typeof module !== 'undefined' && module.exports) module.exports = BrewBrother;
     else { 

@@ -44,8 +44,32 @@ export const FONTS = {
     'default': { label: 'Outfit (Défaut)', css: '"Outfit", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap' },
     'system': { label: 'Police Système', css: 'system-ui, -apple-system, sans-serif' },
     'inter': { label: 'Inter', css: '"Inter", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap' },
-    'roboto': { label: 'Roboto', css: '"Roboto", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' }
+    'roboto': { label: 'Roboto', css: '"Roboto", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap' },
+    'poppins': { label: 'Poppins', css: '"Poppins", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;700&display=swap' },
+    'space_grotesk': { label: 'Space Grotesk', css: '"Space Grotesk", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap' },
+    'montserrat': { label: 'Montserrat', css: '"Montserrat", sans-serif', url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap' },
+    'jetbrains': { label: 'JetBrains Mono', css: '"JetBrains Mono", monospace', url: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap' }
 };
+
+export const GRID_DENSITIES = {
+    compact: { label: 'Compact (plus de cartes)', minWidth: '145px', gap: '10px' },
+    normal: { label: 'Standard', minWidth: '175px', gap: '14px' },
+    comfortable: { label: 'Confort (grandes cartes)', minWidth: '220px', gap: '18px' }
+};
+
+export const FONT_SCALES = {
+    sm: { label: 'Petite (92%)', size: '92%' },
+    md: { label: 'Normale (100%)', size: '100%' },
+    lg: { label: 'Grande (110%)', size: '110%' }
+};
+
+export const CARD_RADII = {
+    sharp: { label: 'Carré (8px)', radius: '8px' },
+    default: { label: 'Standard (16px)', radius: '16px' },
+    round: { label: 'Arrondi (24px)', radius: '24px' }
+};
+
+export const CARD_STYLES = ['default', 'glass', 'flat', 'neon'];
 
 // ============================== //
 // Presets                        //
@@ -153,6 +177,109 @@ export const THEME_PRESETS = {
             '--success': '#66bb6a',
             '--danger': '#d32f2f',
         }
+    },
+    oled: {
+        name: 'OLED Pitch Black',
+        emoji: '🖤',
+        colors: {
+            '--bg-dark': '#000000',
+            '--bg-card': '#0a0a0a',
+            '--bg-card-hover': '#141414',
+            '--text-primary': '#ffffff',
+            '--text-secondary': '#94949c',
+            '--accent-gold': '#FFC000',
+            '--accent-amber': '#FF9900',
+            '--accent-foam': '#F4F4F5',
+            '--border-color': '#1e1e22',
+            '--success': '#2ecc71',
+            '--danger': '#e74c3c',
+        }
+    },
+    light: {
+        name: 'Mousse Claire',
+        emoji: '☀️',
+        scheme: 'light',
+        colors: {
+            '--bg-dark': '#f5f2eb',
+            '--bg-card': '#ffffff',
+            '--bg-card-hover': '#ebe5d8',
+            '--text-primary': '#1c1917',
+            '--text-secondary': '#57534e',
+            '--accent-gold': '#d97706',
+            '--accent-amber': '#b45309',
+            '--accent-foam': '#78350f',
+            '--border-color': '#ddd5c5',
+            '--success': '#16a34a',
+            '--danger': '#dc2626',
+        }
+    },
+    trappist: {
+        name: 'Abbaye Trappiste',
+        emoji: '⛪',
+        colors: {
+            '--bg-dark': '#120d0a',
+            '--bg-card': '#1d1510',
+            '--bg-card-hover': '#2a1e16',
+            '--text-primary': '#f7ede2',
+            '--text-secondary': '#b8a089',
+            '--accent-gold': '#d4a843',
+            '--accent-amber': '#b8860b',
+            '--accent-foam': '#faebd7',
+            '--border-color': '#3a2a1e',
+            '--success': '#4caf50',
+            '--danger': '#e05252',
+        }
+    },
+    ipa: {
+        name: 'Houblon IPA',
+        emoji: '🌿',
+        colors: {
+            '--bg-dark': '#09120c',
+            '--bg-card': '#122016',
+            '--bg-card-hover': '#1a2f20',
+            '--text-primary': '#ecfdf5',
+            '--text-secondary': '#86a791',
+            '--accent-gold': '#a3e635',
+            '--accent-amber': '#65a30d',
+            '--accent-foam': '#d9f99d',
+            '--border-color': '#233d2b',
+            '--success': '#22c55e',
+            '--danger': '#ef4444',
+        }
+    },
+    nord: {
+        name: 'Nordic Frost',
+        emoji: '❄️',
+        colors: {
+            '--bg-dark': '#2e3440',
+            '--bg-card': '#3b4252',
+            '--bg-card-hover': '#434c5e',
+            '--text-primary': '#eceff4',
+            '--text-secondary': '#d8dee9',
+            '--accent-gold': '#88c0d0',
+            '--accent-amber': '#81a1c1',
+            '--accent-foam': '#e5e9f0',
+            '--border-color': '#4c566a',
+            '--success': '#a3be8c',
+            '--danger': '#bf616a',
+        }
+    },
+    stout: {
+        name: 'Imperial Stout',
+        emoji: '☕',
+        colors: {
+            '--bg-dark': '#0e0907',
+            '--bg-card': '#1a120e',
+            '--bg-card-hover': '#281b15',
+            '--text-primary': '#f5ebe0',
+            '--text-secondary': '#a89080',
+            '--accent-gold': '#e09f3e',
+            '--accent-amber': '#9e2a2b',
+            '--accent-foam': '#fff3b0',
+            '--border-color': '#38251d',
+            '--success': '#52b788',
+            '--danger': '#e63946',
+        }
     }
 };
 
@@ -175,6 +302,18 @@ export function getActivePreset() {
     return Storage.getPreference('theme_preset', 'default');
 }
 
+function _isLightColor(hex) {
+    if (!hex || typeof hex !== 'string') return false;
+    let h = hex.trim().replace('#', '');
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    if (h.length !== 6) return false;
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return lum > 0.55;
+}
+
 /**
  * Apply a theme preset by name.
  */
@@ -187,20 +326,24 @@ export function applyPreset(presetName) {
 
     // Do not clear custom overrides when switching to a preset, so the user can go back to "Custom"
     Storage.savePreference('theme_preset', presetName);
-    applyColors(preset.colors);
+    applyColors(preset.colors, preset.scheme);
 }
 
 /**
  * Apply custom color overrides.
  * @param {Object} colors — { '--bg-dark': '#123456', ... }
+ * @param {string} [scheme] — optional 'light' | 'dark'
  */
-export function applyColors(colors) {
+export function applyColors(colors, scheme = null) {
     const root = document.documentElement;
     Object.entries(colors).forEach(([varName, value]) => {
         if (value) {
             root.style.setProperty(varName, value);
         }
     });
+
+    const isLight = scheme === 'light' || (!scheme && _isLightColor(colors['--bg-dark']));
+    root.dataset.colorScheme = isLight ? 'light' : 'dark';
 
     // Update meta theme-color for the mobile status bar
     const accentGold = colors['--accent-gold'];
@@ -218,6 +361,9 @@ export function setCustomColor(varName, value) {
     Storage.savePreference('theme_custom', custom);
     Storage.savePreference('theme_preset', 'custom');
     document.documentElement.style.setProperty(varName, value);
+    if (varName === '--bg-dark') {
+        document.documentElement.dataset.colorScheme = _isLightColor(value) ? 'light' : 'dark';
+    }
 }
 
 /**
@@ -237,14 +383,86 @@ export function getActiveColors() {
 }
 
 /**
- * Reset to default theme.
+ * Reset to default theme and customizations.
  */
 export function resetTheme() {
     Storage.savePreference('theme_custom', null);
     Storage.savePreference('theme_preset', 'default');
     Storage.savePreference('theme_font', 'default');
-    applyColors(THEME_PRESETS.default.colors);
-    applyFont('default');
+    Storage.savePreference('pref_grid_density', 'normal');
+    Storage.savePreference('pref_font_scale', 'md');
+    Storage.savePreference('pref_card_radius', 'default');
+    Storage.savePreference('pref_card_style', 'default');
+    Storage.savePreference('pref_reduced_motion', false);
+    applyColors(THEME_PRESETS.default.colors, 'dark');
+    applyAllCustomizations();
+}
+
+// ============================== //
+// Layout & Visual Customizations //
+// ============================== //
+
+export function applyGridDensity(densityKey = Storage.getPreference('pref_grid_density', 'normal')) {
+    const cfg = GRID_DENSITIES[densityKey] || GRID_DENSITIES.normal;
+    Storage.savePreference('pref_grid_density', GRID_DENSITIES[densityKey] ? densityKey : 'normal');
+    const root = document.documentElement;
+    root.style.setProperty('--grid-card-min', cfg.minWidth);
+    root.style.setProperty('--grid-gap', cfg.gap);
+}
+
+export function applyFontScale(scaleKey = Storage.getPreference('pref_font_scale', 'md')) {
+    const cfg = FONT_SCALES[scaleKey] || FONT_SCALES.md;
+    Storage.savePreference('pref_font_scale', FONT_SCALES[scaleKey] ? scaleKey : 'md');
+    document.documentElement.style.fontSize = cfg.size;
+}
+
+export function applyCardRadius(radiusKey = Storage.getPreference('pref_card_radius', 'default')) {
+    const cfg = CARD_RADII[radiusKey] || CARD_RADII.default;
+    Storage.savePreference('pref_card_radius', CARD_RADII[radiusKey] ? radiusKey : 'default');
+    document.documentElement.style.setProperty('--card-radius', cfg.radius);
+}
+
+export function applyCardStyle(styleKey = Storage.getPreference('pref_card_style', 'default')) {
+    const valid = CARD_STYLES.includes(styleKey) ? styleKey : 'default';
+    Storage.savePreference('pref_card_style', valid);
+    if (document.body) {
+        CARD_STYLES.forEach(s => document.body.classList.remove(`card-style-${s}`));
+        if (valid !== 'default') document.body.classList.add(`card-style-${valid}`);
+    }
+}
+
+export function applyReducedMotion(enabled = Storage.getPreference('pref_reduced_motion', false)) {
+    const val = Boolean(enabled);
+    Storage.savePreference('pref_reduced_motion', val);
+    if (document.body) {
+        document.body.classList.toggle('reduced-motion', val);
+    }
+}
+
+export function applyNavCustomization() {
+    if (!document.body) return;
+    const navStyle = Storage.getPreference('pref_nav_style', 'floating');
+    document.body.classList.toggle('nav-style-docked', navStyle === 'docked');
+
+    const hideBeerpedia = Storage.getPreference('pref_hide_beerpedia', false);
+    const hideBus = Storage.getPreference('pref_hide_bus', false);
+    const isDiscovery = Storage.getPreference('discoveryMode', false);
+
+    const bpTab = document.querySelector('.nav-item[data-view="beerpedia"]');
+    if (bpTab) bpTab.style.display = hideBeerpedia ? 'none' : 'flex';
+
+    const busTab = document.querySelector('.nav-item[data-view="drunk"]');
+    if (busTab) busTab.style.display = (hideBus || isDiscovery) ? 'none' : 'flex';
+}
+
+export function applyAllCustomizations() {
+    applyFont(getActiveFont());
+    applyGridDensity();
+    applyFontScale();
+    applyCardRadius();
+    applyCardStyle();
+    applyReducedMotion();
+    applyNavCustomization();
 }
 
 // ============================== //
@@ -291,6 +509,11 @@ export function exportTheme() {
     const data = {
         preset: getActivePreset(),
         colors: getActiveColors(),
+        font: getActiveFont(),
+        fontScale: Storage.getPreference('pref_font_scale', 'md'),
+        radius: Storage.getPreference('pref_card_radius', 'default'),
+        cardStyle: Storage.getPreference('pref_card_style', 'default'),
+        gridDensity: Storage.getPreference('pref_grid_density', 'normal'),
         exportDate: new Date().toISOString()
     };
 
@@ -323,6 +546,12 @@ export function importTheme(code) {
         Storage.savePreference('theme_preset', 'custom');
         applyColors(data.colors);
 
+        if (data.font && FONTS[data.font]) applyFont(data.font);
+        if (data.fontScale && FONT_SCALES[data.fontScale]) applyFontScale(data.fontScale);
+        if (data.radius && CARD_RADII[data.radius]) applyCardRadius(data.radius);
+        if (data.cardStyle && CARD_STYLES.includes(data.cardStyle)) applyCardStyle(data.cardStyle);
+        if (data.gridDensity && GRID_DENSITIES[data.gridDensity]) applyGridDensity(data.gridDensity);
+
         return { success: true, message: 'Thème importé avec succès !' };
     } catch (e) {
         console.error('[Theme] Import error:', e);
@@ -344,10 +573,9 @@ export function init() {
     } else {
         const preset = THEME_PRESETS[presetName];
         if (preset) {
-            applyColors(preset.colors);
+            applyColors(preset.colors, preset.scheme);
         }
     }
 
-    // Apply Font
-    applyFont(getActiveFont());
+    applyAllCustomizations();
 }

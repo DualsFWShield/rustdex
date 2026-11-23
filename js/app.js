@@ -62,6 +62,7 @@ const state = {
     pagination: {
         page: 1,
         itemsPerPage: 24,
+        loadedCount: 0,
         hasMore: true
     },
     observer: null, // Store observer to disconnect if needed
@@ -157,6 +158,17 @@ async function init() {
         // Apply Theme (Theme Engine + Museum)
         Theme.init();
         applyTheme();
+
+        // Apply custom default start view (home / drunk / stats)
+        const desiredStart = Storage.getPreference('pref_start_view', 'home');
+        const hideBus = Storage.getPreference('pref_hide_bus', false) || Storage.getPreference('discoveryMode', false);
+        const startView = (desiredStart === 'drunk' && hideBus) ? 'home' : (['home', 'drunk', 'stats'].includes(desiredStart) ? desiredStart : 'home');
+        if (startView !== state.view) {
+            state.view = startView;
+            state.initialView = startView;
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === startView));
+        }
+        Theme.applyNavCustomization();
 
         // Show skeleton loading immediately
         showSkeletonLoading(document.getElementById('main-content'));
@@ -445,16 +457,18 @@ export function applyTheme() {
 window.applyTheme = applyTheme;
 
 function loadMoreBeers(container, isAppend = false, isDiscoveryMode = false, showCreatePrompt = false) {
-    const { page, itemsPerPage } = state.pagination;
-    const start = (page - 1) * itemsPerPage;
-    const end = page * itemsPerPage;
+    const batchSize = (UI && typeof UI.computeOptimalBatchSize === 'function')
+        ? UI.computeOptimalBatchSize(container, state.viewMode)
+        : state.pagination.itemsPerPage;
+    state.pagination.itemsPerPage = batchSize;
+
+    const start = isAppend ? (state.pagination.loadedCount || 0) : 0;
+    const end = Math.min(state.filteredBeers.length, start + batchSize);
 
     // Slice data
     const batch = state.filteredBeers.slice(start, end);
-
-    if (batch.length < itemsPerPage) {
-        state.pagination.hasMore = false;
-    }
+    state.pagination.loadedCount = end;
+    state.pagination.hasMore = end < state.filteredBeers.length;
 
     // Don't render empty batch in append mode — all items already displayed
     if (isAppend && batch.length === 0) return;
@@ -516,10 +530,22 @@ function setupInfiniteScroll(container) {
                     state.isLoadingMore = false;
                 }, 100);
             }
-        }, { rootMargin: '200px' });
+        }, { rootMargin: '400px' });
     }
 
     state.observer.observe(sentinel);
+
+    requestAnimationFrame(() => {
+        if (!state.pagination.hasMore || state.isLoadingMore || !sentinel.isConnected) return;
+        const rect = sentinel.getBoundingClientRect();
+        if (rect.top <= window.innerHeight + 300) {
+            state.isLoadingMore = true;
+            state.pagination.page++;
+            const isDiscovery = Storage.getPreference('discoveryMode', false);
+            loadMoreBeers(container, true, isDiscovery, false);
+            state.isLoadingMore = false;
+        }
+    });
 }
 
 function searchBeers(beers, query) {
@@ -728,8 +754,31 @@ function setupEventListeners() {
         });
     });
 
-    // Delegated Events for Beer Cards
+    // Delegated Events for Beer Cards & BrewBrother quick votes
     document.getElementById('main-content').addEventListener('click', (e) => {
+        const voteBtn = e.target.closest('.bb-vote-btn[data-bb-vote]');
+        if (voteBtn) {
+            e.stopPropagation();
+            const beerId = voteBtn.dataset.beerId;
+            const vote = voteBtn.dataset.bbVote;
+            if (beerId && typeof Storage.setBrewBrotherBeerFeedback === 'function') {
+                const nextVote = Storage.setBrewBrotherBeerFeedback(beerId, vote);
+                if (window.Recommendation && window.Recommendation.invalidateProfile) {
+                    window.Recommendation.invalidateProfile();
+                }
+                const row = voteBtn.closest('.bb-card-vote-row');
+                if (row) {
+                    row.querySelector('[data-bb-vote="like"]')?.classList.toggle('is-liked', nextVote === 'like');
+                    row.querySelector('[data-bb-vote="dislike"]')?.classList.toggle('is-disliked', nextVote === 'dislike');
+                }
+                UI.showToast(nextVote === 'like' ? '👍 Recommandation validée' : (nextVote === 'dislike' ? '👎 Exclue des recommandations' : 'Vote retiré'));
+                if (nextVote === 'dislike' && state.activeFilters.useBrewBrother) {
+                    setTimeout(() => renderCurrentView(), 220);
+                }
+            }
+            return;
+        }
+
         const card = e.target.closest('.beer-card');
         if (card) {
             const beerId = card.dataset.id;
@@ -1213,6 +1262,10 @@ function renderCurrentView() {
             
             window.Recommendation.getRecommendedBeers(state.beers, {
                 mode: state.activeFilters.recMode,
+                mood: state.activeFilters.recMood || 'auto',
+                seed: state.activeFilters.recSeed || 0,
+                explorationLevel: state.activeFilters.recExploration,
+                diversityLevel: state.activeFilters.recDiversity,
                 country: state.activeFilters.recCountry,
                 region: state.activeFilters.recRegion,
                 manualPrefs: {
@@ -1237,33 +1290,53 @@ function renderCurrentView() {
                 state.pagination.hasMore = false;
                 
                 const busTab = document.querySelector('.nav-item[data-view="drunk"]');
-                if (busTab) busTab.style.display = isDiscovery ? 'none' : 'flex';
+                if (busTab) busTab.style.display = (isDiscovery || Storage.getPreference('pref_hide_bus', false)) ? 'none' : 'flex';
 
                 mainContent.innerHTML = '';
 
-                // BrewBrother Banner
+                loadMoreBeers(mainContent, false, isDiscovery, false);
+
+                // BrewBrother Banner with Mood Chips & Renew button
+                const activeMood = state.activeFilters.recMood || 'auto';
+                const moods = Object.values(window.Recommendation.MOOD_PRESETS || {});
+                const moodHtml = moods.map(m => {
+                    const lbl = i18n.getLanguage() === 'en' ? m.labelEn : m.labelFr;
+                    return `<button type="button" class="bb-mood-chip ${activeMood === m.id ? 'is-active' : ''}" data-bb-mood="${m.id}">${m.icon} ${lbl}</button>`;
+                }).join('');
+
                 const banner = document.createElement('div');
                 banner.className = 'brewbrother-active-banner';
-                banner.style.cssText = 'background:linear-gradient(135deg, rgba(255,192,0,0.15), rgba(30,30,30,0.95)); border:1px solid var(--accent-gold); padding:12px 16px; border-radius:12px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 15px rgba(0,0,0,0.3);';
                 banner.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-size:1.6rem;">🤖</span>
-                        <div>
-                            <div style="font-weight:bold; color:var(--accent-gold); font-size:0.95rem;">${i18n.t('brewbrother_banner_title') || 'Recommandations BrewBrother'}</div>
-                            <div style="font-size:0.8rem; color:#aaa;">${finalBeers.length} bières recommandées selon vos goûts</div>
+                    <div class="bb-banner-top">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:1.6rem;">🤖</span>
+                            <div>
+                                <div style="font-weight:bold; color:var(--accent-gold); font-size:0.95rem;">${i18n.t('brewbrother_banner_title') || 'Recommandations BrewBrother'}</div>
+                                <div style="font-size:0.8rem; color:var(--text-secondary);">${finalBeers.length} bières recommandées · 👍/👎 pour affiner</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button type="button" id="btn-renew-bb-banner" class="bb-banner-btn" title="Renouveler la sélection">🔄 Renouveler</button>
+                            <button type="button" id="btn-disable-bb-banner" class="bb-banner-btn">✕ ${i18n.t('filter_clear_all') || 'Tout afficher'}</button>
                         </div>
                     </div>
-                    <button id="btn-disable-bb-banner" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:6px 12px; border-radius:8px; font-size:0.8rem; cursor:pointer; font-weight:bold;">
-                        ✕ ${i18n.t('filter_clear_all') || 'Tout afficher'}
-                    </button>
+                    ${moodHtml ? `<div class="bb-mood-chips">${moodHtml}</div>` : ''}
                 `;
-                mainContent.appendChild(banner);
+                mainContent.insertAdjacentElement('afterbegin', banner);
                 banner.querySelector('#btn-disable-bb-banner').onclick = () => {
                     state.activeFilters.useBrewBrother = false;
                     renderCurrentView();
                 };
-
-                loadMoreBeers(mainContent, false, isDiscovery, false);
+                banner.querySelector('#btn-renew-bb-banner').onclick = () => {
+                    state.activeFilters.recSeed = (state.activeFilters.recSeed || 0) + 1;
+                    renderCurrentView();
+                };
+                banner.querySelectorAll('[data-bb-mood]').forEach(btn => {
+                    btn.onclick = () => {
+                        state.activeFilters.recMood = btn.dataset.bbMood;
+                        renderCurrentView();
+                    };
+                });
             }).catch(err => {
                 console.error("BrewBrother recommendation error:", err);
                 mainContent.innerHTML = '';
@@ -1499,6 +1572,13 @@ function renderCurrentView() {
 
 window.renderCurrentView = renderCurrentView;
 window.renderCatalog = () => renderCurrentView();
+window.activateBrewBrotherHome = (mood = 'auto') => {
+    state.activeFilters.useBrewBrother = true;
+    state.activeFilters.recMood = mood;
+    state.view = 'home';
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === 'home'));
+    renderCurrentView();
+};
 
 window.addImportedCustomBeers = (newBeers) => {
     if (!newBeers) return;

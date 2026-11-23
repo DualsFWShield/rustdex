@@ -1495,3 +1495,51 @@ export function importData(jsonString, options = {}) {
         return false;
     }
 }
+
+// --- BrewBrother Explicit Feedback (Like / Dislike) ---
+
+export function getBrewBrotherFeedback() {
+    const fb = getPreference('brewbrother_feedback', { liked: [], disliked: [] });
+    return {
+        liked: Array.isArray(fb?.liked) ? fb.liked.map(String) : [],
+        disliked: Array.isArray(fb?.disliked) ? fb.disliked.map(String) : []
+    };
+}
+
+export function getBrewBrotherBeerFeedback(beerId) {
+    if (beerId === undefined || beerId === null) return null;
+    const id = String(beerId);
+    const fb = getBrewBrotherFeedback();
+    if (fb.liked.includes(id)) return 'like';
+    if (fb.disliked.includes(id)) return 'dislike';
+    return null;
+}
+
+export function setBrewBrotherBeerFeedback(beerId, vote) {
+    if (beerId === undefined || beerId === null) return null;
+    const id = String(beerId);
+    const fb = getBrewBrotherFeedback();
+    const wasLiked = fb.liked.includes(id);
+    const wasDisliked = fb.disliked.includes(id);
+
+    fb.liked = fb.liked.filter(x => x !== id);
+    fb.disliked = fb.disliked.filter(x => x !== id);
+
+    let result = null;
+    if (vote === 'like' && !wasLiked) {
+        fb.liked.push(id);
+        result = 'like';
+    } else if (vote === 'dislike' && !wasDisliked) {
+        fb.disliked.push(id);
+        result = 'dislike';
+    }
+
+    savePreference('brewbrother_feedback', fb);
+    autoBackup();
+    return result;
+}
+
+export function clearBrewBrotherFeedback() {
+    savePreference('brewbrother_feedback', { liked: [], disliked: [] });
+    autoBackup();
+}

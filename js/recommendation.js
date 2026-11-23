@@ -4,7 +4,41 @@ import * as Storage from './storage.js';
 let engine = null;
 let lastAllBeers = [];
 
+export const MOOD_PRESETS = {
+    auto: { id: 'auto', icon: '🎯', labelFr: 'Mon Profil', labelEn: 'My Profile' },
+    refreshing: {
+        id: 'refreshing', icon: '☀️', labelFr: 'Légère & Fraîche', labelEn: 'Crisp & Light',
+        types: ['Pils', 'Lager', 'Blanche', 'Witbier', 'Saison'],
+        flavors: ['citrus', 'floral', 'dry', 'wheat', 'herbal'],
+        idealAbv: 4.8
+    },
+    cozy: {
+        id: 'cozy', icon: '🔥', labelFr: 'Costaud & Réconfort', labelEn: 'Rich & Strong',
+        types: ['Trappiste', 'Quadrupel', 'Triple', 'Stout', 'Brune', 'Barleywine'],
+        flavors: ['caramel', 'chocolate', 'coffee', 'roasted', 'vanilla', 'woody'],
+        idealAbv: 9.2
+    },
+    fruity: {
+        id: 'fruity', icon: '🍓', labelFr: 'Fruitée & Acidulée', labelEn: 'Fruity & Tart',
+        types: ['Fruitée', 'Kriek', 'Lambic', 'Gueuze', 'Sour', 'Framboise'],
+        flavors: ['fruity', 'redFruits', 'tropical', 'sour', 'sweet'],
+        idealAbv: 5.5
+    },
+    hoppy: {
+        id: 'hoppy', icon: '🌿', labelFr: 'Houblon & IPA', labelEn: 'Hoppy & IPA',
+        types: ['IPA', 'NEIPA', 'Pale Ale', 'APA'],
+        flavors: ['hoppy', 'citrus', 'tropical', 'resinous', 'bitter'],
+        idealAbv: 6.5
+    },
+    hidden_gem: {
+        id: 'hidden_gem', icon: '💎', labelFr: 'Pépites Cachées', labelEn: 'Hidden Gems',
+        preferRare: true
+    }
+};
+
 export const Recommendation = {
+    MOOD_PRESETS,
+
     init: function(allBeers) {
         if (!window.BrewBrother) {
             console.error("BrewBrother script not loaded!");
@@ -12,6 +46,12 @@ export const Recommendation = {
         }
         if (!engine) engine = new window.BrewBrother();
         lastAllBeers = allBeers || [];
+    },
+
+    invalidateProfile: function() {
+        if (engine && typeof engine.invalidateProfile === 'function') {
+            engine.invalidateProfile();
+        }
     },
 
     // Bridge adapter for BrewBrother
@@ -29,32 +69,41 @@ export const Recommendation = {
                     let weight = 0;
                     if (u.count > 0) weight += 1.0;
                     if (Storage.isFavorite(id)) weight += 3.0;
-                    
+
                     const rating = Storage.getBeerRating(id);
-                    if (rating && rating.score) {
-                        if (rating.score >= 15) weight += 1.5;
-                        else if (rating.score >= 10) weight += 1.0;
-                        else weight -= 1.0;
+                    if (rating && rating.score !== undefined && rating.score !== '') {
+                        const scoreNum = parseFloat(rating.score);
+                        if (!isNaN(scoreNum)) {
+                            if (scoreNum >= 15) weight += 1.8;
+                            else if (scoreNum >= 12) weight += 1.0;
+                            else if (scoreNum >= 10) weight += 0.4;
+                            else weight -= 1.2;
+                        }
                     }
 
                     if (weight !== 0) {
-                        // Use latest history date as timestamp if available
                         let timestamp = Date.now();
                         if (u.history && u.history.length > 0) {
                             const last = new Date(u.history[u.history.length - 1].date).getTime();
                             if (!isNaN(last)) timestamp = last;
                         }
                         const count = parseInt(u.count, 10) || 1;
-                        feedback.push({ 
-                            beer, 
-                            weight, 
-                            timestamp, 
-                            count, 
-                            rating: rating ? rating.score : undefined 
+                        feedback.push({
+                            beer,
+                            weight,
+                            timestamp,
+                            count,
+                            rating: rating ? rating.score : undefined,
+                            aromas: rating && Array.isArray(rating.aromas) ? rating.aromas : []
                         });
                     }
                 }
                 return feedback;
+            },
+            getExplicitFeedback: async () => {
+                return typeof Storage.getBrewBrotherFeedback === 'function'
+                    ? Storage.getBrewBrotherFeedback()
+                    : { liked: [], disliked: [] };
             },
             getCandidates: async () => {
                 return beers;
@@ -85,51 +134,100 @@ export const Recommendation = {
     getRecommendedBeers: async function(allBeers, options = {}) {
         if (!engine) this.init(allBeers);
         else if (allBeers) lastAllBeers = allBeers;
-        
+
         const adapter = this.createAdapter(allBeers || lastAllBeers);
-        
-        let manualProfile = null;
+
+        const explorationLevel = options.explorationLevel !== undefined
+            ? Number(options.explorationLevel)
+            : Storage.getPreference('brewbrother_exploration', 35);
+        const diversityLevel = options.diversityLevel !== undefined
+            ? Number(options.diversityLevel)
+            : Storage.getPreference('brewbrother_diversity', 65);
+
+        let targetProfile = null;
+        let preferRare = false;
+
         if (options.mode === 'manual' && options.manualPrefs) {
-            manualProfile = {
+            targetProfile = {
                 typeAffinity: {},
                 breweryAffinity: {},
                 flavorAffinity: {},
+                countryAffinity: {},
                 idealAbv: (!isNaN(options.manualPrefs.idealAbv) && options.manualPrefs.idealAbv > 0) ? options.manualPrefs.idealAbv : null,
                 confidence: 1.0
             };
             if (Array.isArray(options.manualPrefs.types)) {
-                options.manualPrefs.types.forEach(t => { manualProfile.typeAffinity[t] = 1.0; });
+                options.manualPrefs.types.forEach(t => { targetProfile.typeAffinity[t] = 1.0; });
             }
             if (Array.isArray(options.manualPrefs.flavors)) {
-                options.manualPrefs.flavors.forEach(f => { manualProfile.flavorAffinity[f] = 1.0; });
+                options.manualPrefs.flavors.forEach(f => { targetProfile.flavorAffinity[f] = 1.0; });
+            }
+            const baseProfile = await engine.buildProfile(adapter);
+            targetProfile.dislikedIds = baseProfile.dislikedIds || [];
+            targetProfile.negativeAnchors = baseProfile.negativeAnchors || [];
+        } else if (options.mood && options.mood !== 'auto' && MOOD_PRESETS[options.mood]) {
+            const mood = MOOD_PRESETS[options.mood];
+            const baseProfile = await engine.buildProfile(adapter);
+            preferRare = Boolean(mood.preferRare);
+
+            if (mood.types || mood.flavors || mood.idealAbv) {
+                const blendedTypes = {};
+                Object.entries(baseProfile.typeAffinity || {}).forEach(([k, v]) => { blendedTypes[k] = v * 0.35; });
+                (mood.types || []).forEach(t => { blendedTypes[t] = Math.min(1, (blendedTypes[t] || 0) + 0.85); });
+
+                const blendedFlavors = {};
+                Object.entries(baseProfile.flavorAffinity || {}).forEach(([k, v]) => { blendedFlavors[k] = v * 0.35; });
+                (mood.flavors || []).forEach(f => { blendedFlavors[f] = Math.min(1, (blendedFlavors[f] || 0) + 0.85); });
+
+                targetProfile = {
+                    ...baseProfile,
+                    typeAffinity: blendedTypes,
+                    flavorAffinity: blendedFlavors,
+                    idealAbv: mood.idealAbv || baseProfile.idealAbv,
+                    confidence: Math.max(baseProfile.confidence || 0, 0.75)
+                };
+            } else {
+                targetProfile = baseProfile;
             }
         }
 
-        const { results } = await engine.recommend(adapter, manualProfile);
-        
-        // Filter by location if specified
-        let filteredResults = results || [];
-        if (options.country && options.country !== 'All') {
-            filteredResults = filteredResults.filter(b => b.searchCountry === options.country);
-        }
-        if (options.region && options.region !== 'All') {
-            filteredResults = filteredResults.filter(b => b.searchRegion === options.region);
+        const runtimeOpts = {
+            explorationLevel,
+            diversityLevel,
+            seed: options.seed || 0,
+            preferRare,
+            noLimit: Boolean(options.noLimit),
+            maxResults: options.limit || 20
+        };
+
+        // Pre-filter by location when requested so MMR picks the best 20 inside that zone
+        let recommendAdapter = adapter;
+        if ((options.country && options.country !== 'All') || (options.region && options.region !== 'All')) {
+            const baseCandidates = await adapter.getCandidates();
+            const locCandidates = baseCandidates.filter(b => {
+                if (options.country && options.country !== 'All' && b.searchCountry !== options.country) return false;
+                if (options.region && options.region !== 'All' && b.searchRegion !== options.region) return false;
+                return true;
+            });
+            recommendAdapter = { ...adapter, getCandidates: async () => locCandidates };
         }
 
-        // Slice to max 20 after location filtering unless noLimit is true
-        return options.noLimit ? filteredResults : filteredResults.slice(0, 20);
+        const { results } = await engine.recommend(recommendAdapter, targetProfile, runtimeOpts);
+        const filteredResults = results || [];
+        return options.noLimit ? filteredResults : filteredResults.slice(0, options.limit || 20);
     },
 
     getBeerMatchScore: async function(beer, allBeers) {
         if (!engine) this.init(allBeers || lastAllBeers);
         else if (allBeers) lastAllBeers = allBeers;
-        
+
         const adapter = this.createAdapter(allBeers || lastAllBeers);
         let profile = engine.getProfile();
         if (!profile) {
             profile = await engine.buildProfile(adapter);
         }
-        const match = engine.scoreBeer(beer, profile);
+        const explorationLevel = Storage.getPreference('brewbrother_exploration', 35);
+        const match = engine.scoreBeer(beer, profile, { explorationLevel });
         const reasons = engine.buildReasons(beer, match, profile);
         match.reasons = reasons;
         match.reasonCodes = reasons.map(r => 'brewbrother_reason_' + r.code.replace('_mismatch', ''));
@@ -140,8 +238,9 @@ export const Recommendation = {
         if (!engine) return null;
         const profile = engine.getProfile();
         if (!profile) return null;
-        
-        const match = engine.scoreBeer(beer, profile);
+
+        const explorationLevel = Storage.getPreference('brewbrother_exploration', 35);
+        const match = engine.scoreBeer(beer, profile, { explorationLevel });
         return match;
     },
 
@@ -159,6 +258,7 @@ export const Recommendation = {
         const sortedTypes = Object.entries(profile.typeAffinity || {}).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
         const sortedBreweries = Object.entries(profile.breweryAffinity || {}).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
         const sortedFlavors = Object.entries(profile.flavorAffinity || {}).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
+        const sortedCountries = Object.entries(profile.countryAffinity || {}).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
 
         const topType = sortedTypes[0];
         const topFlavor = sortedFlavors[0];
@@ -199,9 +299,11 @@ export const Recommendation = {
             profile,
             archetype,
             archetypeIcon,
+            confidencePct: Math.round((profile.confidence || 0) * 100),
             topTypes: sortedTypes.slice(0, 5),
             topBreweries: sortedBreweries.slice(0, 5),
-            topFlavors: sortedFlavors.slice(0, 5)
+            topFlavors: sortedFlavors.slice(0, 5),
+            topCountries: sortedCountries.slice(0, 5)
         };
     },
 

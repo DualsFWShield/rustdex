@@ -118,7 +118,6 @@ export function openBeerPassport(allBeers = window.allBeers || []) {
 
     const wrapper = document.createElement('div');
     wrapper.className = 'modal-content passport-modal';
-    wrapper.style.maxWidth = '680px';
 
     const stampsHtml = passport.countries.map(c => {
         const stampedClass = c.tasted > 0 ? `is-stamped tier-${c.rank.tier}` : 'is-unvisited';
@@ -163,7 +162,7 @@ export function openBeerPassport(allBeers = window.allBeers || []) {
         </div>
         <div class="passport-summary-pill">🏅 ${T.stampsCount}</div>
         <div class="passport-grid">${stampsHtml}</div>
-        <button type="button" id="btn-passport-done" class="btn-cancel" style="width:100%; margin-top:14px;">${T.close}</button>
+        <button type="button" id="btn-passport-done" class="btn-cancel passport-done-btn" style="width:100%; margin-top:14px;">${T.close}</button>
     `;
 
     wrapper.querySelector('#btn-passport-close').onclick = () => window.UI?.closeModal?.();

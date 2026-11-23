@@ -418,7 +418,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             </div>
         </div>
 
-        <div class="setting-row" data-keywords="police font écriture ecriture text outfit inter roboto">
+        <div class="setting-row" data-keywords="police font écriture ecriture text outfit inter roboto poppins montserrat">
             <div class="setting-info">
                 <span class="setting-title">${i18n.t('settings_font_title') || "Police d'écriture"}</span>
                 <span class="setting-desc" data-i18n="settings_font_desc">Choisissez la police d'écriture de l'application</span>
@@ -427,6 +427,61 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                 <select id="select-font-family" class="form-select">
                     ${Object.keys(Theme.FONTS).map(fontKey => `<option value="${fontKey}" ${Theme.getActiveFont() === fontKey ? 'selected' : ''}>${Theme.FONTS[fontKey].label}</option>`).join('')}
                 </select>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="densité densite grille colonnes cartes compact confort">
+            <div class="setting-info">
+                <span class="setting-title">Densité de la grille</span>
+                <span class="setting-desc">Ajuste la taille des cartes et le nombre de colonnes sur PC/tablette</span>
+            </div>
+            <div class="setting-action">
+                <select id="select-grid-density" class="form-select">
+                    ${Object.entries(Theme.GRID_DENSITIES).map(([k, cfg]) => `<option value="${k}" ${Storage.getPreference('pref_grid_density', 'normal') === k ? 'selected' : ''}>${cfg.label}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="taille texte font scale zoom lisibilité">
+            <div class="setting-info">
+                <span class="setting-title">Taille du texte</span>
+                <span class="setting-desc">Échelle globale de la typographie de l'interface</span>
+            </div>
+            <div class="setting-action">
+                <select id="select-font-scale" class="form-select">
+                    ${Object.entries(Theme.FONT_SCALES).map(([k, cfg]) => `<option value="${k}" ${Storage.getPreference('pref_font_scale', 'md') === k ? 'selected' : ''}>${cfg.label}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--split" data-keywords="style cartes arrondi radius glass neon flat minimal">
+            <div class="setting-split-col">
+                <span class="setting-desc">Arrondi des cartes</span>
+                <select id="select-card-radius" class="form-select">
+                    ${Object.entries(Theme.CARD_RADII).map(([k, cfg]) => `<option value="${k}" ${Storage.getPreference('pref_card_radius', 'default') === k ? 'selected' : ''}>${cfg.label}</option>`).join('')}
+                </select>
+            </div>
+            <div class="setting-split-col">
+                <span class="setting-desc">Style des cartes</span>
+                <select id="select-card-style" class="form-select">
+                    <option value="default" ${Storage.getPreference('pref_card_style', 'default') === 'default' ? 'selected' : ''}>Standard</option>
+                    <option value="glass" ${Storage.getPreference('pref_card_style', 'default') === 'glass' ? 'selected' : ''}>Verre (Glass)</option>
+                    <option value="flat" ${Storage.getPreference('pref_card_style', 'default') === 'flat' ? 'selected' : ''}>Minimal (Flat)</option>
+                    <option value="neon" ${Storage.getPreference('pref_card_style', 'default') === 'neon' ? 'selected' : ''}>Néon</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-row" data-keywords="animations réduites reduced motion confettis tilt">
+            <div class="setting-info">
+                <span class="setting-title">Réduire les animations & confettis</span>
+                <span class="setting-desc">Désactive les transitions rapides et l'effet 3D des cartes</span>
+            </div>
+            <div class="setting-action">
+                <label class="switch">
+                    <input type="checkbox" class="toggle-switch" id="toggle-reduced-motion" ${Storage.getPreference('pref_reduced_motion', false) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
             </div>
         </div>
 
@@ -515,7 +570,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             </div>
         </div>
 
-        <div class="setting-row setting-row--stack" data-keywords="cartes stats overlay volume compteur count card brewbrother">
+        <div class="setting-row setting-row--stack" data-keywords="cartes stats overlay volume compteur count card brewbrother bac abv brasserie note trappiste">
             <div class="setting-info">
                 <span class="setting-title" style="color:var(--accent-gold);">${i18n.t('settings_card_stats_title')}</span>
             </div>
@@ -547,6 +602,115 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                     </div>
                     <label class="switch">
                         <input type="checkbox" class="toggle-switch" id="toggle-card-brewbrother" ${Storage.getPreference('card_brewbrother_pct', false) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Badge alcoolémie (BAC) sur cartes</span>
+                        <span class="setting-desc">Affiche l'estimation +g/L et conduite sous chaque bière</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-show-bac" ${Storage.getPreference('card_show_bac', true) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Degré, format & style</span>
+                        <span class="setting-desc">Affiche les pastilles d'infos sous le nom de la bière</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-show-abv" ${Storage.getPreference('card_show_abv', true) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Nom de la brasserie</span>
+                        <span class="setting-desc">Affiche la brasserie sur chaque carte</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-show-brewery" ${Storage.getPreference('card_show_brewery', true) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Ma note personnelle (/20)</span>
+                        <span class="setting-desc">Affiche un badge ★ sur les bières que vous avez notées</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-show-user-rating" ${Storage.getPreference('card_show_user_rating', false) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Note communauté (/5)</span>
+                        <span class="setting-desc">Affiche la moyenne communautaire sur chaque carte</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-show-comm-rating" ${Storage.getPreference('card_show_community_rating', false) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Sceau Trappiste Authentique</span>
+                        <span class="setting-desc">Affiche l'icône hexagonale sur les bières trappistes</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-card-show-trappist" ${Storage.getPreference('card_show_trappist', true) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--stack" data-keywords="navigation démarrage demarrage onglets barre flottante fixe masquer beerpedia bus">
+            <div class="setting-info">
+                <span class="setting-title" style="color:var(--accent-gold);">Navigation & Démarrage</span>
+            </div>
+            <div class="setting-sublist">
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Vue au lancement</span>
+                        <span class="setting-desc">Page affichée automatiquement à l'ouverture</span>
+                    </div>
+                    <select id="select-start-view" class="form-select" style="width:auto; min-width:120px;">
+                        <option value="home" ${Storage.getPreference('pref_start_view', 'home') === 'home' ? 'selected' : ''}>Dex</option>
+                        <option value="drunk" ${Storage.getPreference('pref_start_view', 'home') === 'drunk' ? 'selected' : ''}>Bus</option>
+                        <option value="stats" ${Storage.getPreference('pref_start_view', 'home') === 'stats' ? 'selected' : ''}>Stats</option>
+                    </select>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Barre de navigation (Desktop)</span>
+                        <span class="setting-desc">Pilule flottante centrée ou barre pleine largeur en bas</span>
+                    </div>
+                    <select id="select-nav-style" class="form-select" style="width:auto; min-width:130px;">
+                        <option value="floating" ${Storage.getPreference('pref_nav_style', 'floating') === 'floating' ? 'selected' : ''}>Flottante</option>
+                        <option value="docked" ${Storage.getPreference('pref_nav_style', 'floating') === 'docked' ? 'selected' : ''}>Collée en bas</option>
+                    </select>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Masquer l'onglet Beerpedia</span>
+                        <span class="setting-desc">Allège la barre de navigation</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-hide-beerpedia" ${Storage.getPreference('pref_hide_beerpedia', false) ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="setting-subitem">
+                    <div>
+                        <span class="setting-title">Masquer l'onglet Bus</span>
+                        <span class="setting-desc">Masque l'accès rapide aux bières consommées</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" class="toggle-switch" id="toggle-hide-bus" ${Storage.getPreference('pref_hide_bus', false) ? 'checked' : ''}>
                         <span class="slider round"></span>
                     </label>
                 </div>
@@ -795,7 +959,7 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             </div>
         </div>
 
-        <div class="setting-row" data-keywords="brewbrother tone ton ia recommandation style">
+        <div class="setting-row" data-keywords="brewbrother tone ton ia recommandation style zythologue soutenu">
             <div class="setting-info">
                 <span class="setting-title" data-i18n="settings_bb_tone_title">${i18n.t('settings_bb_tone_title') || 'Ton BrewBrother'}</span>
                 <span class="setting-desc" data-i18n="settings_bb_tone_desc">${i18n.t('settings_bb_tone_desc') || 'Choisissez le style des descriptions'}</span>
@@ -805,7 +969,33 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
                     <option value="brewbrother" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'brewbrother' ? 'selected' : ''}>${i18n.t('settings_bb_tone_default') || 'BrewBrother'}</option>
                     <option value="friend" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'friend' ? 'selected' : ''}>${i18n.t('settings_bb_tone_friend') || 'Ami'}</option>
                     <option value="neutral" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'neutral' ? 'selected' : ''}>${i18n.t('settings_bb_tone_neutral') || 'Neutre'}</option>
+                    <option value="zythologue" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'zythologue' ? 'selected' : ''}>Zythologue</option>
+                    <option value="soutenu" ${Storage.getPreference('brewbrother_tone', 'brewbrother') === 'soutenu' ? 'selected' : ''}>Soutenu</option>
                 </select>
+            </div>
+        </div>
+
+        <div class="setting-row setting-row--stack" data-keywords="brewbrother exploration diversité diversite likes dislikes algorithme">
+            <div class="setting-info">
+                <span class="setting-title">Réglages IA BrewBrother</span>
+                <span class="setting-desc">Ajustez l'équilibre entre valeurs sûres, découvertes et variété</span>
+            </div>
+            <div style="width:100%; display:flex; flex-direction:column; gap:10px;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-secondary);">
+                        <span>Sûr ↔ Découverte (Exploration)</span>
+                        <strong id="settings-bb-exp-val">${Storage.getPreference('brewbrother_exploration', 35)}%</strong>
+                    </div>
+                    <input type="range" id="range-bb-exploration" min="0" max="100" step="5" value="${Storage.getPreference('brewbrother_exploration', 35)}" style="width:100%;">
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-secondary);">
+                        <span>Similaire ↔ Varié (Diversité)</span>
+                        <strong id="settings-bb-div-val">${Storage.getPreference('brewbrother_diversity', 65)}%</strong>
+                    </div>
+                    <input type="range" id="range-bb-diversity" min="0" max="100" step="5" value="${Storage.getPreference('brewbrother_diversity', 65)}" style="width:100%;">
+                </div>
+                <button type="button" id="btn-reset-bb-feedback" class="setting-btn">🔄 Réinitialiser les 👍/👎 BrewBrother</button>
             </div>
         </div>
 
@@ -1274,6 +1464,16 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
             syncThemeButtonsUI();
             const fontSel = container.querySelector('#select-font-family');
             if (fontSel) fontSel.value = Theme.getActiveFont();
+            const densitySel = container.querySelector('#select-grid-density');
+            if (densitySel) densitySel.value = 'normal';
+            const scaleSel = container.querySelector('#select-font-scale');
+            if (scaleSel) scaleSel.value = 'md';
+            const radSel = container.querySelector('#select-card-radius');
+            if (radSel) radSel.value = 'default';
+            const styleSel = container.querySelector('#select-card-style');
+            if (styleSel) styleSel.value = 'default';
+            const redToggle = container.querySelector('#toggle-reduced-motion');
+            if (redToggle) redToggle.checked = false;
             showToast(i18n.t('toast_theme_reset') || 'Thème réinitialisé', 'info');
         });
     }
@@ -1283,6 +1483,46 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
         fontSelect.addEventListener('change', (e) => {
             Theme.applyFont(e.target.value);
             showToast("Police d'écriture mise à jour");
+        });
+    }
+
+    const densitySelect = container.querySelector('#select-grid-density');
+    if (densitySelect) {
+        densitySelect.addEventListener('change', (e) => {
+            Theme.applyGridDensity(e.target.value);
+            showToast('Densité de grille mise à jour');
+        });
+    }
+
+    const fontScaleSelect = container.querySelector('#select-font-scale');
+    if (fontScaleSelect) {
+        fontScaleSelect.addEventListener('change', (e) => {
+            Theme.applyFontScale(e.target.value);
+            showToast('Taille du texte mise à jour');
+        });
+    }
+
+    const cardRadiusSelect = container.querySelector('#select-card-radius');
+    if (cardRadiusSelect) {
+        cardRadiusSelect.addEventListener('change', (e) => {
+            Theme.applyCardRadius(e.target.value);
+            showToast('Arrondi des cartes mis à jour');
+        });
+    }
+
+    const cardStyleSelect = container.querySelector('#select-card-style');
+    if (cardStyleSelect) {
+        cardStyleSelect.addEventListener('change', (e) => {
+            Theme.applyCardStyle(e.target.value);
+            showToast('Style des cartes mis à jour');
+        });
+    }
+
+    const toggleReducedMotion = container.querySelector('#toggle-reduced-motion');
+    if (toggleReducedMotion) {
+        toggleReducedMotion.addEventListener('change', (e) => {
+            Theme.applyReducedMotion(e.target.checked);
+            showToast(i18n.t('toast_preference_saved'));
         });
     }
 
@@ -1309,6 +1549,35 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
         bbToneSelect.onchange = (e) => {
             Storage.savePreference('brewbrother_tone', e.target.value);
             showToast(i18n.t('toast_settings_saved') || 'Paramètre sauvegardé');
+        };
+    }
+
+    const bbExpRange = container.querySelector('#range-bb-exploration');
+    if (bbExpRange) {
+        bbExpRange.oninput = (e) => {
+            const v = parseInt(e.target.value, 10);
+            const lbl = container.querySelector('#settings-bb-exp-val');
+            if (lbl) lbl.textContent = `${v}%`;
+            Storage.savePreference('brewbrother_exploration', v);
+        };
+    }
+
+    const bbDivRange = container.querySelector('#range-bb-diversity');
+    if (bbDivRange) {
+        bbDivRange.oninput = (e) => {
+            const v = parseInt(e.target.value, 10);
+            const lbl = container.querySelector('#settings-bb-div-val');
+            if (lbl) lbl.textContent = `${v}%`;
+            Storage.savePreference('brewbrother_diversity', v);
+        };
+    }
+
+    const btnResetBbFb = container.querySelector('#btn-reset-bb-feedback');
+    if (btnResetBbFb) {
+        btnResetBbFb.onclick = () => {
+            if (typeof Storage.clearBrewBrotherFeedback === 'function') Storage.clearBrewBrotherFeedback();
+            window.Recommendation?.invalidateProfile?.();
+            showToast('Historique 👍/👎 BrewBrother réinitialisé');
         };
     }
 
@@ -1484,6 +1753,54 @@ export function renderSettings(allBeers, userData, container, isDiscovery = fals
 
     const toggleCardStatVolume = container.querySelector('#toggle-card-stat-volume');
     if (toggleCardStatVolume) toggleCardStatVolume.onchange = (e) => { Storage.savePreference('card_stat_volume', e.target.checked); showToast(i18n.t('toast_preference_saved')); };
+
+    const cardPrefToggles = [
+        ['#toggle-card-show-bac', 'card_show_bac'],
+        ['#toggle-card-show-abv', 'card_show_abv'],
+        ['#toggle-card-show-brewery', 'card_show_brewery'],
+        ['#toggle-card-show-user-rating', 'card_show_user_rating'],
+        ['#toggle-card-show-comm-rating', 'card_show_community_rating'],
+        ['#toggle-card-show-trappist', 'card_show_trappist']
+    ];
+    cardPrefToggles.forEach(([sel, key]) => {
+        const el = container.querySelector(sel);
+        if (el) el.onchange = (e) => { Storage.savePreference(key, e.target.checked); showToast(i18n.t('toast_preference_saved')); };
+    });
+
+    const selectStartView = container.querySelector('#select-start-view');
+    if (selectStartView) {
+        selectStartView.onchange = (e) => {
+            Storage.savePreference('pref_start_view', e.target.value);
+            showToast(i18n.t('toast_preference_saved'));
+        };
+    }
+
+    const selectNavStyle = container.querySelector('#select-nav-style');
+    if (selectNavStyle) {
+        selectNavStyle.onchange = (e) => {
+            Storage.savePreference('pref_nav_style', e.target.value);
+            Theme.applyNavCustomization();
+            showToast(i18n.t('toast_preference_saved'));
+        };
+    }
+
+    const toggleHideBeerpedia = container.querySelector('#toggle-hide-beerpedia');
+    if (toggleHideBeerpedia) {
+        toggleHideBeerpedia.onchange = (e) => {
+            Storage.savePreference('pref_hide_beerpedia', e.target.checked);
+            Theme.applyNavCustomization();
+            showToast(i18n.t('toast_preference_saved'));
+        };
+    }
+
+    const toggleHideBus = container.querySelector('#toggle-hide-bus');
+    if (toggleHideBus) {
+        toggleHideBus.onchange = (e) => {
+            Storage.savePreference('pref_hide_bus', e.target.checked);
+            Theme.applyNavCustomization();
+            showToast(i18n.t('toast_preference_saved'));
+        };
+    }
 
     const toggleCardBrewBrother = container.querySelector('#toggle-card-brewbrother');
     if (toggleCardBrewBrother) toggleCardBrewBrother.onchange = async (e) => {
