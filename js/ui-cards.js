@@ -106,10 +106,18 @@ export function _bgCachedSrc(src) {
     return cached;
 }
 
+// Assets already cut out by the image pipeline (.webp/.avif with alpha) never need the
+// canvas flood-fill: skipping them saves a full decode + getImageData per card.
+const _CUTOUT_EXT_RE = /\.(?:webp|avif)(?:[?#].*)?$/i;
+
+export function isAlreadyCutoutSrc(src) {
+    return typeof src === 'string' && (src.startsWith('data:') || _CUTOUT_EXT_RE.test(src));
+}
+
 export function removeImageBackground(img) {
     if (!img || img.dataset.processed) return;
     const src = img.currentSrc || img.src;
-    if (!src || src.startsWith('data:')) {
+    if (!src || isAlreadyCutoutSrc(src)) {
         img.dataset.processed = 'true';
         return;
     }
@@ -164,6 +172,11 @@ function _pumpBgQueue() {
 
 function _removeImageBackgroundSync(img) {
     if (img.dataset.processed) return;
+
+    if (isAlreadyCutoutSrc(img.currentSrc || img.src)) {
+        img.dataset.processed = 'true';
+        return;
+    }
 
     try {
         let width = img.naturalWidth;
@@ -318,6 +331,7 @@ function _buildCardElement(beer, index, ctx) {
         isLowEndPerf
     } = ctx;
 
+    const safeTitle = Utils.escapeHtml(beer.title);
     const u = userData[beer.id];
     const isDrunk = u && u.count > 0;
     const card = document.createElement('div');
@@ -358,7 +372,7 @@ function _buildCardElement(beer, index, ctx) {
 
     const abv = (prefShowAbv && beer.alcohol) ? `<span class="beer-meta-pill">${beer.alcohol}</span>` : '';
     const vol = (prefShowAbv && beer.volume) ? `<span class="beer-meta-pill">${Utils.formatVolume(beer.volume)}</span>` : '';
-    const typeBadge = (prefShowAbv && beer.type) ? `<span class="beer-meta-pill beer-meta-pill--type">${beer.type}</span>` : '';
+    const typeBadge = (prefShowAbv && beer.type) ? `<span class="beer-meta-pill beer-meta-pill--type">${Utils.escapeHtml(beer.type)}</span>` : '';
     const userScorePill = (prefShowUserRating && u && u.score !== undefined && u.score !== '')
         ? `<span class="beer-meta-pill beer-meta-pill--rating">★ ${u.score}/20</span>`
         : '';
@@ -419,7 +433,7 @@ function _buildCardElement(beer, index, ctx) {
         ? `<div class="card-badges-left" style="position:absolute; top:6px; left:6px; z-index:3; display:flex; flex-direction:column; gap:5px; font-size:0.75rem;">${cardStatsHtml}</div>`
         : '';
 
-    const bgAttr = (beer.removeBackground && !isLowEndPerf && displayImage !== fallbackImage)
+    const bgAttr = (beer.removeBackground && !isLowEndPerf && displayImage !== fallbackImage && !isAlreadyCutoutSrc(displayImage))
         ? 'onload="removeImageBackground(this)"'
         : '';
 
@@ -445,13 +459,13 @@ function _buildCardElement(beer, index, ctx) {
             </svg>
         </div>
         <div class="beer-image-container">
-            <img src="${displayImage}" alt="${beer.title}" class="beer-image" loading="${index < 10 ? 'eager' : 'lazy'}" decoding="async"
+            <img src="${displayImage}" alt="${safeTitle}" class="beer-image" loading="${index < 10 ? 'eager' : 'lazy'}" ${index < 6 ? 'fetchpriority="high"' : ''} decoding="async"
                  ${bgAttr}
                  onerror="if(this.src.includes('${fallbackImage}')) return; this.src='${fallbackImage}';">
         </div>
         <div class="beer-info">
-            <h3 class="beer-title">${beer.title}</h3>
-            ${prefShowBrewery ? `<p class="beer-brewery">${beer.brewery}</p>` : ''}
+            <h3 class="beer-title">${safeTitle}</h3>
+            ${prefShowBrewery ? `<p class="beer-brewery">${Utils.escapeHtml(beer.brewery)}</p>` : ''}
             <div class="beer-card-stats-row">
                 ${beer._brewBrotherMatch ? `<span class="beer-meta-pill beer-meta-pill--match">🤖 ${beer._brewBrotherMatch.percentage}%</span>` : ''}
                 ${userScorePill} ${commScorePill} ${abv} ${vol} ${typeBadge}
@@ -482,11 +496,11 @@ function _hydrateChunk(chunk, isLowEndPerf, isTouchPrimary) {
     }
 }
 
-function _dehydrateChunk(chunk) {
+function _dehydrateChunk(chunk, measuredHeight = null) {
     if (!chunk || chunk.dataset.virtualized === '1' || !chunk.childElementCount) return;
-    const h = chunk.offsetHeight;
+    const h = measuredHeight ?? chunk.offsetHeight;
     if (h > 0) chunk.style.minHeight = `${h}px`;
-    chunk.innerHTML = '';
+    chunk.replaceChildren();
     chunk.dataset.virtualized = '1';
 }
 
@@ -494,17 +508,18 @@ function _ensureChunkObserver(grid, isLowEndPerf, isTouchPrimary) {
     if (typeof IntersectionObserver === 'undefined') return null;
     if (!_chunkObserver) {
         _chunkObserver = new IntersectionObserver((entries) => {
-            const totalChunks = grid.querySelectorAll('.beer-grid-chunk').length;
-            if (totalChunks <= VIRTUALIZE_AFTER_CHUNKS) return;
+            if (grid.childElementCount <= VIRTUALIZE_AFTER_CHUNKS) return;
 
+            // Batch reads (heights) before writes (DOM mutations) to avoid layout thrashing.
+            const toDehydrate = [];
+            const toHydrate = [];
             for (const entry of entries) {
-                const chunk = entry.target;
-                if (entry.isIntersecting) {
-                    _hydrateChunk(chunk, isLowEndPerf, isTouchPrimary);
-                } else {
-                    _dehydrateChunk(chunk);
-                }
+                if (entry.isIntersecting) toHydrate.push(entry.target);
+                else if (entry.target.dataset.virtualized !== '1' && entry.target.childElementCount) toDehydrate.push(entry.target);
             }
+            const heights = toDehydrate.map(chunk => chunk.offsetHeight);
+            toDehydrate.forEach((chunk, i) => _dehydrateChunk(chunk, heights[i]));
+            toHydrate.forEach(chunk => _hydrateChunk(chunk, isLowEndPerf, isTouchPrimary));
         }, { rootMargin: '1800px 0px', threshold: 0 });
     }
     return _chunkObserver;
@@ -671,11 +686,13 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
     grid._chunkSize = chunkSize;
     grid._viewMode = viewMode;
     grid._renderCtx = renderCtx;
+    const previousCount = (isAppend && Array.isArray(grid._allBeers)) ? grid._allBeers.length : 0;
     grid._allBeers = (isAppend && Array.isArray(grid._allBeers))
         ? grid._allBeers.concat(filteredBeers)
         : [...filteredBeers];
 
-    let existingOffset = isAppend ? grid.querySelectorAll('.beer-card').length : 0;
+    // Count from data, not DOM: virtualized (dehydrated) chunks hold zero .beer-card nodes.
+    let existingOffset = isAppend ? (previousCount || grid.querySelectorAll('.beer-card').length) : 0;
     const observer = _ensureChunkObserver(grid, isLowEndPerf, isTouchPrimary);
 
     const buildChunkNode = (slice, baseIndex) => {
@@ -740,21 +757,38 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
                 if (!allBeersList.length) return;
                 const prevScrollTop = container.scrollTop;
                 if (_chunkObserver) _chunkObserver.disconnect();
-                grid.innerHTML = '';
+                grid.replaceChildren();
                 const freshObs = _ensureChunkObserver(grid, isLowEndPerf, isTouchPrimary);
+                const totalChunks = Math.ceil(allBeersList.length / newChunkSize);
+                const canVirtualize = Boolean(freshObs) && totalChunks > VIRTUALIZE_AFTER_CHUNKS;
+                let referenceHeight = 0;
+                let referenceCount = 0;
                 for (let s = 0; s < allBeersList.length; s += newChunkSize) {
                     const sl = allBeersList.slice(s, s + newChunkSize);
+                    const chunkIndex = s / newChunkSize;
                     const ch = document.createElement('div');
                     ch.className = 'beer-grid-chunk';
                     ch.dataset.virtualized = '0';
                     ch._beers = sl;
                     ch._baseIndex = s;
                     ch._renderCtx = grid._renderCtx;
-                    const f = document.createDocumentFragment();
-                    sl.forEach((b, off) => f.appendChild(_buildCardElement(b, s + off, grid._renderCtx)));
-                    ch.appendChild(f);
-                    grid.appendChild(ch);
-                    applyRarityAnimations(ch);
+                    // Rebuilding thousands of cards at once freezes low-end phones:
+                    // keep only the first chunks live, the observer hydrates the rest on demand.
+                    if (canVirtualize && chunkIndex >= 2 && referenceHeight > 0) {
+                        ch.dataset.virtualized = '1';
+                        ch.style.minHeight = `${Math.round(referenceHeight * sl.length / referenceCount)}px`;
+                        grid.appendChild(ch);
+                    } else {
+                        const f = document.createDocumentFragment();
+                        sl.forEach((b, off) => f.appendChild(_buildCardElement(b, s + off, grid._renderCtx)));
+                        ch.appendChild(f);
+                        grid.appendChild(ch);
+                        applyRarityAnimations(ch);
+                        if (chunkIndex === 0 && canVirtualize) {
+                            referenceHeight = ch.offsetHeight;
+                            referenceCount = sl.length;
+                        }
+                    }
                     if (freshObs) freshObs.observe(ch);
                 }
                 if (!isTouchPrimary && !isLowEndPerf) {
@@ -763,7 +797,7 @@ export function renderBeerList(beers, container, filters = null, showCreatePromp
                 container.scrollTop = prevScrollTop;
             }, 180);
         };
-        window.addEventListener('resize', _gridResizeHandler);
+        window.addEventListener('resize', _gridResizeHandler, { passive: true });
     }
 
     if (!isTouchPrimary && !isLowEndPerf) {
@@ -815,11 +849,14 @@ export function generateStarRatingHTML(currentValue = 0, beerId = '', maxStars =
 export function renderUnratedBanner(allBeers, container, migrationPrompts = []) {
     const userData = Storage.getAllUserData();
     const consumedIds = Storage.getAllConsumedBeerIds();
+    const beerById = (window.beerMap && window.beerMap.size === allBeers.length)
+        ? window.beerMap
+        : new NativeMap(allBeers.map(b => [String(b.id), b]));
 
     const unratedBeers = [];
     consumedIds.forEach(id => {
         const user = userData[id];
-        const beer = allBeers.find(b => String(b.id) === String(id));
+        const beer = beerById.get(String(id));
         if (beer && user && (user.count || 0) > 0 && (!user.score && user.score !== 0)) {
             unratedBeers.push({ beer, user });
         }
@@ -874,7 +911,7 @@ export function renderUnratedBanner(allBeers, container, migrationPrompts = []) 
             chip.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const beerId = chip.dataset.beerId;
-                const beer = allBeers.find(b => String(b.id) === String(beerId));
+                const beer = beerById.get(String(beerId));
                 if (beer && window.UI?.renderBeerDetail) {
                     window.UI.renderBeerDetail(beer, (ratingData) => {
                         if (window.UI._saveRatingFromDetail) {

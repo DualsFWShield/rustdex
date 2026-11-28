@@ -57,22 +57,25 @@ export const Recommendation = {
     // Bridge adapter for BrewBrother
     createAdapter: function(allBeers) {
         const beers = allBeers || lastAllBeers || [];
+        const beerById = (window.beerMap && window.beerMap.size === beers.length)
+            ? window.beerMap
+            : new Map(beers.map(b => [String(b.id), b]));
         return {
             getFeedback: async () => {
                 const feedback = [];
                 const userData = Storage.getAllUserData();
                 for (const id in userData) {
                     const u = userData[id];
-                    const beer = beers.find(b => String(b.id) === String(id));
+                    if (!u) continue;
+                    const beer = beerById.get(String(id));
                     if (!beer) continue;
 
                     let weight = 0;
                     if (u.count > 0) weight += 1.0;
-                    if (Storage.isFavorite(id)) weight += 3.0;
+                    if (u.favorite === true) weight += 3.0;
 
-                    const rating = Storage.getBeerRating(id);
-                    if (rating && rating.score !== undefined && rating.score !== '') {
-                        const scoreNum = parseFloat(rating.score);
+                    if (u.score !== undefined && u.score !== '') {
+                        const scoreNum = parseFloat(u.score);
                         if (!isNaN(scoreNum)) {
                             if (scoreNum >= 15) weight += 1.8;
                             else if (scoreNum >= 12) weight += 1.0;
@@ -93,8 +96,8 @@ export const Recommendation = {
                             weight,
                             timestamp,
                             count,
-                            rating: rating ? rating.score : undefined,
-                            aromas: rating && Array.isArray(rating.aromas) ? rating.aromas : []
+                            rating: u.score,
+                            aromas: Array.isArray(u.aromas) ? u.aromas : []
                         });
                     }
                 }

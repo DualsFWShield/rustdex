@@ -72,8 +72,8 @@ export class FX {
         // Base classes for the new toast style
         let toastClass = `achievement-toast toast-enter-anim ach-rarity-${rarity}`;
 
-        // If high tier, trigger screen shake
-        if (isHighTier) {
+        // If high tier, trigger screen shake (skipped on low-end / reduced-motion)
+        if (isHighTier && !_isLowEndPerf()) {
             document.body.classList.add('premium-shake');
             setTimeout(() => document.body.classList.remove('premium-shake'), 600);
         }
@@ -146,14 +146,21 @@ export class FX {
         const duration = isHighTier ? 6000 : 4000;
         setTimeout(() => {
             div.classList.replace('toast-enter-anim', 'toast-exit-anim');
-            setTimeout(() => wrapper.remove(), 1000);
+            setTimeout(() => {
+                if (div.vanillaTilt) {
+                    try { div.vanillaTilt.destroy(); } catch {}
+                }
+                wrapper.remove();
+            }, 1000);
         }, duration);
     }
     static particleExplosion(canvas, color, count = 100) {
+        if (!canvas || _isLowEndPerf()) return;
         const isMobile = window.innerWidth < 768;
         const finalCount = isMobile ? Math.min(count, 30) : count;
         
         const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         const resize = () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -191,6 +198,7 @@ export class FX {
         }
 
         function animateParticles() {
+            if (!canvas.isConnected) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             for (let i = particles.length - 1; i >= 0; i--) {
                 particles[i].update();

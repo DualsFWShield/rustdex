@@ -33,8 +33,16 @@ try {
     window.__playedAnims = new Set();
 }
 
+// Coalesced: cards call this once per animated card, so serialize at most once per frame burst.
+let _playedAnimsTimer = null;
 window.savePlayedAnims = () => {
-    sessionStorage.setItem('beerdex_played_anims', JSON.stringify([...window.__playedAnims]));
+    if (_playedAnimsTimer !== null) return;
+    _playedAnimsTimer = setTimeout(() => {
+        _playedAnimsTimer = null;
+        try {
+            sessionStorage.setItem('beerdex_played_anims', JSON.stringify([...window.__playedAnims]));
+        } catch {}
+    }, 250);
 };
 
 // Init crash logger FIRST so it catches all errors from boot
@@ -87,17 +95,24 @@ export function resetMainScroll() {
     window.scrollTo(0, 0);
 }
 
+let _lowEndCache = null;
+
 export function detectLowEndDevice() {
+    if (_lowEndCache !== null) return _lowEndCache;
+    let result = false;
     try {
-        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
-        const mem = navigator.deviceMemory;
-        if (typeof mem === 'number' && mem > 0 && mem <= 4) return true;
+        const mq = (q) => typeof window.matchMedia === 'function' && window.matchMedia(q).matches;
         const cores = navigator.hardwareConcurrency;
-        if (typeof cores === 'number' && cores > 0 && cores <= 4) return true;
-        const isTouch = window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-        if (isTouch && window.innerWidth <= 480 && (typeof cores !== 'number' || cores <= 6)) return true;
+        const mem = navigator.deviceMemory;
+        const conn = navigator.connection;
+        if (mq('(prefers-reduced-motion: reduce)')) result = true;
+        else if (conn && (conn.saveData === true || /(^|-)2g$/.test(conn.effectiveType || ''))) result = true;
+        else if (typeof mem === 'number' && mem > 0 && mem <= 4) result = true;
+        else if (typeof cores === 'number' && cores > 0 && cores <= 4) result = true;
+        else if (mq('(hover: none) and (pointer: coarse)') && window.innerWidth <= 480 && (typeof cores !== 'number' || cores <= 6)) result = true;
     } catch (_) {}
-    return false;
+    _lowEndCache = result;
+    return result;
 }
 
 export function applyPerformanceMode() {
@@ -525,8 +540,11 @@ function setupInfiniteScroll(container) {
                 const isDiscovery = Storage.getPreference('discoveryMode', false);
 
                 // Small delay to smooth out UI
+                const scheduledToken = state.renderToken;
                 setTimeout(() => {
-                    loadMoreBeers(container, true, isDiscovery, false);
+                    if (scheduledToken === state.renderToken) {
+                        loadMoreBeers(container, true, isDiscovery, false);
+                    }
                     state.isLoadingMore = false;
                 }, 100);
             }
@@ -929,9 +947,21 @@ function applyFilters(beers, filters) {
     // For brevity and correctness, I should probably ask UI.js to do it aka refactor UI.js.
     // But for this turn, I will implement a robust filter function here.
 
-    // --- Helper ---
-    const getAlc = (b) => Utils.parseDegree(b.alcohol);
-    const getVol = (b) => Utils.parseVolumeToMl(b.volume);
+    // --- Helper (memoised: the sort comparator calls these O(n log n) times) ---
+    const alcMemo = new Map();
+    const volMemo = new Map();
+    const getAlc = (b) => {
+        let v = alcMemo.get(b);
+        if (v === undefined) { v = Utils.parseDegree(b.alcohol); alcMemo.set(b, v); }
+        return v;
+    };
+    const getVol = (b) => {
+        let v = volMemo.get(b);
+        if (v === undefined) { v = Utils.parseVolumeToMl(b.volume); volMemo.set(b, v); }
+        return v;
+    };
+    const userDataMap = Storage.getAllUserData();
+    const isFavoriteBeer = (b) => Boolean(userDataMap[b.id] && userDataMap[b.id].favorite === true);
 
     // Type & Brewery (Category-aware)
     if (filters.type && filters.type.length > 0 && !filters.type.includes('All')) {
@@ -1019,20 +1049,20 @@ function applyFilters(beers, filters) {
 
     // Custom
     if (filters.onlyCustom) result = result.filter(b => String(b.id).startsWith('CUSTOM_'));
-    if (filters.onlyFavorites) result = result.filter(b => Storage.isFavorite(b.id));
+    if (filters.onlyFavorites) result = result.filter(isFavoriteBeer);
 
     // Sorting
     result.sort((a, b) => {
         // ALWAYS Pin Favorites to Top (unless ignored)
         if (!filters.ignoreFavorites) {
-            const favA = Storage.isFavorite(a.id) ? 1 : 0;
-            const favB = Storage.isFavorite(b.id) ? 1 : 0;
+            const favA = isFavoriteBeer(a) ? 1 : 0;
+            const favB = isFavoriteBeer(b) ? 1 : 0;
             if (favA !== favB) return favB - favA;
         }
 
         // Secondary Sort
         let valA, valB;
-        if (filters.sortBy === 'brewery') { valA = a.brewery.toLowerCase(); valB = b.brewery.toLowerCase(); }
+        if (filters.sortBy === 'brewery') { valA = (a.brewery || '').toLowerCase(); valB = (b.brewery || '').toLowerCase(); }
         else if (filters.sortBy === 'alcohol') { valA = getAlc(a); valB = getAlc(b); }
         else if (filters.sortBy === 'volume') { valA = getVol(a); valB = getVol(b); }
         else if (filters.sortBy === 'rarity') {
@@ -1318,6 +1348,9 @@ function renderCurrentView() {
 
     Analytics.track('view_change', { view: state.view });
 
+    // Monotonic token: async branches (BrewBrother) and deferred pagination ignore stale renders.
+    const renderToken = state.renderToken = (state.renderToken || 0) + 1;
+    state.isLoadingMore = false;
     // Ensure scroll is reset on the real scroll container (#main-content) and window
     resetMainScroll();
 
@@ -1360,6 +1393,7 @@ function renderCurrentView() {
                      idealAbv: parseFloat(state.activeFilters.recAbv)
                 }
             }).then(results => {
+                if (renderToken !== state.renderToken) return;
                 let finalBeers = Array.isArray(results) ? [...results] : [];
                 
                 // If text query is active, filter within recommendations
@@ -1424,6 +1458,7 @@ function renderCurrentView() {
                     };
                 });
             }).catch(err => {
+                if (renderToken !== state.renderToken) return;
                 console.error("BrewBrother recommendation error:", err);
                 mainContent.innerHTML = '';
                 state.filteredBeers = state.beers;
@@ -1438,6 +1473,7 @@ function renderCurrentView() {
             showSkeletonLoading(mainContent);
             
             window.Recommendation.getRecommendedBeers(state.beers, { noLimit: true }).then(scoredBeers => {
+                if (renderToken !== state.renderToken) return;
                 let filtered = searchBeers(scoredBeers, state.filter);
                 if (isDiscovery && !state.filter) {
                     const consumedIds = Storage.getAllConsumedBeerIdSet();
@@ -1462,6 +1498,7 @@ function renderCurrentView() {
                 
                 if (typeof updateWidgetData === 'function') updateWidgetData();
             }).catch(err => {
+                if (renderToken !== state.renderToken) return;
                 console.error("BrewBrother scoring error:", err);
                 mainContent.innerHTML = '';
                 state.filteredBeers = state.beers;

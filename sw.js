@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Beerdex-v5.3.12'; // v5.3.12: Remove M3 Expressive & OCR/Pression, soften Nothing OS
+const CACHE_NAME = 'Beerdex-v5.4.1'; // v5.4.1: 126 real web beer packshots & transparent WebP cutouts
 // App shell only. Multi-megabyte media (foam.png ~85 MB, logo-bnr.png ~16 MB,
 // easter-egg mp3/mp4) is intentionally NOT precached: downloading it on install
 // delayed first-run/offline availability dramatically. It is cached lazily by

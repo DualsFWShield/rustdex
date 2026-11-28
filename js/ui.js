@@ -37,6 +37,7 @@ import {
 
 import {
     _bgCachedSrc,
+    isAlreadyCutoutSrc,
     removeImageBackground,
     renderBeerList,
     computeGridColumnCount,
@@ -1149,7 +1150,7 @@ export function renderBeerDetail(beer, onSave) {
                         <video src="images/Rickroll.mp4" autoplay loop muted playsinline style="height: 150px; object-fit: contain; border-radius: 8px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));"></video>
                     ` : `
                         <img src="${displayImage}" style="height: 150px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));" 
-                             onload="removeImageBackground(this)"
+                             ${beer.removeBackground && displayImage !== fallbackImage && !isAlreadyCutoutSrc(displayImage) ? 'onload="removeImageBackground(this)"' : ''}
                              onerror="if(this.src.includes('${fallbackImage}')) return; this.src='${fallbackImage}';">
                     `}
                         <h2 style="margin-top: 10px; color: var(--accent-gold);">${beer.title}</h2>
@@ -1745,7 +1746,7 @@ export function renderBeerDetail(beer, onSave) {
                                     ${beer.id === 'NEVER_GONNA_GIVE_YOU_ALE_AMBREE_0.50' ? `
                                         <video src="images/Rickroll.mp4" autoplay loop muted playsinline style="max-height: 180px; object-fit: contain; border-radius: 8px;"></video>
                                     ` : `
-                                        <img src="${displayImage}" alt="${beer.title}" class="beer-image" style="max-height: 180px; object-fit: contain;" ${beer.removeBackground ? 'onload="removeImageBackground(this)"' : ''}>
+                                        <img src="${displayImage}" alt="${Utils.escapeHtml(beer.title)}" class="beer-image" style="max-height: 180px; object-fit: contain;" ${beer.removeBackground && !isAlreadyCutoutSrc(displayImage) ? 'onload="removeImageBackground(this)"' : ''}>
                                     `}
                                 </div>
                                 <div class="beer-info" style="text-align: center; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
@@ -2299,15 +2300,21 @@ export function renderStats(allBeers, userData, container) {
     const jsonBeersCount = Math.max(0, allBeers.length - customBeersCount);
 
     const totalBeers = jsonBeersCount + customBeersCount;
-    const drunkCount = Object.values(userData).filter(u => (u.count || 0) > 0).length;
+    let drunkCount = 0;
+    let totalDrunkCount = 0;
+    for (const u of Object.values(userData)) {
+        const c = u?.count || 0;
+        if (c > 0) {
+            drunkCount++;
+            totalDrunkCount += c;
+        }
+    }
 
     const percentage = Math.round((drunkCount / totalBeers) * 100) || 0;
 
-    const totalDrunkCount = Object.values(userData).reduce((acc, curr) => acc + (curr.count || 0), 0);
-
     // Compute Rarity ranks
     let userRank = { name: i18n.t('stats_rank_novice'), color: "#888", nextRankThresh: 10 };
-    const uniqueCount = Object.values(userData).filter(u => (u.count || 0) > 0).length;
+    const uniqueCount = drunkCount;
 
     // Quick rank calculation
     if (uniqueCount >= 10) userRank = { name: i18n.t('stats_rank_amateur'), color: "#4CAF50", nextRankThresh: 50 };
@@ -4571,9 +4578,22 @@ const TutorialSystem = {
         document.body.appendChild(this.spotlight);
         document.body.appendChild(this.tooltip);
 
-        // Resize handler
-        window.addEventListener('resize', this.boundUpdateObj = () => this.updatePosition());
-        window.addEventListener('scroll', this.boundUpdateObj, true);
+        // Resize/scroll handler (rAF-throttled, passive, no duplicate listeners on restart)
+        if (this.boundUpdateObj) {
+            window.removeEventListener('resize', this.boundUpdateObj);
+            window.removeEventListener('scroll', this.boundUpdateObj, true);
+        }
+        let repositionPending = false;
+        this.boundUpdateObj = () => {
+            if (repositionPending) return;
+            repositionPending = true;
+            requestAnimationFrame(() => {
+                repositionPending = false;
+                this.updatePosition();
+            });
+        };
+        window.addEventListener('resize', this.boundUpdateObj, { passive: true });
+        window.addEventListener('scroll', this.boundUpdateObj, { capture: true, passive: true });
     },
 
     start() {
@@ -4615,6 +4635,7 @@ const TutorialSystem = {
         const step = this.steps[this.currentStep];
         if (!step) return;
 
+        this._currentEl = null;
         // Message can be a string or a function returning localized HTML
         this.tooltip.innerHTML = typeof step.message === 'function' ? step.message() : step.message;
 
@@ -4663,9 +4684,10 @@ const TutorialSystem = {
         }
     },
 
-    highlight(el, step) {
-        // Auto Scroll
-        if (el && !step.noScroll) {
+    highlight(el, step, repositionOnly = false) {
+        this._currentEl = el;
+        // Auto Scroll (never on reposition: it would re-trigger scroll events in a loop)
+        if (el && !step.noScroll && !repositionOnly) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
@@ -4763,10 +4785,11 @@ const TutorialSystem = {
     },
 
     updatePosition() {
-        if (this.currentStep < this.steps.length) {
-            const step = this.steps[this.currentStep];
-            if (step) this.showStep();
-        }
+        if (!this.panes || !this.panes.length || this.currentStep >= this.steps.length) return;
+        const step = this.steps[this.currentStep];
+        if (!step) return;
+        if (step.target && !(this._currentEl && this._currentEl.isConnected)) return;
+        this.highlight(step.target ? this._currentEl : null, step, true);
     },
 
     finish() {
@@ -5171,16 +5194,17 @@ export function renderMatchModal(allBeersMap, initialCode = null) {
         
         wrapper.querySelector('#my-pseudo').textContent = Match.myProfile ? Match.myProfile.pseudo : 'Anonyme';
         
+        let membersHtml = '';
         for (const [id, m] of members.entries()) {
             const volStr = m.totalLiters ? `${m.totalLiters.toFixed(1)} L` : '0 L';
             const alcStr = m.totalAlcoholLiters ? `(${m.totalAlcoholLiters.toFixed(2)} L alc. pur)` : '';
             const topBeer = m.topBeers && m.topBeers.length > 0 ? (allBeers.get ? allBeers.get(m.topBeerId) : allBeers.find(b=>b.id===m.topBeerId)) : null;
-            const topBeerStr = topBeer ? `⭐ ${topBeer.title}` : '';
+            const topBeerStr = topBeer ? `⭐ ${Utils.escapeHtml(topBeer.title)}` : '';
             
-            membersDiv.innerHTML += `
+            membersHtml += `
             <div style="padding:10px; background:rgba(0,0,0,0.3); border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-bottom:5px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <span style="font-weight:bold; color:#fff;">${m.pseudo} ${m.isHost ? '👑' : ''} ${m.me ? '<span style="color:#888; font-size:0.8rem;">(Vous)</span>' : ''}</span>
+                    <span style="font-weight:bold; color:#fff;">${Utils.escapeHtml(m.pseudo)} ${m.isHost ? '👑' : ''} ${m.me ? '<span style="color:#888; font-size:0.8rem;">(Vous)</span>' : ''}</span>
                     <span style="color:var(--accent-gold); font-weight:bold; font-size:0.9rem; background:rgba(255,215,0,0.1); padding:2px 8px; border-radius:12px;">${m.totalBeers || 0} bières</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#aaa;">
@@ -5189,6 +5213,7 @@ export function renderMatchModal(allBeersMap, initialCode = null) {
                 </div>
             </div>`;
         }
+        membersDiv.innerHTML = membersHtml;
         
         // Show analytics
         const stats = Match.computeGroupAnalytics(allBeers);

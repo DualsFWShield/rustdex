@@ -176,8 +176,14 @@ function _invalidatePrefCache() {
 // Get all ratings/notes
 export function getAllUserData() {
     if (_ratingsCacheDirty || !_ratingsCache) {
-        const data = localStorage.getItem(STORAGE_KEY_RATINGS);
-        _ratingsCache = data ? JSON.parse(data) : {};
+        let parsed = null;
+        try {
+            const data = localStorage.getItem(STORAGE_KEY_RATINGS);
+            parsed = data ? JSON.parse(data) : {};
+        } catch (e) {
+            console.warn('[Storage] Corrupted ratings payload, keeping in-memory copy:', e);
+        }
+        _ratingsCache = (parsed && typeof parsed === 'object') ? parsed : (_ratingsCache || {});
         _ratingsCacheDirty = false;
     }
     return _ratingsCache;
@@ -261,8 +267,14 @@ export function sortBeers(beers) {
 
 export function getCustomBeers() {
     if (_customBeersCacheDirty || !_customBeersCache) {
-        const data = localStorage.getItem(STORAGE_KEY_CUSTOM);
-        _customBeersCache = data ? JSON.parse(data) : [];
+        let parsed = null;
+        try {
+            const data = localStorage.getItem(STORAGE_KEY_CUSTOM);
+            parsed = data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.warn('[Storage] Corrupted custom beers payload, keeping in-memory copy:', e);
+        }
+        _customBeersCache = Array.isArray(parsed) ? parsed : (_customBeersCache || []);
         _customBeersCacheDirty = false;
     }
     return _customBeersCache;
@@ -740,7 +752,12 @@ export function getPreference(key, defaultValue) {
         const cached = _prefCache.get(key);
         return cached === null ? defaultValue : cached;
     }
-    const val = localStorage.getItem(`beerdex_pref_${key}`);
+    let val = null;
+    try {
+        val = localStorage.getItem(`beerdex_pref_${key}`);
+    } catch {
+        val = null;
+    }
     if (val === null) {
         _prefCache.set(key, null);
         return defaultValue;
@@ -757,7 +774,11 @@ export function getPreference(key, defaultValue) {
 
 export function savePreference(key, value) {
     _prefCache.set(key, value);
-    localStorage.setItem(`beerdex_pref_${key}`, JSON.stringify(value));
+    try {
+        localStorage.setItem(`beerdex_pref_${key}`, JSON.stringify(value));
+    } catch (e) {
+        console.warn(`[Storage] Failed to save preference "${key}":`, e);
+    }
 }
 
 // --- Import / Export ---

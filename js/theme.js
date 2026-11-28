@@ -366,8 +366,10 @@ export function applyColors(colors, scheme = null) {
         }
     });
 
+    const prevScheme = root.dataset.colorScheme;
     const isLight = scheme === 'light' || (!scheme && _isLightColor(colors['--bg-dark']));
-    root.dataset.colorScheme = isLight ? 'light' : 'dark';
+    const nextScheme = isLight ? 'light' : 'dark';
+    root.dataset.colorScheme = nextScheme;
 
     // Update meta theme-color for the mobile status bar
     const accentGold = colors['--accent-gold'];
@@ -375,7 +377,7 @@ export function applyColors(colors, scheme = null) {
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', accentGold);
     }
 
-    if (document.body?.classList.contains('card-style-glass') && !document.body.classList.contains('perf-low-end')) {
+    if (prevScheme !== nextScheme && document.body?.classList.contains('card-style-glass') && !document.body.classList.contains('perf-low-end')) {
         LiquidGlass.refreshLiquidGlass();
     }
 }

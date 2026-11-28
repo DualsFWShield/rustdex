@@ -1,0 +1,24 @@
+{
+  "name": "rustdex",
+  "version": "1.0.0",
+  "description": "> **Attrapez-les toutes... les bières !**\r > Le compagnon ultime pour tout zythologue en quête de collection.",
+  "main": "dev-server.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DualsFWShield/rustdex.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DualsFWShield/rustdex/issues"
+  },
+  "homepage": "https://github.com/DualsFWShield/rustdex#readme"
+}
